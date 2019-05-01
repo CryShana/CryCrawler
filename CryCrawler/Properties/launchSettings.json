@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CryCrawler": {
+      "commandName": "Project",
+      "commandLineArgs": "-w mode -h 23"
+    }
+  }
+}
