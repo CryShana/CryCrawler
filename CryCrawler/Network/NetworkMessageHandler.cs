@@ -23,6 +23,7 @@ namespace CryCrawler.Network
 
         public void SendMessage(T message)
         {
+            // use any serializer you want
             var buffer = MessagePackSerializer.Serialize(message);
             var lenBuffer = BitConverter.GetBytes(buffer.LongLength);
             UnderlyingStream.Write(lenBuffer);
@@ -31,9 +32,14 @@ namespace CryCrawler.Network
 
         public async Task<T> WaitForResponse(int timeout = 3000)
         {
-            var res = await messageTask.Task;
-            messageTask = new TaskCompletionSource<T>();
-            return res;
+            await Task.WhenAny(Task.Delay(3000), messageTask.Task);
+            if (messageTask.Task.IsCompletedSuccessfully)
+            {
+                var res = messageTask.Task.Result;
+                messageTask = new TaskCompletionSource<T>();
+                return res;
+            }
+            else throw new TimeoutException();
         }
 
         void handleReceiving()
