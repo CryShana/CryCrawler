@@ -20,13 +20,13 @@ namespace CryCrawler
             var done = new ManualResetEventSlim(false);
             using (var cts = CancellationTokenSource.CreateLinkedTokenSource(token))
             {
-                AttachCtrlcSigtermShutdown(cts, done, shutdownMessage: "Shutting down...");
+                AttachCtrlcSigtermShutdown(cts, done);
                 await WaitForTokenShutdownAsync(cts.Token);
                 done.Set();
             }
         }
 
-        private static void AttachCtrlcSigtermShutdown(CancellationTokenSource cts, ManualResetEventSlim resetEvent, string shutdownMessage)
+        private static void AttachCtrlcSigtermShutdown(CancellationTokenSource cts, ManualResetEventSlim resetEvent, string shutdownMessage = null)
         {
             void ShutDown()
             {

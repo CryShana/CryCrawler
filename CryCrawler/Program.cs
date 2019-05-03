@@ -39,11 +39,18 @@ namespace CryCrawler
             }
 
             // Start program
-            if (isHost) new HostProgram(config).Start();
-            else new WorkerProgram(config).Start();
+            var program = isHost ? new HostProgram(config) : (IProgram)new WorkerProgram(config);
+            program.Start();
 
             // Wait for shutdown signal
             ConsoleHost.WaitForShutdown();
+
+            // Cleanup
+            Logger.Log("Shutting down...");
+            program.Stop();
+
+            // Wait a bit for logger
+            Task.Delay(300).Wait();
         }
 
         static void ShowHelp()

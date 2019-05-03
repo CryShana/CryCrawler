@@ -23,8 +23,10 @@ namespace CryCrawler
                     config = JsonConvert.DeserializeObject<Configuration>(content);
 
                     // validate some properties
-                    if (IPAddress.TryParse(config.HostConfig.HostEndpoint.IP, out IPAddress addr) == false)
-                        throw new Exception($"'{config.HostConfig.HostEndpoint.IP}' is not a valid IP address for listener!");
+                    if (IPAddress.TryParse(config.HostConfig.ListenerConfiguration.IP, out IPAddress addr) == false)
+                        throw new Exception($"'{config.HostConfig.ListenerConfiguration.IP}' is not a valid IP address for listener!");
+                    if (IPAddress.TryParse(config.WebGUI.IP, out IPAddress addr2) == false)
+                        throw new Exception($"'{config.WebGUI.IP}' is not a valid IP address for listener!");
 
                     return true;
                 }
