@@ -1,7 +1,11 @@
-﻿using System;
+﻿using CryCrawler.Network;
+using MessagePack;
+using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace CryCrawler.Host
 {
@@ -13,7 +17,9 @@ namespace CryCrawler.Host
         public HostProgram(Configuration config)
         {
             configuration = config;
-            manager = new WorkerManager(new IPEndPoint(IPAddress.Parse(config.HostConfig.HostEndpoint.IP), config.HostConfig.HostEndpoint.Port));
+            manager = new WorkerManager(
+                new IPEndPoint(IPAddress.Parse(config.HostConfig.HostEndpoint.IP), config.HostConfig.HostEndpoint.Port),
+                config.HostConfig.HostEndpoint.Password);
         }
 
         public void Start()

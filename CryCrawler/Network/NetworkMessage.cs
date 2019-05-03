@@ -1,13 +1,35 @@
 ﻿using MessagePack;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace CryCrawler.Network
 {
     [MessagePackObject]
     public class NetworkMessage
     {
-        public object Data { get; set; }
+        [Key(0)]
+        public NetworkMessageType MessageType { get; }
+
+        [Key(1)]
+        public object Data { get; }       
+
+        public NetworkMessage(NetworkMessageType msgType, object data = null)
+        {
+            MessageType = msgType;
+            Data = data;
+        }
+    }
+
+    public enum NetworkMessageType
+    {
+        OK,             // to confirm responses
+        Join,           // request to join Host worker chain
+        Reject,         // response to rejected Join request
+        Accept,         // response to accepted Join request
+        CheckAlive,     // for checking whether clients are alive and responsive
+        ResultsReady,   // for reporting to Host whether results are ready to be delivered
+        Disconnect,     // for reporting imminent client/Host disconnect
+        Work,           // for giving new work to clients
+        Results         // for giving results to Host
+
+        // add more later
     }
 }
