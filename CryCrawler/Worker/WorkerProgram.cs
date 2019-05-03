@@ -6,14 +6,16 @@ namespace CryCrawler.Worker
 {
     public class WorkerProgram
     {
+        readonly Configuration configuration;
+
         public WorkerProgram(Configuration config)
         {
-
+            configuration = config;
         }
 
         public void Start()
         {
-            Console.WriteLine("I am worker");
+            Logger.Log("I am worker");
         }
     }
 }

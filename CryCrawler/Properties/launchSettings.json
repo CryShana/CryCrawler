@@ -2,7 +2,7 @@
   "profiles": {
     "CryCrawler": {
       "commandName": "Project",
-      "commandLineArgs": "-w mode -h 23"
+      "commandLineArgs": "--host -d"
     }
   }
 }
