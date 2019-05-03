@@ -9,6 +9,8 @@ namespace CryCrawler.Network
     {
         public Stream UnderlyingStream { get; }
         public event EventHandler<T> MessageReceived;
+
+        private TaskCompletionSource<T> messageTask = new TaskCompletionSource<T>();
         private Action<T> callback;
 
         public NetworkMessageHandler(Stream stream)
@@ -26,17 +28,29 @@ namespace CryCrawler.Network
             UnderlyingStream.Write(lenBuffer);
             UnderlyingStream.Write(buffer);
         }
+
+        public async Task<T> WaitForResponse(int timeout = 3000)
+        {
+            var res = await messageTask.Task;
+            messageTask = new TaskCompletionSource<T>();
+            return res;
+        }
+
         void handleReceiving()
         {
             while (true)
             {
                 try
                 {
+                    // wait for data
                     var buffer = readUntilSatisfied(UnderlyingStream, sizeof(long));
                     var contentLength = BitConverter.ToInt64(buffer);
                     var data = readUntilSatisfied(UnderlyingStream, contentLength);
                     var obj = MessagePackSerializer.Deserialize<T>(data);
+
+                    // report data
                     MessageReceived?.Invoke(this, obj);
+                    messageTask?.SetResult(obj);
                     callback?.Invoke(obj);
                 }
                 catch
