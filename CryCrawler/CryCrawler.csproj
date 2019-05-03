@@ -18,8 +18,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Worker\GUI\Home.html" />
+    <None Remove="Worker\GUI\main.css" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="MessagePack" Version="1.7.3.4" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Worker\GUI\Home.html" />
+    <EmbeddedResource Include="Worker\GUI\main.css" />
   </ItemGroup>
 
 </Project>

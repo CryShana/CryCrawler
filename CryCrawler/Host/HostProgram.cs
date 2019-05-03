@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace CryCrawler.Host
 {
-    public class HostProgram
+    public class HostProgram : IProgram
     {
         readonly Configuration configuration;
         readonly WorkerManager manager;
@@ -18,14 +18,20 @@ namespace CryCrawler.Host
         {
             configuration = config;
             manager = new WorkerManager(
-                new IPEndPoint(IPAddress.Parse(config.HostConfig.HostEndpoint.IP), config.HostConfig.HostEndpoint.Port),
-                config.HostConfig.HostEndpoint.Password);
+                new IPEndPoint(IPAddress.Parse(config.HostConfig.ListenerConfiguration.IP), config.HostConfig.ListenerConfiguration.Port),
+                config.HostConfig.ListenerConfiguration.Password);
         }
 
         public void Start()
         {
             // start listening for connections
             manager.StartListening();
+        }
+
+        public void Stop()
+        {
+            // cleanup
+            manager.Stop();
         }
     }
 }

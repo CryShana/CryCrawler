@@ -46,6 +46,7 @@ namespace CryCrawler.Host
         void ClientAccepted(IAsyncResult r)
         {
             // Continue listening
+            if (!IsListening) return;
             listener.BeginAcceptTcpClient(ClientAccepted, null);
 
             // Start accepting client
@@ -54,7 +55,7 @@ namespace CryCrawler.Host
 
             // Create client object
             var wc = new WorkerClient() { Client = client };
-            
+
             // Start handshake
             try
             {
@@ -70,7 +71,7 @@ namespace CryCrawler.Host
 
                 // send ACCEPT 
                 wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Accept));
-           
+
                 // wait for OK
                 response = wc.MesssageHandler.WaitForResponse().Result;
                 if (response.MessageType != NetworkMessageType.OK) throw new InvalidOperationException($"Invalid client response! Got '{response.MessageType}', expected '{NetworkMessageType.OK}'");
@@ -89,7 +90,7 @@ namespace CryCrawler.Host
 
             // Accept valid client
             Logger.Log($"Client from {client.Client.RemoteEndPoint} accepted.");
-            clients.Add(wc);        
+            clients.Add(wc);
         }
 
         void ClientMessageReceived(WorkerClient client, NetworkMessage message)
@@ -99,6 +100,35 @@ namespace CryCrawler.Host
             Logger.Log($"Received message from {client.Client.Client.RemoteEndPoint} -> {message.MessageType}", Logger.LogSeverity.Debug);
 
             // TODO: add message handling
+        }
+
+        public void Stop()
+        {
+            // cleanup
+            try
+            {
+                listener.Stop();
+                IsListening = false;
+                Logger.Log("Host listener stopped.", Logger.LogSeverity.Debug);
+
+                // notify all connected clients of disconnect
+                foreach (var cl in clients)
+                {
+                    try
+                    {
+                        cl.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Disconnect));
+                    }
+                    finally
+                    {
+                        cl.Client.Dispose();
+                    }
+                }
+                Logger.Log("All connected clients disconnected.", Logger.LogSeverity.Debug);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(ex.GetDetailedMessage(), Logger.LogSeverity.Debug);
+            }
         }
 
         class WorkerClient
