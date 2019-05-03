@@ -32,7 +32,7 @@ namespace CryCrawler.Network
 
         public async Task<T> WaitForResponse(int timeout = 3000)
         {
-            await Task.WhenAny(Task.Delay(3000), messageTask.Task);
+            await Task.WhenAny(Task.Delay(timeout), messageTask.Task);
             if (messageTask.Task.IsCompletedSuccessfully)
             {
                 var res = messageTask.Task.Result;
