@@ -35,7 +35,7 @@ namespace CryCrawler.Worker
             }      
         }
 
-        public string GetResponse(string method, string url, out string contentType)
+        public string GetResponse(string method, string url, string body, out string contentType)
         {
             // TODO: improve later
 

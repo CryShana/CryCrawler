@@ -64,7 +64,7 @@ namespace CryCrawler.Network
                 if (read == 0) return;
 
                 // Get request
-                var request = Encoding.UTF8.GetString(state.Buffer, 0, read);
+                var request = Encoding.UTF8.GetString(state.Buffer, 0, read).Replace("\r","");  // TODO: find more elegant way to parse request
 
                 // Process METHOD and URL
                 var firstspace = request.IndexOf(' ');
@@ -72,8 +72,12 @@ namespace CryCrawler.Network
                 var method = request.Substring(0, firstspace);
                 var url = request.Substring(firstspace + 1, secspace - (firstspace + 1));
 
+                var body = "";
+                var bindex = request.IndexOf("\n\n");
+                if (bindex > 0) body = request.Substring(request.IndexOf("\n\n") + 2);
+
                 // Create response
-                var raw_response = responder.GetResponse(method.ToUpper(), url, out string ctype);
+                var raw_response = responder.GetResponse(method.ToUpper(), url, body, out string ctype);
                 var status = "HTTP/1.1 200 OK";
 
                 // respond with NOT FOUND if no response received
@@ -127,7 +131,7 @@ namespace CryCrawler.Network
 
         public interface WebGUIResponder
         {
-            string GetResponse(string method, string url, out string contentType);
+            string GetResponse(string method, string url, string body, out string contentType);
         }
     }
 }
