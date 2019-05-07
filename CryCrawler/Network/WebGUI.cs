@@ -41,8 +41,15 @@ namespace CryCrawler.Network
         void ClientAccepted(IAsyncResult r)
         {
             // Continue listening       
-            if (!IsListening) return;
-            listener.BeginAcceptTcpClient(ClientAccepted, null);
+            try
+            {
+                listener.BeginAcceptTcpClient(ClientAccepted, null);
+            }
+            catch (Exception ex)
+            {
+                if (IsListening) Logger.Log($"Failed to continue listening... " + ex.GetDetailedMessage(), Logger.LogSeverity.Debug);
+                return;
+            }
 
             // Start accepting client
             var client = listener.EndAcceptTcpClient(r);
