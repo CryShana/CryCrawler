@@ -23,6 +23,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Host\GUI\Home.html" />
+    <None Remove="Host\GUI\main.css" />
     <None Remove="Worker\GUI\Home.html" />
     <None Remove="Worker\GUI\main.css" />
   </ItemGroup>
@@ -35,6 +37,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Host\GUI\Home.html" />
+    <EmbeddedResource Include="Host\GUI\main.css" />
     <EmbeddedResource Include="Worker\GUI\Home.html" />
     <EmbeddedResource Include="Worker\GUI\main.css" />
   </ItemGroup>
