@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net.Sockets;
 
 namespace CryCrawler
 {
@@ -24,6 +25,12 @@ namespace CryCrawler
             }
 
             return msg; 
+        }
+
+        public static void ProperlyClose(this TcpClient client)
+        {         
+            client.GetStream().Close();
+            client.Close();
         }
     }
 }

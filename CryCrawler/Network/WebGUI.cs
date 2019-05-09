@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
+using System.Net.Sockets;
 
 namespace CryCrawler.Network
 {
@@ -73,28 +72,18 @@ namespace CryCrawler.Network
                 // Get request
                 var request = Encoding.UTF8.GetString(state.Buffer, 0, read).Replace("\r","");  // TODO: find more elegant way to parse request
 
-                // Process METHOD and URL
-                var firstspace = request.IndexOf(' ');
-                var secspace = request.IndexOf(' ', firstspace + 1);
-                var method = request.Substring(0, firstspace);
-                var url = request.Substring(firstspace + 1, secspace - (firstspace + 1));
-
-                var body = "";
-                var bindex = request.IndexOf("\n\n");
-                if (bindex > 0) body = request.Substring(request.IndexOf("\n\n") + 2);
+                // Parse request
+                var (method, url, body) = HttpUtils.ParseRequest(request);
 
                 // Create response
-                var raw_response = responder.GetResponse(method.ToUpper(), url, body, out string ctype);
-                var status = "HTTP/1.1 200 OK";
-
-                // respond with NOT FOUND if no response received
-                if (raw_response == null) status = "HTTP/1.1 404 Not Found";               
+                var raw_response = responder.GetResponse(method, url, body, out string ctype);
+                var status = raw_response == null ? "HTTP/1.1 404 Not Found" : "HTTP/1.1 200 OK";       
 
                 // Inject headers (very simplified, might need to improve later)
                 var headers = $"{status}\n" +
                     $"Server: {serverName}\n" +
                     $"Content-Type: {ctype}; charset=utf-8\n" +
-                    $"Cache-Control: no-store";
+                    $"Cache-Control: no-store\n";
 
                 var response = headers + "\n\n" + (raw_response ?? "");
 
@@ -105,7 +94,7 @@ namespace CryCrawler.Network
                 // state.Client.Client.BeginReceive(state.Buffer, 0, bufferSize, SocketFlags.None, ClientMessageReceived, state);
 
                 // Disconnect
-                state.Client.Dispose();
+                state.Client.ProperlyClose();
             }
             catch (Exception ex)
             {
@@ -134,11 +123,6 @@ namespace CryCrawler.Network
             public byte[] Buffer;
 
             public ClientState(TcpClient client) => Client = client;
-        }
-
-        public interface WebGUIResponder
-        {
-            string GetResponse(string method, string url, string body, out string contentType);
         }
     }
 }

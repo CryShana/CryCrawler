@@ -31,8 +31,9 @@ namespace CryCrawler.Host
             try
             {
                 listener.Start();
-                listener.BeginAcceptTcpClient(ClientAccepted, null);
                 IsListening = true;
+
+                listener.BeginAcceptTcpClient(ClientAccepted, null);
 
                 Logger.Log($"Listening on {listener.LocalEndpoint}");
             }
@@ -68,35 +69,22 @@ namespace CryCrawler.Host
             {
                 wc.MesssageHandler = new NetworkMessageHandler<NetworkMessage>(client.GetStream(), m => ClientMessageReceived(wc, m));
 
-                // wait for JOIN request
-                var response = wc.MesssageHandler.WaitForResponse().Result;
-                if (response.MessageType != NetworkMessageType.Join) throw new InvalidOperationException($"Invalid client response! Got '{response.MessageType}', expected '{NetworkMessageType.Join}'");
-
-                // check password
-                var password = response.Data as string;
-                if (passwordHash != SecurityUtils.GetHash(password)) throw new InvalidOperationException("Invalid password!");
-
-                // send ACCEPT 
-                wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Accept));
-
-                // wait for OK
-                response = wc.MesssageHandler.WaitForResponse().Result;
-                if (response.MessageType != NetworkMessageType.OK) throw new InvalidOperationException($"Invalid client response! Got '{response.MessageType}', expected '{NetworkMessageType.OK}'");
+                SecurityUtils.DoHandshake(wc.MesssageHandler, passwordHash);
 
                 wc.HandshakeCompleted = true;
             }
             catch (Exception ex)
             {
-                Logger.Log($"Client from {client.Client.RemoteEndPoint} rejected.", Logger.LogSeverity.Warning);
+                Logger.Log($"Rejected client from {client.Client.RemoteEndPoint}", Logger.LogSeverity.Warning);
                 Logger.Log(ex.GetDetailedMessage(), Logger.LogSeverity.Debug);
 
                 wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Reject));
-                client.Dispose();
+                client.ProperlyClose();
                 return;
             }
 
             // Accept valid client
-            Logger.Log($"Client from {client.Client.RemoteEndPoint} accepted.");
+            Logger.Log($"Accepted client from {client.Client.RemoteEndPoint}");
             clients.Add(wc);
         }
 
@@ -127,10 +115,11 @@ namespace CryCrawler.Host
                     }
                     finally
                     {
-                        cl.Client.Dispose();
+                        cl.Client.ProperlyClose();
                     }
                 }
-                Logger.Log("All connected clients disconnected.", Logger.LogSeverity.Debug);
+
+                if (clients.Count > 0) Logger.Log("All connected clients disconnected.", Logger.LogSeverity.Debug);
             }
             catch (Exception ex)
             {
