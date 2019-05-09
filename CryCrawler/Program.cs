@@ -1,7 +1,7 @@
-﻿using System.Linq;
+﻿using CommandLine;
+using System.Linq;
 using CryCrawler.Host;
 using CryCrawler.Worker;
-using static System.Console;
 using System.Threading.Tasks;
 
 namespace CryCrawler
@@ -10,17 +10,17 @@ namespace CryCrawler
     {  
         static void Main(string[] args)
         {
-            // Parse arguments
-            bool showHelp = args.Count(x => x.ToLower() == "-h") > 0;
-            bool isHost = args.Count(x => x.ToLower() == "--host") > 0;
-            Logger.DebugMode = args.Count(x => x.ToLower() == "--debug" || x.ToLower() == "-d") > 0;
+            bool isHost = false;
 
-            // Show help if necessary
-            if (showHelp)
+            // Parse arguments
+            Parser.Default.ParseArguments<CommandLineOptions>(args).WithParsed(o =>
             {
-                ShowHelp();
-                return;
-            }
+                isHost = o.HostMode;
+                Logger.DebugMode = o.DebugMode;
+            });
+
+            // Exit program if only help or version was shown
+            if (args.Contains("--help") || args.Contains("--version")) return;
 
             // Load configuration
             if (ConfigManager.LoadConfiguration(out Configuration config) == false)
@@ -52,18 +52,14 @@ namespace CryCrawler
             // Wait a bit for logger
             Task.Delay(300).Wait();
         }
+    }
 
-        static void ShowHelp()
-        {
-            WriteLine("Following flags are supported:\n");
+    public class CommandLineOptions
+    {
+        [Option('d', "debug", Required = false, HelpText = "Enables debug mode (shows more detailed logs)")]
+        public bool DebugMode { get; set; }
 
-            ForegroundColor = System.ConsoleColor.Cyan;
-            WriteLine("     -h              - Shows help");
-            WriteLine("     -d, --debug     - Enables debug logs");
-            WriteLine("     --host          - Starts program in Hosting mode");
-            ResetColor();
-
-            WriteLine($"\nFirst run will generate an empty configuration file '{ConfigManager.FileName}' that can be used for further configuration.");
-        }
+        [Option('h', "host", Required = false, HelpText = "Start program in Hosting mode")]
+        public bool HostMode { get; set; }
     }
 }
