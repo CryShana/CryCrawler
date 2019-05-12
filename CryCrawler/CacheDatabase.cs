@@ -1,8 +1,8 @@
 ﻿using LiteDB;
 using System;
-using System.IO;
 using CryCrawler.Worker;
 using System.Collections.Generic;
+using System.IO;
 
 namespace CryCrawler
 {
@@ -13,21 +13,11 @@ namespace CryCrawler
 
         const string DatabaseFile = "crycrawler_cache";
         
-        static readonly LiteDatabase database;
+        static LiteDatabase database;
 
-        static CacheDatabase()
-        {
-            // TODO: improve this logic
-
-            // 1 - run and read config defined URLs (if local) - only load if they haven't been crawled yet (keep Recrawl setting in mind)
-            // 2 - Host given work takes priority, even if Url already crawled, do it again if given from Host
-            // 3 - cache only remains if working locally - if working via Host, cache needs to be deleted on start (check this)
-
-            // create new database file
-            database = new LiteDatabase(DatabaseFile);
-        }
-
-        public static void Insert(Work w, bool asCrawled = false)
+        static CacheDatabase() => database = new LiteDatabase(DatabaseFile);
+        
+        public static bool Insert(Work w, bool asCrawled = false)
         {
             try
             {
@@ -36,14 +26,16 @@ namespace CryCrawler
                 col.EnsureIndex(x => x.AddedTime);
                 col.EnsureIndex(x => x.Url);
                 col.Insert(w);
+                return true;
             }
             catch (Exception ex)
             {
                 Logger.Log("Failed to insert item to database! " + ex.Message, Logger.LogSeverity.Error);
+                return false;
             }
         }
 
-        public static void InsertBulk(IEnumerable<Work> ws, int count, bool asCrawled = false)
+        public static bool InsertBulk(IEnumerable<Work> ws, int count, bool asCrawled = false)
         {
             try
             {
@@ -52,15 +44,19 @@ namespace CryCrawler
                 col.EnsureIndex(x => x.AddedTime);
                 col.EnsureIndex(x => x.Url);
                 col.InsertBulk(ws, count);
+                return true;
             }
             catch (Exception ex)
             {
                 Logger.Log("Failed to insert bulk items to database! " + ex.Message, Logger.LogSeverity.Error);
+                return false;
             }
         }
 
         public static bool GetWorks(out IEnumerable<Work> works, int count, bool oldestFirst, bool remove = true, bool asCrawled = false)
         {
+            if (count <= 0) return;
+
             try
             {
                 var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
@@ -103,6 +99,29 @@ namespace CryCrawler
                 work = null;
                 return false;
             }
+        }
+
+        public static long GetWorkCount(bool asCrawled = false)
+        {
+            try
+            {
+                var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
+                return col.LongCount();
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("Failed to get work count from database! " + ex.Message, Logger.LogSeverity.Error);
+                return 0;
+            }
+        }
+
+        public static void Recreate()
+        {
+            database.Dispose();
+
+            if (File.Exists(DatabaseFile)) File.Delete(DatabaseFile);
+
+            database = new LiteDatabase(DatabaseFile);
         }
 
         public static void Dispose() => database.Dispose();
