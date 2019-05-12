@@ -3,21 +3,27 @@ using System;
 using CryCrawler.Worker;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace CryCrawler
 {
-    public static class CacheDatabase
+    public class CacheDatabase
     {
+        public const string DefaultFilename = "crycrawler_cache";
+
         const string BacklogName = "backlog";
         const string CrawledName = "crawled";
+        readonly string filename = DefaultFilename;
 
-        const string DatabaseFile = "crycrawler_cache";
-        
-        static LiteDatabase database;
+        LiteDatabase database;
 
-        static CacheDatabase() => database = new LiteDatabase(DatabaseFile);
-        
-        public static bool Insert(Work w, bool asCrawled = false)
+        public CacheDatabase(string filename)
+        {
+            this.filename = filename;
+            database = new LiteDatabase(filename);
+        }
+
+        public bool Insert(Work w, bool asCrawled = false)
         {
             try
             {
@@ -35,7 +41,7 @@ namespace CryCrawler
             }
         }
 
-        public static bool InsertBulk(IEnumerable<Work> ws, int count, bool asCrawled = false)
+        public bool InsertBulk(IEnumerable<Work> ws, int count, bool asCrawled = false)
         {
             try
             {
@@ -53,9 +59,13 @@ namespace CryCrawler
             }
         }
 
-        public static bool GetWorks(out IEnumerable<Work> works, int count, bool oldestFirst, bool remove = true, bool asCrawled = false)
+        public bool GetWorks(out List<Work> works, int count, bool oldestFirst, bool remove = true, bool asCrawled = false)
         {
-            if (count <= 0) return;
+            if (count <= 0)
+            {
+                works = null;
+                return false;
+            }
 
             try
             {
@@ -66,10 +76,11 @@ namespace CryCrawler
                 var query = Query.All("AddedTime", oldestFirst ? Query.Ascending : Query.Descending);
 
                 // get works
-                works = col.Find(query, 0, count);
+                works = col.Find(query, 0, count).ToList();
+                if (works.Count == 0) return false;
 
                 // delete works
-                if (remove) col.Delete(query);
+                if (remove) foreach (var i in works) col.Delete(i.Id);
 
                 return true;
             }
@@ -79,9 +90,9 @@ namespace CryCrawler
                 works = null;
                 return false;
             }
-        }      
+        }
 
-        public static bool GetWork(out Work work, string url, bool asCrawled = false)
+        public bool GetWork(out Work work, string url, bool asCrawled = false)
         {
             try
             {
@@ -101,7 +112,7 @@ namespace CryCrawler
             }
         }
 
-        public static long GetWorkCount(bool asCrawled = false)
+        public long GetWorkCount(bool asCrawled = false)
         {
             try
             {
@@ -115,15 +126,21 @@ namespace CryCrawler
             }
         }
 
-        public static void Recreate()
+        /// <summary>
+        /// Deletes old database and creates new one
+        /// </summary>
+        public void EnsureNew()
         {
-            database.Dispose();
+            if (File.Exists(filename))
+            {
+                database.Dispose();
 
-            if (File.Exists(DatabaseFile)) File.Delete(DatabaseFile);
+                File.Delete(filename);
 
-            database = new LiteDatabase(DatabaseFile);
+                database = new LiteDatabase(filename);
+            }
         }
 
-        public static void Dispose() => database.Dispose();
+        public void Dispose() => database.Dispose();
     }
 }

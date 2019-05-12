@@ -1,11 +1,6 @@
-﻿using CryCrawler.Structures;
-using LiteDB;
-using System;
-using System.Collections.Concurrent;
+﻿using System.Linq;
+using CryCrawler.Structures;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
 
 namespace CryCrawler.Worker
 {
@@ -15,21 +10,26 @@ namespace CryCrawler.Worker
     public class WorkManager
     {
         bool isFIFO = false;
-        long cachedWork = 0, cachedCrawled = 0;
-        const int MemoryLimitCount = 10000;
-
+        readonly CacheDatabase database;
         readonly WorkerConfiguration config;
-        readonly ConcurrentQueueOrStack<Work> backlog;
+        readonly int MemoryLimitCount = 10000;
 
-        public bool IsWorkAvailable => backlog.Count > 0 || cachedWork > 0;
+        #region Public Properties
+        public ConcurrentQueueOrStack<Work> Backlog { get; }
+        public long CachedWorkCount { get; private set; } = 0;
+        public long CachedCrawledWorkCount { get; private set; } = 0;
+        public bool IsWorkAvailable => Backlog.Count > 0 || CachedWorkCount > 0;
+        #endregion
 
-        public WorkManager(WorkerConfiguration config)
+        public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount) : this(config, database) => MemoryLimitCount = newMemoryLimitCount;
+        public WorkManager(WorkerConfiguration config, CacheDatabase database)
         {
             this.config = config;
+            this.database = database;
 
             // depth-search = Stack (LIFO), breadth-search = Queue (FIFO)
             isFIFO = !config.DepthSearch;
-            backlog = new ConcurrentQueueOrStack<Work>(!isFIFO);
+            Backlog = new ConcurrentQueueOrStack<Work>(!isFIFO);
 
             if (config.HostEndpoint.UseHost)
             {
@@ -39,7 +39,7 @@ namespace CryCrawler.Worker
                 Logger.Log($"Using Host as Url source ({config.HostEndpoint.Hostname}:{config.HostEndpoint.Port})");
 
                 // delete existing cache and create new one
-                CacheDatabase.Recreate();
+                database.EnsureNew();
 
                 // TODO: establish connection (full proof retrying connection - make separate class for this) - keep at it even if it fails - use failproof class
             }
@@ -52,12 +52,12 @@ namespace CryCrawler.Worker
 
                 // load all local Urls (only if not yet crawled)
                 foreach (var url in config.Urls)
-                    if (CacheDatabase.GetWork(out Work w, url, true) == false)
+                    if (database.GetWork(out Work w, url, true) == false)
                         AddToBacklog(url);
 
                 // load cache stats
-                cachedWork = CacheDatabase.GetWorkCount(false);
-                cachedCrawled = CacheDatabase.GetWorkCount(true);
+                CachedWorkCount = database.GetWorkCount(false);
+                CachedCrawledWorkCount = database.GetWorkCount(true);
             }
         }
 
@@ -65,32 +65,34 @@ namespace CryCrawler.Worker
         {
             // TODO: check for existing work and update that
 
-            if (CacheDatabase.Insert(w, true)) cachedCrawled++;
+            if (database.Insert(w, true)) CachedCrawledWorkCount++;
         }
 
         public void AddToBacklog(string url)
         {
+            // TODO: IMPROVE THIS
+
             var w = new Work(url);
 
             // if above memory limit, save to database
-            if (backlog.Count >= MemoryLimitCount)
+            if (Backlog.Count >= MemoryLimitCount)
             {
                 // save to database     
-                if (CacheDatabase.Insert(w)) cachedWork++;
+                if (database.Insert(w)) CachedWorkCount++;
             }
             // if below memory limit but cache is not empty, load cache to memory
-            else if (cachedWork > 0)
+            else if (CachedWorkCount > 0)
             {
                 // save to database
-                if (CacheDatabase.Insert(w)) cachedWork++;
+                if (database.Insert(w)) CachedWorkCount++;
 
                 // load cache to memory
-                LoadCacheToMemory();                  
+                LoadCacheToMemory();
             }
             else
             {
                 // normally add to memory
-                backlog.AddItem(w);
+                Backlog.AddItem(w);
             }
         }
 
@@ -98,34 +100,35 @@ namespace CryCrawler.Worker
         {
             Work w = null;
 
+            // TODO: IMPROVE THIS
             if (isFIFO)
             {
                 // take from memory if available
-                if (backlog.Count > 0) backlog.TryGetItem(out w);
+                if (Backlog.Count > 0) Backlog.TryGetItem(out w);
 
                 // take from database if available and memory is empty
-                if (w == null && cachedWork > 0 && CacheDatabase.GetWorks(out IEnumerable<Work> works, 1, true))
+                if (w == null && CachedWorkCount > 0 && database.GetWorks(out List<Work> works, 1, true))
                 {
                     w = works.FirstOrDefault();
-                    cachedWork--;
-
-                    LoadCacheToMemory();
+                    CachedWorkCount--;
                 }
+
+                if (Backlog.Count < MemoryLimitCount && CachedWorkCount > 0) LoadCacheToMemory();
             }
             else
             {
                 // take from database if available
-                if (cachedWork > 0 && CacheDatabase.GetWorks(out IEnumerable<Work> works, 1, false))
+                if (CachedWorkCount > 0 && database.GetWorks(out List<Work> works, 1, false))
                 {
                     w = works.FirstOrDefault();
-                    cachedWork--;
-
-                    LoadCacheToMemory();
+                    CachedWorkCount--;
                 }
 
+                if (Backlog.Count < MemoryLimitCount && CachedWorkCount > 0) LoadCacheToMemory();
+
                 // take from memory if available and database is empty
-                if (w == null && backlog.Count > 0) backlog.TryGetItem(out w);
-            }         
+                if (w == null && Backlog.Count > 0) Backlog.TryGetItem(out w);
+            }
 
             url = w?.Url;
             return w != null;
@@ -133,13 +136,13 @@ namespace CryCrawler.Worker
 
         private void LoadCacheToMemory()
         {
-            long howMuch = MemoryLimitCount - (long)backlog.Count;
-            howMuch = howMuch > cachedWork ? cachedWork : howMuch;
+            long howMuch = MemoryLimitCount - (long)Backlog.Count;
+            howMuch = howMuch > CachedWorkCount ? CachedWorkCount : howMuch;
 
-            if (CacheDatabase.GetWorks(out IEnumerable<Work> works, (int)howMuch, isFIFO))
+            if (database.GetWorks(out List<Work> works, (int)howMuch, isFIFO))
             {
-                backlog.AddItems(works);
-                cachedWork -= howMuch;
+                Backlog.AddItems(works);
+                CachedWorkCount -= howMuch;
             }
         }
 
