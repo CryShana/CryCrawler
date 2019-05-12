@@ -18,5 +18,10 @@ namespace CryCrawler.Worker
         {
 
         }
+
+        public void Stop()
+        {
+
+        }
     }
 }

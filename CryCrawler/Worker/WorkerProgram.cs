@@ -12,12 +12,12 @@ namespace CryCrawler.Worker
     {
         readonly WebGUI webgui;
         readonly Crawler crawler;
+        readonly Configuration config;
         readonly WorkManager workmanager;
-        readonly Configuration configuration;
 
         public WorkerProgram(Configuration config)
         {
-            configuration = config;
+            this.config = config;
 
             workmanager = new WorkManager(config.WorkerConfig);
 
@@ -38,7 +38,11 @@ namespace CryCrawler.Worker
         public void Stop()
         {
             // cleanup
+            crawler.Stop();
+
             webgui.Stop();
+
+            workmanager.Dispose();
         }
     }
 }

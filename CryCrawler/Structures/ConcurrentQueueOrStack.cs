@@ -1,8 +1,6 @@
-﻿using System;
+﻿using System.Linq;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace CryCrawler.Structures
 {
@@ -26,6 +24,12 @@ namespace CryCrawler.Structures
             if (queue == null) stack.Push(item);
             else queue.Enqueue(item);
         }
+        public void AddItems(IEnumerable<T> items)
+        {
+            if (queue == null) stack.PushRange(items.ToArray());
+            else foreach (var item in items) queue.Enqueue(item);
+        }
+
         public void Clear()
         {
             if (queue == null) stack.Clear();
