@@ -1,4 +1,6 @@
-﻿using CommandLine;
+﻿using System;
+using System.IO;
+using CommandLine;
 using System.Linq;
 using CryCrawler.Host;
 using CryCrawler.Worker;
@@ -7,7 +9,7 @@ using System.Threading.Tasks;
 namespace CryCrawler
 {
     class Program
-    {  
+    {
         static void Main(string[] args)
         {
             bool isHost = false;
@@ -29,7 +31,7 @@ namespace CryCrawler
                 if (config == null)
                 {
                     Logger.Log($"Please fix or delete '{ConfigManager.FileName}' before continuing!", Logger.LogSeverity.Error);
-                    Task.Delay(300).Wait(); 
+                    Task.Delay(300).Wait();
                     return;
                 }
 
@@ -47,7 +49,9 @@ namespace CryCrawler
 
             // Cleanup
             Logger.Log("Shutting down...");
+
             program.Stop();
+            CacheDatabase.Dispose();
 
             // Wait a bit for logger
             Task.Delay(300).Wait();

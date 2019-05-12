@@ -11,13 +11,14 @@ namespace CryCrawler.Host
 {
     public class HostProgram : IProgram
     {
-        readonly Configuration configuration;
         readonly WorkerManager manager;
         readonly WebGUI webgui;
 
+        readonly Configuration config;
+
         public HostProgram(Configuration config)
         {
-            configuration = config;
+            this.config = config;
 
             manager = new WorkerManager(
                 new IPEndPoint(IPAddress.Parse(config.HostConfig.ListenerConfiguration.IP), config.HostConfig.ListenerConfiguration.Port),
