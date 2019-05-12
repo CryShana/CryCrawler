@@ -13,13 +13,16 @@ namespace CryCrawler.Worker
         readonly WebGUI webgui;
         readonly Crawler crawler;
         readonly Configuration config;
+        readonly CacheDatabase database;
         readonly WorkManager workmanager;
 
         public WorkerProgram(Configuration config)
         {
             this.config = config;
 
-            workmanager = new WorkManager(config.WorkerConfig);
+            database = new CacheDatabase(config.CacheFilename);
+
+            workmanager = new WorkManager(config.WorkerConfig, database);
 
             crawler = new Crawler(workmanager, config.WorkerConfig);
 
@@ -43,6 +46,8 @@ namespace CryCrawler.Worker
             webgui.Stop();
 
             workmanager.Dispose();
+
+            database.Dispose();
         }
     }
 }

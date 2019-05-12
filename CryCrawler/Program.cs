@@ -49,9 +49,7 @@ namespace CryCrawler
 
             // Cleanup
             Logger.Log("Shutting down...");
-
             program.Stop();
-            CacheDatabase.Dispose();
 
             // Wait a bit for logger
             Task.Delay(300).Wait();
