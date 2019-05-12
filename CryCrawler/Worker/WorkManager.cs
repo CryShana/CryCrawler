@@ -112,8 +112,6 @@ namespace CryCrawler.Worker
                     w = works.FirstOrDefault();
                     CachedWorkCount--;
                 }
-
-                if (Backlog.Count < MemoryLimitCount && CachedWorkCount > 0) LoadCacheToMemory();
             }
             else
             {
@@ -124,11 +122,12 @@ namespace CryCrawler.Worker
                     CachedWorkCount--;
                 }
 
-                if (Backlog.Count < MemoryLimitCount && CachedWorkCount > 0) LoadCacheToMemory();
-
                 // take from memory if available and database is empty
                 if (w == null && Backlog.Count > 0) Backlog.TryGetItem(out w);
             }
+
+            // if there is space to load cache to memory, do it  (TODO: check for performance issues here)
+            if (Backlog.Count < MemoryLimitCount && CachedWorkCount > 0) LoadCacheToMemory();
 
             url = w?.Url;
             return w != null;
