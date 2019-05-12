@@ -1,10 +1,5 @@
 ﻿using CryCrawler.Network;
-using CryCrawler.Structures;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Net;
-using System.Text;
 
 namespace CryCrawler.Worker
 {
