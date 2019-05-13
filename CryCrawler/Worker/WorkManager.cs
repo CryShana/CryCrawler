@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using CryCrawler.Structures;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace CryCrawler.Worker
 {
@@ -13,6 +14,7 @@ namespace CryCrawler.Worker
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
         readonly int MemoryLimitCount = 10000;
+        readonly int MaxLoadLimit = 5000;
 
         #region Public Properties
         public ConcurrentQueueOrStack<Work> Backlog { get; }
@@ -133,15 +135,17 @@ namespace CryCrawler.Worker
             return w != null;
         }
 
+
         private void LoadCacheToMemory()
         {
+            // TODO: make this thread safe
             long howMuch = MemoryLimitCount - (long)Backlog.Count;
             howMuch = howMuch > CachedWorkCount ? CachedWorkCount : howMuch;
 
             if (database.GetWorks(out List<Work> works, (int)howMuch, isFIFO))
             {
                 Backlog.AddItems(works);
-                CachedWorkCount -= howMuch;
+                CachedWorkCount -= works.Count;
             }
         }
 
