@@ -71,8 +71,11 @@ namespace CryCrawler.Worker
 
         public void AddToCrawled(Work w)
         {
-            // TODO: check for existing work and update that
-            if (database.Insert(w, true)) CachedCrawledWorkCount++;
+            if (database.Upsert(w, out bool wasIns, true))
+            {
+                if (wasIns) CachedCrawledWorkCount++;
+            }
+            else throw new DatabaseErrorException("Failed to upsert crawled work to database!");
         }
 
         SemaphoreSlim addingSemaphore = new SemaphoreSlim(1);
@@ -180,7 +183,6 @@ namespace CryCrawler.Worker
                 addingSemaphore.Release();
             }
         }
-
         public bool GetWork(out string url)
         {
             Work w = null;
@@ -225,10 +227,8 @@ namespace CryCrawler.Worker
             return w != null;
         }
 
-
         private void LoadCacheToMemory()
         {
-            // TODO: make this thread safe
             long howMuch = MemoryLimitCount - (long)Backlog.Count;
             howMuch = howMuch > CachedWorkCount ? CachedWorkCount : howMuch;
 
@@ -238,10 +238,26 @@ namespace CryCrawler.Worker
                 CachedWorkCount -= works.Count;
             }
         }
+        
+        private void DumpMemoryToCache()
+        {
+            // TODO: dump all current work (and check for it on load)
+        }
 
         public void Dispose()
         {
-            // TODO: dump all work if working locally - if working via Host, delete cache
+            // dump all work if working locally - if working via Host, delete cache
+            if (!config.HostEndpoint.UseHost)
+            {
+                DumpMemoryToCache();
+                database.Dispose();
+            }
+            else
+            {
+                // delete cache
+                database.Dispose();
+                database.Delete();
+            }
         }
     }
 }
