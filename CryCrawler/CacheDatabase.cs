@@ -4,6 +4,7 @@ using CryCrawler.Worker;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace CryCrawler
 {
@@ -14,6 +15,8 @@ namespace CryCrawler
         const string BacklogName = "backlog";
         const string CrawledName = "crawled";
         readonly string filename = DefaultFilename;
+        readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
+
 
         LiteDatabase database;
 
@@ -25,6 +28,7 @@ namespace CryCrawler
 
         public bool Insert(Work w, bool asCrawled = false)
         {
+            semaphore.Wait();
             try
             {
                 var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
@@ -39,10 +43,15 @@ namespace CryCrawler
                 Logger.Log("Failed to insert item to database! " + ex.Message, Logger.LogSeverity.Error);
                 return false;
             }
+            finally
+            {
+                semaphore.Release();
+            }
         }
 
         public bool InsertBulk(IEnumerable<Work> ws, int count, bool asCrawled = false)
         {
+            semaphore.Wait();
             try
             {
                 var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
@@ -57,6 +66,10 @@ namespace CryCrawler
                 Logger.Log("Failed to insert bulk items to database! " + ex.Message, Logger.LogSeverity.Error);
                 return false;
             }
+            finally
+            {
+                semaphore.Release();
+            }
         }
 
         public bool GetWorks(out List<Work> works, int count, bool oldestFirst, bool remove = true, bool asCrawled = false)
@@ -67,6 +80,7 @@ namespace CryCrawler
                 return false;
             }
 
+            semaphore.Wait();
             try
             {
                 var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
@@ -90,10 +104,15 @@ namespace CryCrawler
                 works = null;
                 return false;
             }
+            finally
+            {
+                semaphore.Release();
+            }
         }
 
         public bool GetWork(out Work work, string url, bool asCrawled = false)
         {
+            semaphore.Wait();
             try
             {
                 var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
@@ -110,10 +129,15 @@ namespace CryCrawler
                 work = null;
                 return false;
             }
+            finally
+            {
+                semaphore.Release();
+            }
         }
 
         public long GetWorkCount(bool asCrawled = false)
         {
+            semaphore.Wait();
             try
             {
                 var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
@@ -124,6 +148,10 @@ namespace CryCrawler
                 Logger.Log("Failed to get work count from database! " + ex.Message, Logger.LogSeverity.Error);
                 return 0;
             }
+            finally
+            {
+                semaphore.Release();
+            }
         }
 
         /// <summary>
@@ -131,13 +159,20 @@ namespace CryCrawler
         /// </summary>
         public void EnsureNew()
         {
-            if (File.Exists(filename))
+            if (!File.Exists(filename)) return;
+
+            semaphore.Wait();
+            try
             {
                 database.Dispose();
 
                 File.Delete(filename);
 
                 database = new LiteDatabase(filename);
+            }
+            finally
+            {
+                semaphore.Release();
             }
         }
 
