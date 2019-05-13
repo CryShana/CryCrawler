@@ -19,10 +19,15 @@ namespace CryCrawler
 
         LiteDatabase database;
 
+        LiteCollection<Work> backlogCollection;
+        LiteCollection<Work> crawledCollection;
+
         public CacheDatabase(string filename)
         {
             this.filename = filename;
             database = new LiteDatabase(filename);
+
+            PrepareCollections();
         }
 
         public bool Insert(Work w, bool asCrawled = false)
@@ -30,11 +35,9 @@ namespace CryCrawler
             semaphore.Wait();
             try
             {
-                var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
-                col.EnsureIndex(x => x.LastCrawled);
-                col.EnsureIndex(x => x.AddedTime);
-                col.EnsureIndex(x => x.Url);
-                col.Insert(w);
+                if (asCrawled) crawledCollection.Insert(w);
+                else backlogCollection.Insert(w);
+
                 return true;
             }
             catch (Exception ex)
@@ -53,11 +56,9 @@ namespace CryCrawler
             semaphore.Wait();
             try
             {
-                var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
-                col.EnsureIndex(x => x.LastCrawled);
-                col.EnsureIndex(x => x.AddedTime);
-                col.EnsureIndex(x => x.Url);
-                col.InsertBulk(ws, count);
+                if (asCrawled) crawledCollection.InsertBulk(ws, count);
+                else backlogCollection.InsertBulk(ws, count);
+
                 return true;
             }
             catch (Exception ex)
@@ -71,7 +72,7 @@ namespace CryCrawler
             }
         }
 
-        public bool GetWorks(out List<Work> works, int count, bool oldestFirst, bool remove = true, bool asCrawled = false)
+        public bool GetWorks(out List<Work> works, int count, bool oldestFirst, bool autoRemove = false, bool asCrawled = false)
         {
             if (count <= 0)
             {
@@ -82,8 +83,7 @@ namespace CryCrawler
             semaphore.Wait();
             try
             {
-                var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
-                col.EnsureIndex(x => x.AddedTime);
+                var col = asCrawled ? crawledCollection : backlogCollection;
 
                 // construct query
                 var query = Query.All("AddedTime", oldestFirst ? Query.Ascending : Query.Descending);
@@ -93,7 +93,7 @@ namespace CryCrawler
                 if (works.Count == 0) return false;
 
                 // delete works
-                if (remove) foreach (var i in works) col.Delete(i.Id);
+                if (autoRemove) foreach (var i in works) col.Delete(i.Id);
 
                 return true;
             }
@@ -114,8 +114,7 @@ namespace CryCrawler
             semaphore.Wait();
             try
             {
-                var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
-                col.EnsureIndex(x => x.Url);
+                var col = asCrawled ? crawledCollection : backlogCollection;
 
                 // get work
                 work = col.FindOne(Query.Where("Url", x => x.AsString == url));
@@ -139,7 +138,7 @@ namespace CryCrawler
             semaphore.Wait();
             try
             {
-                var col = database.GetCollection<Work>(asCrawled ? CrawledName : BacklogName);
+                var col = asCrawled ? crawledCollection : backlogCollection;
                 return col.LongCount();
             }
             catch (Exception ex)
@@ -163,11 +162,11 @@ namespace CryCrawler
             semaphore.Wait();
             try
             {
-                database.Dispose();
-
-                File.Delete(filename);
+                Delete();
 
                 database = new LiteDatabase(filename);
+
+                PrepareCollections();
             }
             finally
             {
@@ -176,5 +175,32 @@ namespace CryCrawler
         }
 
         public void Dispose() => database.Dispose();
+
+        public void Delete()
+        {
+            if (!File.Exists(filename)) return;
+
+            database.Dispose();
+
+            File.Delete(filename);
+        }
+
+        private void PrepareCollections()
+        {
+            crawledCollection = database.GetCollection<Work>(CrawledName);
+            crawledCollection.EnsureIndex(x => x.LastCrawled);
+            crawledCollection.EnsureIndex(x => x.AddedTime);
+            crawledCollection.EnsureIndex(x => x.Url);
+
+            backlogCollection = database.GetCollection<Work>(BacklogName);
+            backlogCollection.EnsureIndex(x => x.LastCrawled);
+            backlogCollection.EnsureIndex(x => x.AddedTime);
+            backlogCollection.EnsureIndex(x => x.Url);
+        }
+
+        public class DatabaseErrorException : Exception
+        {
+            public DatabaseErrorException(string msg) : base(msg) { }
+        }
     }
 }
