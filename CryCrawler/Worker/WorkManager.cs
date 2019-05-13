@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using CryCrawler.Structures;
 using System.Collections.Generic;
 using System.Threading;
@@ -18,6 +18,7 @@ namespace CryCrawler.Worker
 
         #region Public Properties
         public ConcurrentQueueOrStack<Work> Backlog { get; }
+        public long WorkCount => Backlog.Count + CachedWorkCount;
         public long CachedWorkCount { get; private set; } = 0;
         public long CachedCrawledWorkCount { get; private set; } = 0;
         public bool IsWorkAvailable => Backlog.Count > 0 || CachedWorkCount > 0;

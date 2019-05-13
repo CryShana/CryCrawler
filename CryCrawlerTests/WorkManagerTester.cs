@@ -128,5 +128,34 @@ namespace CryCrawlerTests
 
             database.Dispose();
         }
+
+        [Fact]
+        public void ParallelCachingFIFO()
+        {
+            int maxBackLogSize = 4;
+
+            var database = new CacheDatabase("testing_parallel_fifo");
+            database.EnsureNew();
+
+            var config = new WorkerConfiguration();
+            config.DepthSearch = false;
+
+            var wm = new WorkManager(config, database, maxBackLogSize);
+
+            var urls = new[] {
+                "google1.com", "google2.com", "google3.com", "google4.com", "google5.com", "google6.com", "google7.com", "google8.com", "google9.com",
+                "google10.com", "google11.com", "google12.com", "google13.com", "google14.com", "google15.com", "google16.com", "google17.com", "google18.com",
+                "google19.com", "google20.com", "google21.com", "google22.com", "google23.com", "google24.com", "google25.com", "google26.com", "google27.com"
+            };
+
+            Assert.Equal(0, wm.WorkCount);
+            Parallel.ForEach(urls, a => wm.AddToBacklog(a));
+
+            Assert.Equal(urls.Length, wm.WorkCount);
+            Assert.Equal(maxBackLogSize, wm.Backlog.Count);
+            Assert.Equal(urls.Length - maxBackLogSize, wm.CachedWorkCount);
+
+            database.Dispose();
+        }
     }
 }
