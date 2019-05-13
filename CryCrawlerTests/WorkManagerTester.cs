@@ -1,7 +1,7 @@
+using Xunit;
 using CryCrawler;
 using CryCrawler.Worker;
-using System;
-using Xunit;
+using System.Threading.Tasks;
 
 namespace CryCrawlerTests
 {
