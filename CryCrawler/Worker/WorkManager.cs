@@ -67,35 +67,41 @@ namespace CryCrawler.Worker
         public void AddToCrawled(Work w)
         {
             // TODO: check for existing work and update that
-
             if (database.Insert(w, true)) CachedCrawledWorkCount++;
         }
 
+        SemaphoreSlim addingSemaphore = new SemaphoreSlim(1);
         public void AddToBacklog(string url)
         {
-            // TODO: IMPROVE THIS
-
             var w = new Work(url);
 
-            // if above memory limit, save to database
-            if (Backlog.Count >= MemoryLimitCount)
+            addingSemaphore.Wait();
+            try
             {
-                // save to database     
-                if (database.Insert(w)) CachedWorkCount++;
-            }
-            // if below memory limit but cache is not empty, load cache to memory
-            else if (CachedWorkCount > 0)
-            {
-                // save to database
-                if (database.Insert(w)) CachedWorkCount++;
+                // if above memory limit, save to database
+                if (Backlog.Count >= MemoryLimitCount)
+                {
+                    // save to database     
+                    if (database.Insert(w)) CachedWorkCount++;
+                }
+                // if below memory limit but cache is not empty, load cache to memory
+                else if (CachedWorkCount > 0)
+                {
+                    // save to database
+                    if (database.Insert(w)) CachedWorkCount++;
 
-                // load cache to memory
-                LoadCacheToMemory();
+                    // load cache to memory
+                    LoadCacheToMemory();
+                }
+                else
+                {
+                    // normally add to memory
+                    Backlog.AddItem(w);
+                }
             }
-            else
+            finally
             {
-                // normally add to memory
-                Backlog.AddItem(w);
+                addingSemaphore.Release();
             }
         }
 
