@@ -17,7 +17,6 @@ namespace CryCrawler
         readonly string filename = DefaultFilename;
         readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
 
-
         LiteDatabase database;
 
         public CacheDatabase(string filename)
