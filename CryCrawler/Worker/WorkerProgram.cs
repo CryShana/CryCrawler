@@ -41,8 +41,6 @@ namespace CryCrawler.Worker
             webgui.Stop();
 
             workmanager.Dispose();
-
-            database.Dispose();
         }
     }
 }
