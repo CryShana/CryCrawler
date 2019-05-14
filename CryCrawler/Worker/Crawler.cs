@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Text;
+using System.Collections.Generic;
 
 namespace CryCrawler.Worker
 {
@@ -9,19 +9,22 @@ namespace CryCrawler.Worker
     /// </summary>
     public class Crawler
     {
+        public bool IsActive { get; private set; }
+        public WorkManager Manager { get; }
+
         public Crawler(WorkManager manager, WorkerConfiguration config)
         {
-            
+            Manager = manager;
         }
 
         public void Start()
         {
-
+            IsActive = true;
         }
 
         public void Stop()
         {
-
+            IsActive = false;
         }
     }
 }

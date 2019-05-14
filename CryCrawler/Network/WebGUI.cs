@@ -52,7 +52,7 @@ namespace CryCrawler.Network
 
             // Start accepting client
             var client = listener.EndAcceptTcpClient(r);
-            Logger.Log($"Client connected to WebGUI from {client.Client.RemoteEndPoint}", Logger.LogSeverity.Debug);
+            // Logger.Log($"Client connected to WebGUI from {client.Client.RemoteEndPoint}", Logger.LogSeverity.Debug);
 
             // Wait for request
             var state = new ClientState(client);

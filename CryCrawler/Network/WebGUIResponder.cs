@@ -40,8 +40,12 @@ namespace CryCrawler.Network
         /// </summary>
         /// <param name="filename">Relative path to file from website root</param>
         /// <returns>Text content</returns>
-        public virtual string GetPage(string filename)
+        public virtual string GetPage(string filename, out string contentType)
         {
+            // Get extension and decide on content type
+            var extension = Path.GetExtension(filename).ToLower().Replace(".", "");
+            contentType = ContentTypes.ContainsKey(extension) ? ContentTypes[extension] : ContentTypes["txt"];
+
             // load from cache if possible
             if (CachedPages.ContainsKey(filename)) return CachedPages[filename];
 
@@ -83,14 +87,14 @@ namespace CryCrawler.Network
             var filename = Path.GetFileName(url);
             if (url == "/") filename = "Home.html";
 
-            // Get extension and decide on content type
-            var extension = Path.GetExtension(filename).ToLower().Replace(".", "");
-            contentType = ContentTypes.ContainsKey(extension) ? ContentTypes[extension] : ContentTypes["txt"];
-
             // Handle methods
-            if (method == "GET") return GetPage(filename);          
+            if (method == "GET") return ResponseGET(filename, out contentType);
+            else if (method == "POST") return ResponsePOST(filename, out contentType);
             else return GetJSON("Invalid HTTP method!", out contentType);            
         }
+
+        protected virtual string ResponseGET(string filename, out string contentType) => GetPage(filename, out contentType);       
+        protected virtual string ResponsePOST(string filename, out string contentType) => GetJSON("Invalid HTTP method!", out contentType);
 
         protected virtual string GetJSON(string message, out string contentType)
         {

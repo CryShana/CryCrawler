@@ -1,9 +1,7 @@
 using System.Linq;
+using System.Threading;
 using CryCrawler.Structures;
 using System.Collections.Generic;
-using System.Threading;
-using System.Collections;
-using System;
 using static CryCrawler.CacheDatabase;
 
 namespace CryCrawler.Worker
@@ -17,7 +15,6 @@ namespace CryCrawler.Worker
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
 
-        readonly int MaxLoadLimit = 5000;
         const int MaxMemoryLimitMB = 300;
         public readonly int MemoryLimitCount = (MaxMemoryLimitMB * 1024 * 1024) / 200;
 
