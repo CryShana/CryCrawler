@@ -86,6 +86,9 @@ namespace CryCrawler.Worker
                         int cnt = 0;
                         foreach (var u in FindUrls(content))
                         {
+                            // check if URL is eligible for crawling
+                            if (Manager.IsUrlEligibleForCrawl(u) == false) continue;
+
                             cnt++;
                             Manager.AddToBacklog(u);
                         }
@@ -115,7 +118,7 @@ namespace CryCrawler.Worker
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log($"Failed to crawl '{url}' - {ex.Message}", Logger.LogSeverity.Error);
+                    Logger.Log($"Failed to crawl '{url}' - ({ex.GetType().Name}) {ex.Message}", Logger.LogSeverity.Error);
                 }
                 finally
                 {
@@ -235,11 +238,10 @@ namespace CryCrawler.Worker
         {
             // TODO: check for relative URLs
 
+            // Check for URLs beginning with HTTP
             int cindex = 0;
-
             while (cindex < content.Length && cindex != -1)
             {   
-                // Check for URLs beginning with HTTP
                 cindex = content.IndexOf("http", cindex, StringComparison.OrdinalIgnoreCase);
                 if (cindex >= 0)
                 {
@@ -252,13 +254,13 @@ namespace CryCrawler.Worker
                     url = HttpUtility.UrlDecode(url);
 
                     // check if valid url
-                    var valid = Regex.IsMatch(url, @"^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$");
+                    //var valid = Regex.IsMatch(url, @"^(ht|f)tp(s?)\:\/\/[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&%\$#_]*)?$");
 
-                    if (valid) yield return url;
+                    yield return url;
                 }
-
-                // Check for relative URLs
             }
+
+            // Check for relative URLs
         }
     }
 }
