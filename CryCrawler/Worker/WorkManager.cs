@@ -58,7 +58,14 @@ namespace CryCrawler.Worker
                 // load all local Urls (only if not yet crawled)
                 foreach (var url in config.Urls)
                     if (database.GetWork(out Work w, url, true) == false)
+                    {
                         AddToBacklog(url);
+                    }
+                    else
+                    {
+                        Logger.Log($"Skipping specified URL '{url}' - already crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
+                    }
+                        
 
                 // load cache stats
                 CachedWorkCount = database.GetWorkCount(false);
@@ -180,7 +187,6 @@ namespace CryCrawler.Worker
                 addingSemaphore.Release();
             }
         }
-
         public bool GetWork(out string url)
         {
             Work w = null;
@@ -225,30 +231,29 @@ namespace CryCrawler.Worker
             return w != null;
         }
 
-        private void LoadCacheToMemory()
-        {
-            long howMuch = MemoryLimitCount - (long)Backlog.Count;
-            howMuch = howMuch > CachedWorkCount ? CachedWorkCount : howMuch;
-
-            if (database.GetWorks(out List<Work> works, (int)howMuch, isFIFO, true))
-            {
-                Backlog.AddItems(works);
-                CachedWorkCount -= works.Count;
-            }
-        }
-        
-        private void DumpMemoryToCache()
-        {
-            // TODO: dump all current work (and check for it on load)
-        }
-
         public void ReportWorkResult(string url, bool success)
         {
+            // TODO: improve this whole thing
+
             // report result
 
             // if recrawl is enabled, re-add it here, otherwise dump the url
 
-            // AddToCrawled
+            if (success) AddToCrawled(new Work(url));
+        }
+
+        /// <summary>
+        /// Check if URL is eligible for crawling. Usually checks if it was already crawled or not.
+        /// </summary>
+        /// <param name="url">URL to check for</param>
+        /// <returns>True if URL is eligible</returns>
+        public bool IsUrlEligibleForCrawl(string url)
+        {
+            // check if url was already crawled (consider recrawling)
+
+            // for now, if url was crawled, it's not eligible, ignore it
+            if (database.GetWork(out Work w, url, true) == false) return true;
+            else return false;          
         }
 
         public void Dispose()
@@ -265,6 +270,23 @@ namespace CryCrawler.Worker
                 database.Dispose();
                 database.Delete();
             }
+        }
+
+
+        private void LoadCacheToMemory()
+        {
+            long howMuch = MemoryLimitCount - (long)Backlog.Count;
+            howMuch = howMuch > CachedWorkCount ? CachedWorkCount : howMuch;
+
+            if (database.GetWorks(out List<Work> works, (int)howMuch, isFIFO, true))
+            {
+                Backlog.AddItems(works);
+                CachedWorkCount -= works.Count;
+            }
+        }
+        private void DumpMemoryToCache()
+        {
+            // TODO: dump all current work (and check for it on load)
         }
     }
 }
