@@ -1,12 +1,13 @@
 ﻿using System;
 using System.IO;
-using System.Text;
+using System.Web;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
+using System.Collections;
 using System.Threading.Tasks;
-using System.Net.Http.Headers;
 using System.Collections.Generic;
-using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace CryCrawler.Worker
 {
@@ -54,61 +55,96 @@ namespace CryCrawler.Worker
             {
                 if (Manager.GetWork(out string url) == false)
                 {
-                    await Task.Delay(100);
+                    await Task.Delay(100).ConfigureAwait(false);
                     continue;
                 }
 
                 bool success = false;
                 try
                 {
-                    // get response headers - do not read content yet
-                    var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancelSource.Token);
+                    // Get response headers - DO NOT READ CONTENT yet (performance reasons)
+                    var response = await httpClient
+                        .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancelSource.Token)
+                        .ConfigureAwait(false);
+
                     if (!response.IsSuccessStatusCode)
                     {
+                        // TODO: treat differently based on status code (for ex. if page doesn't exist at all, or if 500, 404,...)
                         Logger.Log($"Failed to crawl '{url}' ({response.StatusCode})", Logger.LogSeverity.Information);
                         continue;
                     }
 
                     var mediaType = response.Content.Headers.ContentType.MediaType;
-                    if (mediaType.ToLower().StartsWith("text"))
+
+                    // Check if media type is set as a scanning target, if yes, scan it for new URLs
+                    if (Config.ScanTargetsMediaTypes.Count(x => x == mediaType) > 0)
                     {
                         // scan the content for more urls
                         var content = await response.Content.ReadAsStringAsync();
 
-                        // TODO: find URLs
+                        // find URLs
+                        int cnt = 0;
+                        foreach (var u in FindUrls(content))
+                        {
+                            cnt++;
+                            Manager.AddToBacklog(u);
+                        }
 
-                        Logger.Log($"Found 0 new URLs from '{url}'");
+                        // Logger.Log($"Found {cnt} new URLs from '{url}'");
                         success = true;
                     }
-                    else
-                    {
-                        // check if we are interested in the media type or extension
 
-                        // attempt to get filename
-                        var filename = GetFilename(url, mediaType);
-                        var directory = GetDirectoryPath(url, true);
+                    // Check if media type is set as an accepted file to download
 
-                        // construct path
-                        var path = Path.Combine(directory, filename);
+                    // attempt to get filename
+                    var filename = GetFilename(url, mediaType);
 
-                        // download content to file
-                        using (var fstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
-                            await response.Content.CopyToAsync(fstream);
+                    // don't download file if not acceptable
+                    if (IsAcceptable(filename, mediaType) == false) continue;
+                    
+                    // construct path
+                    var directory = GetDirectoryPath(url, true);
+                    var path = Path.Combine(directory, filename);
 
-                        Logger.Log($"Downloaded '{url}' to '{path}'");
-                        success = true;
-                    }
+                    // download content to file
+                    using (var fstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
+                        await response.Content.CopyToAsync(fstream);
+
+                    // Logger.Log($"Downloaded '{url}' to '{path}'");
+                    success = true;
                 }
                 catch (Exception ex)
                 {
                     Logger.Log($"Failed to crawl '{url}' - {ex.Message}", Logger.LogSeverity.Error);
-
                 }
                 finally
                 {
                     Manager.ReportWorkResult(url, success);
                 }
             }
+        }
+
+        /// <summary>
+        /// Based on the configuration, is the file acceptable based on extension and media type.
+        /// </summary>
+        /// <param name="filename">Filename with extension</param>
+        /// <param name="mediaType">Media type</param>
+        /// <returns>True if file is acceptable</returns>
+        public bool IsAcceptable(string filename, string mediaType)
+        {
+            if (Config.AcceptAllFiles) return true;
+
+            var ext = Path.GetExtension(filename).ToLower().Trim();
+            var mty = mediaType.ToLower().Trim();
+
+            // check extension
+            if (Config.AcceptedExtensions.Count(x => x.ToLower().Trim() == ext) > 0) return true;
+
+            // check media type
+            if (Config.AcceptedMediaTypes.Count(x => x.ToLower().Trim() == mty) > 0) return true;
+
+            // if both are not accepted, we are not interested
+            return false;
         }
 
         /// <summary>
@@ -170,6 +206,11 @@ namespace CryCrawler.Worker
             return path;
         }
 
+        /// <summary>
+        /// Removes any invalid path characters from given path
+        /// </summary>
+        /// <param name="path">Original path</param>
+        /// <returns>Modified paths without any invalid path characters</returns>
         public string FixPath(string path)
         {
             if (path == null) return "";
@@ -183,6 +224,41 @@ namespace CryCrawler.Worker
             }
 
             return path;
+        }
+
+        /// <summary>
+        /// Finds any URLs contained withing the given text content
+        /// </summary>
+        /// <param name="content">Text content that might contain URLs</param>
+        /// <returns>A collection of found URLs</returns>
+        public IEnumerable<string> FindUrls(string content)
+        {
+            // TODO: check for relative URLs
+
+            int cindex = 0;
+
+            while (cindex < content.Length && cindex != -1)
+            {   
+                // Check for URLs beginning with HTTP
+                cindex = content.IndexOf("http", cindex, StringComparison.OrdinalIgnoreCase);
+                if (cindex >= 0)
+                {
+                    // read until a non-URL character is found
+                    var nextindex = content.IndexOfAny(new[] { '<', '>', '(', ')', '\'', '"', '\n', '\r', '\t', ' ', '[', ']' }, cindex + 1);
+                    var url = content.Substring(cindex, nextindex - cindex);
+                    cindex++;
+
+                    // url decode it
+                    url = HttpUtility.UrlDecode(url);
+
+                    // check if valid url
+                    var valid = Regex.IsMatch(url, @"^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$");
+
+                    if (valid) yield return url;
+                }
+
+                // Check for relative URLs
+            }
         }
     }
 }

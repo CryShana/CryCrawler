@@ -21,7 +21,7 @@ namespace CryCrawler.Worker
 
             crawler = new Crawler(workmanager, config.WorkerConfig);
 
-            webgui = new WebGUI(new IPEndPoint(IPAddress.Parse(config.WebGUI.IP), config.WebGUI.Port), 
+            webgui = new WebGUI(new IPEndPoint(IPAddress.Parse(config.WebGUI.IP), config.WebGUI.Port),
                 new WorkerResponder(config, crawler));
         }
 

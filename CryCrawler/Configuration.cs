@@ -1,6 +1,6 @@
-﻿using MessagePack;
+﻿using System.Net;
+using MessagePack;
 using System.Collections.Generic;
-using System.Net;
 
 namespace CryCrawler
 {
@@ -27,6 +27,37 @@ namespace CryCrawler
         public string DownloadsPath { get; set; } = "downloads";
         public int MaxConcurrency { get; set; } = 3;
         public bool DepthSearch { get; set; } = false;
+
+        public List<string> AcceptedExtensions { get; set; } = new List<string>()
+        {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webm",
+            ".mp4",
+            ".txt"
+        };
+
+        public List<string> AcceptedMediaTypes { get; set; } = new List<string>()
+        {
+            "image/png",
+            "image/jpeg",
+            "audio/mpeg",
+            "audio/vorbis",
+            "video/mp4",
+            "application/pdf"
+        };
+
+        public List<string> ScanTargetsMediaTypes { get; set; } = new List<string>()
+        {
+            "text/html",
+            "text/css",
+            "application/javascript"
+        };
+
+        public bool AcceptAllFiles { get; set; } = false;
+
         public List<string> Urls { get; set; } = new List<string>();
     }
 
@@ -53,7 +84,7 @@ namespace CryCrawler
         public int Port { get; set; } = 6000;
         public string Password { get; set; } = "";
         public bool UseHost { get; set; } = false;
-    } 
+    }
     #endregion
 
 }
