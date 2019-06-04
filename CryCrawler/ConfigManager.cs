@@ -1,7 +1,7 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
+using Newtonsoft.Json;
 
 namespace CryCrawler
 {
@@ -20,7 +20,9 @@ namespace CryCrawler
                 {
                     //  attempt to load config file
                     var content = File.ReadAllText(FileName);
-                    config = JsonConvert.DeserializeObject<Configuration>(content);
+                    config = JsonConvert.DeserializeObject<Configuration>(content, new JsonSerializerSettings {
+                        ObjectCreationHandling = ObjectCreationHandling.Replace
+                    });
 
                     // validate some properties
                     if (IPAddress.TryParse(config.HostConfig.ListenerConfiguration.IP, out IPAddress addr) == false)

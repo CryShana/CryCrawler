@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using CommandLine;
 using System.Linq;
 using CryCrawler.Host;
@@ -50,6 +49,9 @@ namespace CryCrawler
             // Cleanup
             Logger.Log("Shutting down...");
             program.Stop();
+
+            // Save configuration
+            ConfigManager.SaveConfiguration(config);
 
             // Wait a bit for logger
             Task.Delay(300).Wait();
