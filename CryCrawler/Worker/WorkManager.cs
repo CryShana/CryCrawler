@@ -180,6 +180,7 @@ namespace CryCrawler.Worker
                 addingSemaphore.Release();
             }
         }
+
         public bool GetWork(out string url)
         {
             Work w = null;
@@ -239,6 +240,13 @@ namespace CryCrawler.Worker
         private void DumpMemoryToCache()
         {
             // TODO: dump all current work (and check for it on load)
+        }
+
+        public void ReportWorkResult(string url, bool success)
+        {
+            // report result
+
+            // if recrawl is enabled, re-add it here, otherwise dump the url
         }
 
         public void Dispose()
