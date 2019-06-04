@@ -34,7 +34,10 @@ namespace CryCrawler.Worker
             if (IsActive) throw new InvalidOperationException("Crawler already active!");
 
             IsActive = true;
+
             httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "CryCrawler");
+
             cancelSource = new CancellationTokenSource();
 
             for (int i = 0; i < Config.MaxConcurrency; i++)
@@ -70,7 +73,7 @@ namespace CryCrawler.Worker
                     if (!response.IsSuccessStatusCode)
                     {
                         // TODO: treat differently based on status code (for ex. if page doesn't exist at all, or if 500, 404,...)
-                        Logger.Log($"Failed to crawl '{url}' ({response.StatusCode})", Logger.LogSeverity.Information);
+                        // Logger.Log($"Failed to crawl '{url}' ({response.StatusCode})", Logger.LogSeverity.Information);
                         continue;
                     }
 
@@ -111,7 +114,7 @@ namespace CryCrawler.Worker
 
                     // download content to file
                     using (var fstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
-                        await response.Content.CopyToAsync(fstream);
+                        await response.Content.CopyToAsync(fstream).ConfigureAwait(false);
 
                     // Logger.Log($"Downloaded '{url}' to '{path}'");
                     success = true;

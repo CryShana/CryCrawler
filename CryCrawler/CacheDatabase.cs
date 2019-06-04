@@ -1,9 +1,9 @@
 ﻿using LiteDB;
 using System;
-using CryCrawler.Worker;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using CryCrawler.Worker;
 using System.Collections.Generic;
 
 namespace CryCrawler
@@ -11,7 +11,9 @@ namespace CryCrawler
     public class CacheDatabase
     {
         public const string DefaultFilename = "crycrawler_cache";
+        public const int MaxIndexLength = 512;
 
+        const string DumpedName = "dumped";
         const string BacklogName = "backlog";
         const string CrawledName = "crawled";
         readonly string filename = DefaultFilename;
@@ -21,6 +23,7 @@ namespace CryCrawler
 
         LiteCollection<Work> backlogCollection;
         LiteCollection<Work> crawledCollection;
+        LiteCollection<Work> dumpedCollection;
 
         public CacheDatabase(string filename)
         {
@@ -31,19 +34,17 @@ namespace CryCrawler
         }
 
         /// <summary>
-        /// Save specified work to database
+        /// Insert specified work to database
         /// </summary>
-        /// <param name="w">Work to save</param>
-        /// <param name="asCrawled">Save into crawled collection</param>
+        /// <param name="w">Work to insert</param>
+        /// <param name="collection">Collection to insert into</param>
         /// <returns>Whether the operation was successful or not</returns>
-        public bool Insert(Work w, bool asCrawled = false)
+        public bool Insert(Work w, Collection collection = Collection.CachedBacklog)
         {
             semaphore.Wait();
             try
             {
-                if (asCrawled) crawledCollection.Insert(w);
-                else backlogCollection.Insert(w);
-
+                GetCollection(collection).Insert(w);
                 return true;
             }
             catch (Exception ex)
@@ -57,47 +58,89 @@ namespace CryCrawler
             }
         }
 
+
         /// <summary>
-        /// Save multiple works to database. Optimized for inserting 100 - 100000 works.
+        /// Insert multiple works to database. Optimized for inserting 100 - 100000 works. Automatically splits larger collections.
         /// </summary>
-        /// <param name="ws">Works to save</param>
-        /// <param name="count">Number of works to save</param>
-        /// <param name="asCrawled">Save into crawled collection</param>
+        /// <param name="ws">Works to insert</param>
+        /// <param name="count">Number of works to insert</param>
+        /// <param name="inserted">Number of works successfully inserted</param>
+        /// <param name="collection">Collection to insert into</param>
         /// <returns>Whether the operation was successful or not</returns>
-        public bool InsertBulk(IEnumerable<Work> ws, int count, bool asCrawled = false)
+        public bool InsertBulk(IEnumerable<Work> ws, int count, out int inserted, Collection collection = Collection.CachedBacklog)
         {
-            semaphore.Wait();
-            try
+            // Handle if count is out of range 
+            inserted = 0;
+            const int minItems = 100;
+            const int maxItems = 100000;
+
+            if (count < minItems)
             {
-                if (asCrawled) crawledCollection.InsertBulk(ws, count);
-                else backlogCollection.InsertBulk(ws, count);
+                // Insert every item separately
+                foreach (var w in ws)
+                    if (Insert(w, collection))
+                        inserted++;
 
                 return true;
             }
-            catch (Exception ex)
+            else if (count > maxItems)
             {
-                Logger.Log("Failed to insert bulk items to database! " + ex.Message, Logger.LogSeverity.Error);
-                return false;
+                // Split items into multiple bulks
+                List<Work> works;
+                if (ws is List<Work>) works = ws as List<Work>;
+                else works = ws.ToList();
+
+                int offset = 0;
+                while (offset < works.Count)
+                {
+                    var space = works.Count - offset;
+                    var cnt = maxItems < space ? maxItems : space;
+                    var split_works = works.GetRange(offset, cnt);
+
+                    if (InsertBulk(split_works, count, out int ins))
+                    {
+                        inserted += ins;
+                        offset += ins;
+                    }
+                    else throw new DatabaseErrorException("Failed to bulk insert!");
+                }
+                return true;
             }
-            finally
+            else
             {
-                semaphore.Release();
-            }
+                // Do normal bulk insert
+                semaphore.Wait();
+                try
+                {
+                    GetCollection(collection).InsertBulk(ws, count);
+                    inserted += count;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log("Failed to insert bulk items to database! " + ex.Message, Logger.LogSeverity.Error);
+                    return false;
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }        
         }
 
         /// <summary>
         /// Insert or update existing work based on URL (not Id)
         /// </summary>
         /// <param name="w">Work to insert or update</param>
-        /// <param name="asCrawled">Use the crawled collection</param>
+        /// <param name="collection">Collection to use</param>
         /// <returns>Whether the operation was successful or not</returns>
-        public bool Upsert(Work w, out bool wasInserted, bool asCrawled = false)
+        public bool Upsert(Work w, out bool wasInserted, Collection collection = Collection.CachedBacklog)
         {
             semaphore.Wait();
             try
             {
-                var col = asCrawled ? crawledCollection : backlogCollection;
-                var work = col.FindOne(Query.Where("Url", x => x.AsString == w.Url));
+                var col = GetCollection(collection);
+                var work = getWork(w.Url, collection);
                 if (work == null)
                 {
                     // insert work
@@ -129,14 +172,20 @@ namespace CryCrawler
         /// Get multiple works in specified order and auto-remove them if necessary
         /// </summary>
         /// <param name="works">Retrieved works</param>
-        /// <param name="count">Number of works to retrieve</param>
+        /// <param name="count">Number of works to retrieve. Set -1 for all works.</param>
         /// <param name="oldestFirst">Order (true for Ascending)</param>
         /// <param name="autoRemove">Automatically remove retrieved works from database</param>
-        /// <param name="asCrawled">Search only crawled works</param>
+        /// <param name="collection">Collection to search</param>
         /// <returns>Whether works were retrieved successfully or not</returns>
-        public bool GetWorks(out List<Work> works, int count, bool oldestFirst, bool autoRemove = false, bool asCrawled = false)
+        public bool GetWorks(out List<Work> works, int count, bool oldestFirst, bool autoRemove = false, Collection collection = Collection.CachedBacklog)
         {
-            if (count <= 0)
+            if (count == -1)
+            {
+                works = GetCollection(collection).FindAll().ToList();
+                return true;
+            }
+
+            if (count <= 0 )
             {
                 works = null;
                 return false;
@@ -145,7 +194,7 @@ namespace CryCrawler
             semaphore.Wait();
             try
             {
-                var col = asCrawled ? crawledCollection : backlogCollection;
+                var col = GetCollection(collection);
 
                 // construct query
                 var query = Query.All("AddedTime", oldestFirst ? Query.Ascending : Query.Descending);
@@ -176,17 +225,14 @@ namespace CryCrawler
         /// </summary>
         /// <param name="work">Found work</param>
         /// <param name="url">URL to find (case-sensitive)</param>
-        /// <param name="asCrawled">Search only crawled works</param>
+        /// <param name="collection">Collection to search</param>
         /// <returns>Whether work was successfully found or not</returns>
-        public bool GetWork(out Work work, string url, bool asCrawled = false)
+        public bool GetWork(out Work work, string url, Collection collection = Collection.CachedBacklog)
         {
             semaphore.Wait();
             try
             {
-                var col = asCrawled ? crawledCollection : backlogCollection;
-
-                // get work
-                work = col.FindOne(Query.Where("Url", x => x.AsString == url));
+                work = getWork(url, collection);
 
                 return work != null;
             }
@@ -205,15 +251,14 @@ namespace CryCrawler
         /// <summary>
         /// Get number of cached works
         /// </summary>
-        /// <param name="asCrawled">Search only crawled works</param>
+        /// <param name="collection">Collection to search</param>
         /// <returns>Number of cached works</returns>
-        public long GetWorkCount(bool asCrawled = false)
+        public long GetWorkCount(Collection collection = Collection.CachedBacklog)
         {
             semaphore.Wait();
             try
             {
-                var col = asCrawled ? crawledCollection : backlogCollection;
-                return col.LongCount();
+                return GetCollection(collection).LongCount();
             }
             catch (Exception ex)
             {
@@ -265,17 +310,56 @@ namespace CryCrawler
             File.Delete(filename);
         }
 
+        /// <summary>
+        /// Clear all items from collection
+        /// </summary>
+        public void DropCollection(Collection collection) => database.DropCollection(GetCollection(collection).Name);          
+        
+        private Work getWork(string url, Collection collection)
+        {
+            // need to search by key that is limited with 512 bytes
+            var works = GetCollection(collection).Find(Query.Where("Key", x => x.AsString == Work.LimitText(url, MaxIndexLength)));
+            return works.Where(x => x.Url == url).FirstOrDefault();
+        }
+
         private void PrepareCollections()
         {
             crawledCollection = database.GetCollection<Work>(CrawledName);
             crawledCollection.EnsureIndex(x => x.LastCrawled);
             crawledCollection.EnsureIndex(x => x.AddedTime);
-            crawledCollection.EnsureIndex(x => x.Url);
+            crawledCollection.EnsureIndex(x => x.Key);
 
             backlogCollection = database.GetCollection<Work>(BacklogName);
             backlogCollection.EnsureIndex(x => x.LastCrawled);
             backlogCollection.EnsureIndex(x => x.AddedTime);
-            backlogCollection.EnsureIndex(x => x.Url);
+            backlogCollection.EnsureIndex(x => x.Key);
+
+            dumpedCollection = database.GetCollection<Work>(DumpedName);
+            dumpedCollection.EnsureIndex(x => x.LastCrawled);
+            dumpedCollection.EnsureIndex(x => x.AddedTime);
+            dumpedCollection.EnsureIndex(x => x.Key);
+        }
+
+        private LiteCollection<Work> GetCollection(Collection collection)
+        {
+            switch (collection)
+            {
+                case Collection.CachedBacklog:
+                    return backlogCollection;
+                case Collection.CachedCrawled:
+                    return crawledCollection;
+                case Collection.DumpedBacklog:
+                    return dumpedCollection;
+                default:
+                    return null;
+            }
+        }
+
+        public enum Collection
+        {
+            DumpedBacklog,
+            CachedBacklog,
+            CachedCrawled
         }
 
         public class DatabaseErrorException : Exception

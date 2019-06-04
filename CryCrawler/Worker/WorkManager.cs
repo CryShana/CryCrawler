@@ -3,6 +3,8 @@ using System.Threading;
 using CryCrawler.Structures;
 using System.Collections.Generic;
 using static CryCrawler.CacheDatabase;
+using System.Threading.Tasks;
+using System;
 
 namespace CryCrawler.Worker
 {
@@ -55,9 +57,20 @@ namespace CryCrawler.Worker
                 // use local Urls and Dashboard provided URLs
                 Logger.Log($"Using local Url source");
 
+                // load dumped 
+                if (database.GetWorks(out List<Work> dumped, -1, false, false, Collection.DumpedBacklog) && 
+                    dumped != null && dumped.Count > 0)
+                {
+                    // add to backlog
+                    Backlog.AddItems(dumped);
+                    database.DropCollection(Collection.DumpedBacklog);
+
+                    Logger.Log($"Loaded {dumped.Count} backlog items from cache.");
+                }
+
                 // load all local Urls (only if not yet crawled)
                 foreach (var url in config.Urls)
-                    if (database.GetWork(out Work w, url, true) == false)
+                    if (database.GetWork(out Work w, url, Collection.CachedCrawled) == false)
                     {
                         AddToBacklog(url);
                     }
@@ -68,14 +81,14 @@ namespace CryCrawler.Worker
                         
 
                 // load cache stats
-                CachedWorkCount = database.GetWorkCount(false);
-                CachedCrawledWorkCount = database.GetWorkCount(true);
+                CachedWorkCount = database.GetWorkCount(Collection.CachedBacklog);
+                CachedCrawledWorkCount = database.GetWorkCount(Collection.CachedCrawled);
             }
         }
 
         public void AddToCrawled(Work w)
         {
-            if (database.Upsert(w, out bool wasIns, true))
+            if (database.Upsert(w, out bool wasIns, Collection.CachedCrawled))
             {
                 if (wasIns) CachedCrawledWorkCount++;
             }
@@ -149,37 +162,8 @@ namespace CryCrawler.Worker
                     var forCacheCount = works.Count - forBacklogCount;
                     var forCache = works.GetRange(forBacklogCount, forCacheCount);
 
-                    // Bulk insertion only supports from 100 to 100000 items
-                    if (forCacheCount >= minItems && forCacheCount <= maxItems)
-                    {
-                        if (database.InsertBulk(forCache, forCacheCount)) CachedWorkCount += forCacheCount;
-                        else throw new DatabaseErrorException("Failed to bulk insert!");
-                    }
-                    else if (forCacheCount > maxItems)
-                    {
-                        // divide it into parts and bulk save it
-                        int offset = 0;
-                        while (offset < works.Count)
-                        {
-                            var space = works.Count - offset;
-                            var count = maxItems < space ? maxItems : space;
-                            var split_works = works.GetRange(offset, count);
-
-                            if (database.InsertBulk(split_works, count))
-                            {
-                                CachedWorkCount += count;
-                                offset += count;
-                            }
-                            else throw new DatabaseErrorException("Failed to bulk insert!");
-                        }
-                    }
-                    else
-                    {
-                        foreach (var i in forCache)
-                            if (database.Insert(i))
-                                CachedWorkCount++;
-                            else throw new DatabaseErrorException("Failed to insert!");
-                    }
+                    if (database.InsertBulk(forCache, forCacheCount, out int inserted)) CachedWorkCount += inserted;
+                    else throw new DatabaseErrorException("Failed to bulk insert!");        
                 }
             }
             finally
@@ -239,7 +223,9 @@ namespace CryCrawler.Worker
 
             // if recrawl is enabled, re-add it here, otherwise dump the url
 
-            if (success) AddToCrawled(new Work(url));
+            if (success) AddToCrawled(new Work(url) {
+                LastCrawled = DateTime.Now
+            });
         }
 
         /// <summary>
@@ -252,7 +238,7 @@ namespace CryCrawler.Worker
             // check if url was already crawled (consider recrawling)
 
             // for now, if url was crawled, it's not eligible, ignore it
-            if (database.GetWork(out Work w, url, true) == false) return true;
+            if (database.GetWork(out _, url, Collection.CachedCrawled) == false) return true;
             else return false;          
         }
 
@@ -286,7 +272,8 @@ namespace CryCrawler.Worker
         }
         private void DumpMemoryToCache()
         {
-            // TODO: dump all current work (and check for it on load)
+            database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
+            Logger.Log($"Dumped {inserted} backlog items to cache");
         }
     }
 }
