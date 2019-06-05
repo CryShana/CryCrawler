@@ -20,6 +20,7 @@ namespace CryCrawler.Worker
         public readonly int MemoryLimitCount = (MaxMemoryLimitMB * 1024 * 1024) / 200;
 
         #region Public Properties
+        public bool Disposing { get; private set; }
         public ConcurrentQueueOrStack<Work, string> Backlog { get; }
         public long WorkCount => Backlog.Count + CachedWorkCount;
         public long CachedWorkCount { get; private set; } = 0;
@@ -57,7 +58,7 @@ namespace CryCrawler.Worker
                 Logger.Log($"Using local Url source");
 
                 // load dumped 
-                if (database.GetWorks(out List<Work> dumped, -1, false, false, Collection.DumpedBacklog) && 
+                if (database.GetWorks(out List<Work> dumped, -1, false, false, Collection.DumpedBacklog) &&
                     dumped != null && dumped.Count > 0)
                 {
                     // add to backlog
@@ -77,7 +78,7 @@ namespace CryCrawler.Worker
                     {
                         Logger.Log($"Skipping specified URL '{url}' - already crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
                     }
-                        
+
 
                 // load cache stats
                 CachedWorkCount = database.GetWorkCount(Collection.CachedBacklog);
@@ -87,11 +88,26 @@ namespace CryCrawler.Worker
 
         public void AddToCrawled(Work w)
         {
-            if (database.Upsert(w, out bool wasIns, Collection.CachedCrawled))
+            addingSemaphore.Wait();
+            try
             {
-                if (wasIns) CachedCrawledWorkCount++;
+                if (Disposing) return;
+
+                if (database.Upsert(w, out bool wasIns, Collection.CachedCrawled))
+                {
+                    if (wasIns) CachedCrawledWorkCount++;
+                }
+                // TODO: better handle this
+                else if (!Disposing) throw new DatabaseErrorException("Failed to upsert crawled work to database!");
             }
-            else throw new DatabaseErrorException("Failed to upsert crawled work to database!");
+            catch (Exception)
+            {
+                throw;
+            }
+            finally
+            {
+                addingSemaphore.Release();
+            }
         }
 
         SemaphoreSlim addingSemaphore = new SemaphoreSlim(1);
@@ -102,6 +118,8 @@ namespace CryCrawler.Worker
             addingSemaphore.Wait();
             try
             {
+                if (Disposing) return;
+
                 // if above memory limit, save to database
                 if (Backlog.Count >= MemoryLimitCount)
                 {
@@ -138,6 +156,8 @@ namespace CryCrawler.Worker
             addingSemaphore.Wait();
             try
             {
+                if (Disposing) return;
+
                 // if cache not empty, load it to memory first
                 if (CachedWorkCount > 0) LoadCacheToMemory();
 
@@ -158,7 +178,7 @@ namespace CryCrawler.Worker
                     var forCache = works.GetRange(forBacklogCount, forCacheCount);
 
                     if (database.InsertBulk(forCache, forCacheCount, out int inserted)) CachedWorkCount += inserted;
-                    else throw new DatabaseErrorException("Failed to bulk insert!");        
+                    else throw new DatabaseErrorException("Failed to bulk insert!");
                 }
             }
             finally
@@ -173,6 +193,12 @@ namespace CryCrawler.Worker
             addingSemaphore.Wait();
             try
             {
+                if (Disposing)
+                {
+                    url = null;
+                    return false;
+                }
+
                 if (isFIFO)
                 {
                     // take from memory if available
@@ -218,7 +244,8 @@ namespace CryCrawler.Worker
 
             // if recrawl is enabled, re-add it here, otherwise dump the url
 
-            if (success) AddToCrawled(new Work(url) {
+            if (success) AddToCrawled(new Work(url)
+            {
                 LastCrawled = DateTime.Now
             });
         }
@@ -233,7 +260,22 @@ namespace CryCrawler.Worker
             // TODO: consider recrawling
 
             // check if url already in backlog
-            if (Backlog.ContainsKey(Work.GetKeyFromUrl(url))) return false;
+            var backlogContains = false;
+            if (Backlog.ContainsKey(Work.GetKeyFromUrl(url)))
+            {
+                backlogContains = true;
+
+                // if URL is above max index length, the key was cut off, find actual work to confirm for sure
+                if (url.Length >= MaxIndexLength - 1)
+                {
+                    // find work with identical url to really confirm it
+                    var work = Backlog.FindItem(x => x.Url == url);
+                    backlogContains = work != null;
+                }
+            }
+
+            // skip further checking if backlog already contains it
+            if (backlogContains) return false;
 
             // check if url already crawled
             if (database.GetWork(out _, url, Collection.CachedCrawled)) return false;
@@ -241,8 +283,11 @@ namespace CryCrawler.Worker
             return true;
         }
 
+
         public void Dispose()
         {
+            Disposing = true;
+
             // dump all work if working locally - if working via Host, delete cache
             if (!config.HostEndpoint.UseHost)
             {
