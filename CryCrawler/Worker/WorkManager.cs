@@ -1,10 +1,9 @@
+using System;
 using System.Linq;
 using System.Threading;
 using CryCrawler.Structures;
 using System.Collections.Generic;
 using static CryCrawler.CacheDatabase;
-using System.Threading.Tasks;
-using System;
 
 namespace CryCrawler.Worker
 {
@@ -21,7 +20,7 @@ namespace CryCrawler.Worker
         public readonly int MemoryLimitCount = (MaxMemoryLimitMB * 1024 * 1024) / 200;
 
         #region Public Properties
-        public ConcurrentQueueOrStack<Work> Backlog { get; }
+        public ConcurrentQueueOrStack<Work, string> Backlog { get; }
         public long WorkCount => Backlog.Count + CachedWorkCount;
         public long CachedWorkCount { get; private set; } = 0;
         public long CachedCrawledWorkCount { get; private set; } = 0;
@@ -36,7 +35,7 @@ namespace CryCrawler.Worker
 
             // depth-search = Stack (LIFO), breadth-search = Queue (FIFO)
             isFIFO = !config.DepthSearch;
-            Backlog = new ConcurrentQueueOrStack<Work>(!isFIFO);
+            Backlog = new ConcurrentQueueOrStack<Work, string>(!isFIFO, t => t.Key);
 
             if (config.HostEndpoint.UseHost)
             {
@@ -136,10 +135,6 @@ namespace CryCrawler.Worker
             var works = new List<Work>();
             foreach (var i in urls) works.Add(new Work(i));
 
-            // for bulk insertion into cache
-            const int minItems = 100;
-            const int maxItems = 100000;
-
             addingSemaphore.Wait();
             try
             {
@@ -229,17 +224,21 @@ namespace CryCrawler.Worker
         }
 
         /// <summary>
-        /// Check if URL is eligible for crawling. Usually checks if it was already crawled or not.
+        /// Check if URL is eligible for crawling. Usually if it was already crawled or not or is present in the backlog already.
         /// </summary>
         /// <param name="url">URL to check for</param>
         /// <returns>True if URL is eligible</returns>
         public bool IsUrlEligibleForCrawl(string url)
         {
-            // check if url was already crawled (consider recrawling)
+            // TODO: consider recrawling
 
-            // for now, if url was crawled, it's not eligible, ignore it
-            if (database.GetWork(out _, url, Collection.CachedCrawled) == false) return true;
-            else return false;          
+            // check if url already in backlog
+            if (Backlog.ContainsKey(Work.GetKeyFromUrl(url))) return false;
+
+            // check if url already crawled
+            if (database.GetWork(out _, url, Collection.CachedCrawled)) return false;
+
+            return true;
         }
 
         public void Dispose()

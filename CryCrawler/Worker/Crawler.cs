@@ -34,10 +34,8 @@ namespace CryCrawler.Worker
             if (IsActive) throw new InvalidOperationException("Crawler already active!");
 
             IsActive = true;
-
             httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Add("User-Agent", "CryCrawler");
-
             cancelSource = new CancellationTokenSource();
 
             for (int i = 0; i < Config.MaxConcurrency; i++)
@@ -56,8 +54,9 @@ namespace CryCrawler.Worker
         {
             while (!cancelSource.IsCancellationRequested)
             {
-                if (Manager.GetWork(out string url) == false)
+                if (!Manager.IsWorkAvailable || Manager.GetWork(out string url) == false)
                 {
+                    // unable to get work, wait a bit and try again
                     await Task.Delay(100).ConfigureAwait(false);
                     continue;
                 }
@@ -118,6 +117,10 @@ namespace CryCrawler.Worker
 
                     // Logger.Log($"Downloaded '{url}' to '{path}'");
                     success = true;
+                }
+                catch (TaskCanceledException)
+                {
+                    // ignore this exception
                 }
                 catch (Exception ex)
                 {

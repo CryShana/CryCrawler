@@ -4,6 +4,7 @@ using System.Linq;
 using CryCrawler.Host;
 using CryCrawler.Worker;
 using System.Threading.Tasks;
+using System.IO;
 
 namespace CryCrawler
 {
@@ -11,12 +12,13 @@ namespace CryCrawler
     {
         static void Main(string[] args)
         {
-            bool isHost = false;
+            bool isHost = false, newSession = false ;
 
             // Parse arguments
             Parser.Default.ParseArguments<CommandLineOptions>(args).WithParsed(o =>
             {
                 isHost = o.HostMode;
+                newSession = o.NewSession;
                 Logger.DebugMode = o.DebugMode;
             });
 
@@ -38,6 +40,9 @@ namespace CryCrawler
                 ConfigManager.SaveConfiguration(config);
                 Logger.Log($"Created empty '{ConfigManager.FileName}' configuration file.");
             }
+
+            // Delete old cache file if new session flag is present
+            if (newSession && File.Exists(config.CacheFilename)) File.Delete(config.CacheFilename);
 
             // Start program
             var program = isHost ? new HostProgram(config) : (IProgram)new WorkerProgram(config);
@@ -65,5 +70,8 @@ namespace CryCrawler
 
         [Option('h', "host", Required = false, HelpText = "Start program in Hosting mode")]
         public bool HostMode { get; set; }
+
+        [Option('n', "new", Required = false, HelpText = "Delete old cache file and start a new crawler session")]
+        public bool NewSession { get; set; }
     }
 }
