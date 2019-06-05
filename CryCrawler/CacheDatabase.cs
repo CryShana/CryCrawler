@@ -318,7 +318,7 @@ namespace CryCrawler
         private Work getWork(string url, Collection collection)
         {
             // need to search by key that is limited with 512 bytes
-            var works = GetCollection(collection).Find(Query.Where("Key", x => x.AsString == Work.LimitText(url, MaxIndexLength)));
+            var works = GetCollection(collection).Find(Query.Where("Key", x => x.AsString == Work.GetKeyFromUrl(url)));
             return works.Where(x => x.Url == url).FirstOrDefault();
         }
 

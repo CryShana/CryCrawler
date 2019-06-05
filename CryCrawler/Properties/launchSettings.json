@@ -2,7 +2,7 @@
   "profiles": {
     "CryCrawler": {
       "commandName": "Project",
-      "commandLineArgs": "-d"
+      "commandLineArgs": "-dn"
     }
   }
 }

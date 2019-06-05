@@ -19,7 +19,7 @@ namespace CryCrawler.Worker
         public Work(string url)
         {
             Url = url;
-            Key = LimitText(url, CacheDatabase.MaxIndexLength);
+            Key = GetKeyFromUrl(url);
             AddedTime = DateTime.Now;
         }
         public Work() { }
@@ -29,9 +29,11 @@ namespace CryCrawler.Worker
             var txt = text.Length >= maxLenBytes ? text.Substring(0, maxLenBytes - 1) : text;
 
             // check size in bytes and adjust accordingly
-            while (Encoding.UTF8.GetBytes(txt).Length >= maxLenBytes) txt = txt.Substring(0, txt.Length - 1);
+            while (Encoding.UTF8.GetBytes(txt).Length >= maxLenBytes) txt = txt[0..^1];
 
             return txt;
         }
+
+        public static string GetKeyFromUrl(string url) => LimitText(url, CacheDatabase.MaxIndexLength);
     }
 }
