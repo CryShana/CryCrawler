@@ -1,4 +1,4 @@
-﻿using LiteDB;
+using LiteDB;
 using System;
 using System.IO;
 using System.Linq;
@@ -18,6 +18,7 @@ namespace CryCrawler
         const string CrawledName = "crawled";
         readonly string filename = DefaultFilename;
         readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
+        public bool Disposing { get; private set; }
 
         LiteDatabase database;
 
@@ -27,6 +28,7 @@ namespace CryCrawler
 
         public CacheDatabase(string filename)
         {
+            // here is the problem
             this.filename = filename;
             database = new LiteDatabase(filename);
 
@@ -49,6 +51,7 @@ namespace CryCrawler
             }
             catch (Exception ex)
             {
+                if (Disposing) return false;
                 Logger.Log("Failed to insert item to database! " + ex.Message, Logger.LogSeverity.Error);
                 return false;
             }
@@ -118,6 +121,7 @@ namespace CryCrawler
                 }
                 catch (Exception ex)
                 {
+                    if (Disposing) return false;
                     Logger.Log("Failed to insert bulk items to database! " + ex.Message, Logger.LogSeverity.Error);
                     return false;
                 }
@@ -158,8 +162,10 @@ namespace CryCrawler
             }
             catch (Exception ex)
             {
-                Logger.Log("Failed to upsert item to database! " + ex.Message, Logger.LogSeverity.Error);
                 wasInserted = false;
+
+                if (Disposing) return false;
+                Logger.Log("Failed to upsert item to database! " + ex.Message, Logger.LogSeverity.Error);
                 return false;
             }
             finally
@@ -210,8 +216,10 @@ namespace CryCrawler
             }
             catch (Exception ex)
             {
-                Logger.Log("Failed to get works from database! " + ex.Message, Logger.LogSeverity.Error);
                 works = null;
+
+                if (Disposing) return false;
+                Logger.Log("Failed to get works from database! " + ex.Message, Logger.LogSeverity.Error);
                 return false;
             }
             finally
@@ -244,8 +252,10 @@ namespace CryCrawler
             }
             catch (Exception ex)
             {
-                Logger.Log("Failed to get work from database! " + ex.Message, Logger.LogSeverity.Error);
                 work = null;
+
+                if (Disposing) return false;
+                Logger.Log("Failed to get work from database! " + ex.Message, Logger.LogSeverity.Error);
                 return false;
             }
             finally
@@ -268,6 +278,7 @@ namespace CryCrawler
             }
             catch (Exception ex)
             {
+                if (Disposing) return 0;
                 Logger.Log("Failed to get work count from database! " + ex.Message, Logger.LogSeverity.Error);
                 return 0;
             }
@@ -302,7 +313,11 @@ namespace CryCrawler
         /// <summary>
         /// Releases database resources. This does not delete the database.
         /// </summary>
-        public void Dispose() => database.Dispose();
+        public void Dispose()
+        {
+            Disposing = true;
+            database.Dispose();
+        }
 
         /// <summary>
         /// Delete the database.
@@ -323,7 +338,7 @@ namespace CryCrawler
         
         private Work getWork(string url, Collection collection)
         {
-            if (string.IsNullOrEmpty(url)) return null;
+            if (string.IsNullOrEmpty(url) || Disposing) return null;
 
             // need to search by key that is limited with 512 bytes
             var works = GetCollection(collection).Find(Query.Where("Key", x => x.AsString == Work.GetKeyFromUrl(url)));
@@ -332,20 +347,28 @@ namespace CryCrawler
 
         private void PrepareCollections()
         {
+            // WARNING: Calling EnsureIndex() on a large collection causes a huge memory usage spike
+
             crawledCollection = database.GetCollection<Work>(CrawledName);
-            crawledCollection.EnsureIndex(x => x.LastCrawled);
-            crawledCollection.EnsureIndex(x => x.AddedTime);
-            crawledCollection.EnsureIndex(x => x.Key);
-
             backlogCollection = database.GetCollection<Work>(BacklogName);
-            backlogCollection.EnsureIndex(x => x.LastCrawled);
-            backlogCollection.EnsureIndex(x => x.AddedTime);
-            backlogCollection.EnsureIndex(x => x.Key);
-
             dumpedCollection = database.GetCollection<Work>(DumpedName);
-            dumpedCollection.EnsureIndex(x => x.LastCrawled);
-            dumpedCollection.EnsureIndex(x => x.AddedTime);
-            dumpedCollection.EnsureIndex(x => x.Key);
+
+            // Indexing only necessary on first database initialization
+            if (!database.CollectionExists(CrawledName))
+            {
+                crawledCollection.EnsureIndex(x => x.AddedTime);
+                crawledCollection.EnsureIndex(x => x.Key);
+            }
+            if (!database.CollectionExists(BacklogName))
+            {
+                backlogCollection.EnsureIndex(x => x.AddedTime);
+                backlogCollection.EnsureIndex(x => x.Key);
+            }
+            if (!database.CollectionExists(DumpedName))
+            {
+                dumpedCollection.EnsureIndex(x => x.AddedTime);
+                dumpedCollection.EnsureIndex(x => x.Key);
+            }
         }
 
         private LiteCollection<Work> GetCollection(Collection collection)

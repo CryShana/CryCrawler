@@ -20,7 +20,6 @@ namespace CryCrawler.Worker
         public readonly int MemoryLimitCount = (MaxMemoryLimitMB * 1024 * 1024) / 200;
 
         #region Public Properties
-        public bool Disposing { get; private set; }
         public ConcurrentQueueOrStack<Work, string> Backlog { get; }
         public long WorkCount => Backlog.Count + CachedWorkCount;
         public long CachedWorkCount { get; private set; } = 0;
@@ -76,9 +75,9 @@ namespace CryCrawler.Worker
                     }
                     else
                     {
-                        Logger.Log($"Skipping specified URL '{url}' - already crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
+                        Logger.Log($"Skipping  specified URL '{url}' - already crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
                     }
-
+                    
 
                 // load cache stats
                 CachedWorkCount = database.GetWorkCount(Collection.CachedBacklog);
@@ -91,14 +90,14 @@ namespace CryCrawler.Worker
             addingSemaphore.Wait();
             try
             {
-                if (Disposing) return;
+                if (database.Disposing) return;
 
                 if (database.Upsert(w, out bool wasIns, Collection.CachedCrawled))
                 {
                     if (wasIns) CachedCrawledWorkCount++;
                 }
                 // TODO: better handle this
-                else if (!Disposing) throw new DatabaseErrorException("Failed to upsert crawled work to database!");
+                else if (!database.Disposing) throw new DatabaseErrorException("Failed to upsert crawled work to database!");
             }
             catch (Exception)
             {
@@ -118,7 +117,7 @@ namespace CryCrawler.Worker
             addingSemaphore.Wait();
             try
             {
-                if (Disposing) return;
+                if (database.Disposing) return;
 
                 // if above memory limit, save to database
                 if (Backlog.Count >= MemoryLimitCount)
@@ -156,7 +155,7 @@ namespace CryCrawler.Worker
             addingSemaphore.Wait();
             try
             {
-                if (Disposing) return;
+                if (database.Disposing) return;
 
                 // if cache not empty, load it to memory first
                 if (CachedWorkCount > 0) LoadCacheToMemory();
@@ -193,7 +192,7 @@ namespace CryCrawler.Worker
             addingSemaphore.Wait();
             try
             {
-                if (Disposing)
+                if (database.Disposing)
                 {
                     url = null;
                     return false;
@@ -286,8 +285,6 @@ namespace CryCrawler.Worker
 
         public void Dispose()
         {
-            Disposing = true;
-
             // dump all work if working locally - if working via Host, delete cache
             if (!config.HostEndpoint.UseHost)
             {
