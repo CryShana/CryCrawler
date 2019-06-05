@@ -229,6 +229,12 @@ namespace CryCrawler
         /// <returns>Whether work was successfully found or not</returns>
         public bool GetWork(out Work work, string url, Collection collection = Collection.CachedBacklog)
         {
+            if (string.IsNullOrEmpty(url))
+            {
+                work = null;
+                return false;
+            }
+
             semaphore.Wait();
             try
             {
@@ -317,9 +323,11 @@ namespace CryCrawler
         
         private Work getWork(string url, Collection collection)
         {
+            if (string.IsNullOrEmpty(url)) return null;
+
             // need to search by key that is limited with 512 bytes
             var works = GetCollection(collection).Find(Query.Where("Key", x => x.AsString == Work.GetKeyFromUrl(url)));
-            return works.Where(x => x.Url == url).FirstOrDefault();
+            return works?.Where(x => x.Url == url)?.FirstOrDefault();
         }
 
         private void PrepareCollections()

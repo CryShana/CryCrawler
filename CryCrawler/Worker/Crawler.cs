@@ -118,10 +118,7 @@ namespace CryCrawler.Worker
                     // Logger.Log($"Downloaded '{url}' to '{path}'");
                     success = true;
                 }
-                catch (TaskCanceledException)
-                {
-                    // ignore this exception
-                }
+                catch (OperationCanceledException) { }
                 catch (Exception ex)
                 {
                     Logger.Log($"Failed to crawl '{url}' - ({ex.GetType().Name}) {ex.Message}", Logger.LogSeverity.Error);
@@ -259,7 +256,11 @@ namespace CryCrawler.Worker
                     // url decode it
                     url = HttpUtility.UrlDecode(url);
 
-                    // check if valid url
+                    // quick check if valid url
+
+                    // absolute url must contain ':' - (http: or https:) and must be more than 8 in length
+                    if (url.Length <= 8 || (!url.Contains("http:") && !url.Contains("https:"))) continue; 
+
                     //var valid = Regex.IsMatch(url, @"^(ht|f)tp(s?)\:\/\/[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&%\$#_]*)?$");
 
                     yield return url;

@@ -58,7 +58,14 @@ namespace CryCrawler.Structures
                 foreach (var item in items)
                     addedItems.Add(keySelector(item));
         }
-        public bool ContainsKey(Key key) => addedItems.Contains(key);   
+        public bool ContainsKey(Key key) => addedItems.Contains(key);
+        public T FindItem(Predicate<T> predicate)
+        {
+            IEnumerable<T> col = (IEnumerable<T>)queue ?? stack;
+            foreach (var i in col) if (predicate(i)) return i;
+            return default(T);
+        }
+        
 
         public void Clear()
         {
