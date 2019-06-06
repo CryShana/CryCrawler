@@ -87,6 +87,7 @@ namespace CryCrawler.Worker
 
         public void AddToCrawled(Work w)
         {
+
             addingSemaphore.Wait();
             try
             {

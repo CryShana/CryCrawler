@@ -341,7 +341,9 @@ namespace CryCrawler
             if (string.IsNullOrEmpty(url) || Disposing) return null;
 
             // need to search by key that is limited with 512 bytes
-            var works = GetCollection(collection).Find(Query.Where("Key", x => x.AsString == Work.GetKeyFromUrl(url)));
+            var k = Work.GetKeyFromUrl(url);
+
+            var works = GetCollection(collection).Find(Query.Where("Key", x => x.AsString == k));
             return works?.Where(x => x.Url == url)?.FirstOrDefault();
         }
 

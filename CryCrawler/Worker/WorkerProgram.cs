@@ -37,9 +37,9 @@ namespace CryCrawler.Worker
         public void Stop()
         {
             // cleanup
-            crawler.Stop();
-
             webgui.Stop();
+
+            crawler.Stop();
 
             workmanager.Dispose();
         }

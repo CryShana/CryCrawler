@@ -5,6 +5,9 @@ using CryCrawler.Host;
 using CryCrawler.Worker;
 using System.Threading.Tasks;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace CryCrawler
 {
@@ -12,7 +15,7 @@ namespace CryCrawler
     {
         static void Main(string[] args)
         {
-            bool isHost = false, newSession = false ;
+            bool isHost = false, newSession = false;
 
             // Parse arguments
             Parser.Default.ParseArguments<CommandLineOptions>(args).WithParsed(o =>
@@ -25,6 +28,12 @@ namespace CryCrawler
             // Exit program if only help or version was shown
             if (args.Contains("--help") || args.Contains("--version")) return;
 
+            // Start program with parsed arguments
+            Start(isHost, newSession);
+        }
+
+        static void Start(bool isHost, bool newSession)
+        {        
             // Load configuration
             if (ConfigManager.LoadConfiguration(out Configuration config) == false)
             {
