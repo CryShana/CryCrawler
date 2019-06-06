@@ -5,6 +5,8 @@ namespace CryCrawler.Worker
 {
     public class Work
     {
+        public const int MaxIndexLength = 512;
+
         public long Id { get; set; }
 
         // Key will be the Url, but limited to 512 bytes (LiteDB limitation)
@@ -22,6 +24,7 @@ namespace CryCrawler.Worker
         }
         public Work() { }
 
+
         public static string LimitText(string text, int maxLenBytes)
         {
             var txt = text.Length >= maxLenBytes ? text.Substring(0, maxLenBytes - 1) : text;
@@ -32,6 +35,6 @@ namespace CryCrawler.Worker
             return txt;
         }
 
-        public static string GetKeyFromUrl(string url) => LimitText(url, CacheDatabase.MaxIndexLength);
+        public static string GetKeyFromUrl(string url) => LimitText(url, MaxIndexLength);
     }
 }

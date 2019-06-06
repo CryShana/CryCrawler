@@ -1,13 +1,10 @@
 ﻿using System;
+using System.IO;
 using CommandLine;
 using System.Linq;
 using CryCrawler.Host;
 using CryCrawler.Worker;
 using System.Threading.Tasks;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace CryCrawler
 {
@@ -33,7 +30,7 @@ namespace CryCrawler
         }
 
         static void Start(bool isHost, bool newSession)
-        {        
+        {
             // Load configuration
             if (ConfigManager.LoadConfiguration(out Configuration config) == false)
             {
@@ -52,6 +49,14 @@ namespace CryCrawler
 
             // Delete old cache file if new session flag is present
             if (newSession && File.Exists(config.CacheFilename)) File.Delete(config.CacheFilename);
+
+            // Ensure database exists
+            if (DatabaseContext.EnsureCreated(config.CacheFilename) == false)
+            {
+                Logger.Log($"Failed to create database for caching!", Logger.LogSeverity.Error);
+                Task.Delay(300).Wait();
+                return;
+            }
 
             // Start program
             var program = isHost ? new HostProgram(config) : (IProgram)new WorkerProgram(config);

@@ -4,6 +4,7 @@ using CryCrawler.Worker;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CryCrawlerTests
 {
@@ -12,13 +13,14 @@ namespace CryCrawlerTests
         [Fact]
         public void CachingFIFO()
         {
-            var database = new CacheDatabase("testing_wm_fifo");
-            database.EnsureNew();
+            var dbname = "testing_wm_fifo";
+            DatabaseContext.EnsureCreated(dbname);
 
-            var config = new WorkerConfiguration();
-            config.DepthSearch = false; 
+            var config = new Configuration();
+            config.CacheFilename = dbname;
+            config.WorkerConfig.DepthSearch = false; 
 
-            var wm = new WorkManager(config, database, 4);
+            var wm = new WorkManager(config, 4);
 
             Assert.Equal(0, wm.CachedWorkCount);
             Assert.Equal(0, wm.Backlog.Count);
@@ -75,20 +77,20 @@ namespace CryCrawlerTests
             Assert.Equal(1, wm.Backlog.Count);
             Assert.Equal(1, wm.WorkCount);
 
-            database.Dispose();
-            database.Delete();
+            DatabaseContext.Delete(dbname);
         }
 
         [Fact]
         public void CachingLIFO()
         {
-            var database = new CacheDatabase("testing_wm_lifo");
-            database.EnsureNew();
+            var dbname = "testing_wm_lifo";
+            DatabaseContext.EnsureCreated(dbname);
 
-            var config = new WorkerConfiguration();
-            config.DepthSearch = true;
+            var config = new Configuration();
+            config.CacheFilename = dbname;
+            config.WorkerConfig.DepthSearch = true;
 
-            var wm = new WorkManager(config, database, 4);
+            var wm = new WorkManager(config, 4);
 
             Assert.Equal(0, wm.CachedWorkCount);
             Assert.Equal(0, wm.Backlog.Count);
@@ -145,8 +147,7 @@ namespace CryCrawlerTests
             Assert.Equal(1, wm.Backlog.Count);
             Assert.Equal(1, wm.WorkCount);
 
-            database.Dispose();
-            database.Delete();
+            DatabaseContext.Delete(dbname);
         }
 
         [Fact]
@@ -154,13 +155,14 @@ namespace CryCrawlerTests
         {
             int maxBackLogSize = 4;
 
-            var database = new CacheDatabase("testing_wm_parallel_fifo");
-            database.EnsureNew();
+            var dbname = "testing_wm_parallel_fifo";
+            DatabaseContext.EnsureCreated(dbname);
 
-            var config = new WorkerConfiguration();
-            config.DepthSearch = false;
+            var config = new Configuration();
+            config.CacheFilename = dbname;
+            config.WorkerConfig.DepthSearch = false;
 
-            var wm = new WorkManager(config, database, maxBackLogSize);
+            var wm = new WorkManager(config, maxBackLogSize);
 
             var urls = new[] {
                 "google1.com", "google2.com", "google3.com", "google4.com", "google5.com", "google6.com", "google7.com", "google8.com", "google9.com",
@@ -175,22 +177,22 @@ namespace CryCrawlerTests
             Assert.Equal(maxBackLogSize, wm.Backlog.Count);
             Assert.Equal(urls.Length - maxBackLogSize, wm.CachedWorkCount);
 
-            database.Dispose();
-            database.Delete();
+            DatabaseContext.Delete(dbname);
         }
 
         [Fact]
         public void BulkCachingFIFO()
         {
-            var database = new CacheDatabase("testing_wm_performance_test_cache_bulk_fifo");
-            database.EnsureNew();
+            var dbname = "testing_wm_performance_test_cache_bulk_fifo";
+            DatabaseContext.EnsureCreated(dbname);
 
-            var config = new WorkerConfiguration();
-            config.DepthSearch = false;
+            var config = new Configuration();
+            config.CacheFilename = dbname;
+            config.WorkerConfig.DepthSearch = false;
 
             var memLimit = 4;
             var generateCount = 1000;
-            var wm = new WorkManager(config, database, memLimit);
+            var wm = new WorkManager(config, memLimit);
 
             // generate URLs
             var urls = new List<string>(generateCount);
@@ -210,26 +212,33 @@ namespace CryCrawlerTests
             Assert.True(time < 300);
 
             sw = Stopwatch.StartNew();
-            database.GetWorks(out List<Work> wss, generateCount, true);
-            for (int i = memLimit; i < generateCount; i++) Assert.True(wss[i - memLimit].Url == urls[i]);      
+            using (var db = new DatabaseContext(dbname))
+            {
+                List<Work> wss = db.CachedBacklog.Take(generateCount).ToList();
+                for (int i = memLimit; i < generateCount; i++) Assert.True(wss[i - memLimit].Url == urls[i]);
+            }
+
             sw.Stop();
             time = sw.ElapsedMilliseconds;
-
             Assert.True(time < 300);
+
+
+            DatabaseContext.Delete(dbname);
         }
 
         [Fact]
         public void BulkCachingLIFO()
         {
-            var database = new CacheDatabase("testing_wm_performance_test_cache_bulk_lifo");
-            database.EnsureNew();
+            var dbname = "testing_wm_performance_test_cache_bulk_lifo";
+            DatabaseContext.EnsureCreated(dbname);
 
-            var config = new WorkerConfiguration();
-            config.DepthSearch = false;
+            var config = new Configuration();
+            config.CacheFilename = dbname;
+            config.WorkerConfig.DepthSearch = true;
 
             var memLimit = 4;
             var generateCount = 1000;
-            var wm = new WorkManager(config, database, memLimit);
+            var wm = new WorkManager(config, memLimit);
 
             // generate URLs
             var urls = new List<string>(generateCount);
@@ -249,25 +258,34 @@ namespace CryCrawlerTests
             Assert.True(time < 300);
 
             sw = Stopwatch.StartNew();
-            database.GetWorks(out List<Work> wss, generateCount, false);
-            for (int i = generateCount - 1 - memLimit; i >= 0; i--) Assert.True(wss[i].Url == urls[generateCount - 1 - i]);
+            using (var db = new DatabaseContext(dbname))
+            {
+                List<Work> wss = db.CachedBacklog.TakeLast(generateCount).Reverse().ToList();
+
+                for (int i = generateCount - 1 - memLimit; i >= 0; i--) Assert.True(wss[i].Url == urls[generateCount - 1 - i]);
+            }
+           
             sw.Stop();
             time = sw.ElapsedMilliseconds;
 
             Assert.True(time < 300);
+
+
+            DatabaseContext.Delete(dbname);
         }
 
         [Fact]
         public void PerformanceTest()
         {           
-            var database = new CacheDatabase("testing_wm_performance_test");
-            database.EnsureNew();
+            var dbname = "testing_wm_performance_test";
+            DatabaseContext.EnsureCreated(dbname);
 
-            var config = new WorkerConfiguration();
-            config.DepthSearch = false;
+            var config = new Configuration();
+            config.CacheFilename = dbname;
+            config.WorkerConfig.DepthSearch = false;
 
             var memLimit = 100000;
-            var wm = new WorkManager(config, database, memLimit);
+            var wm = new WorkManager(config, memLimit);
 
             // generate URLs
             var urls = new List<string>();
@@ -281,66 +299,10 @@ namespace CryCrawlerTests
             Assert.Equal(memLimit, wm.WorkCount);
             Assert.True(time < 400);
 
-            database.Dispose();
-            database.Delete();
+
+            DatabaseContext.Delete(dbname);
         }
 
-        [Fact]
-        public void CachePerformanceTest()
-        {
-            var database = new CacheDatabase("testing_wm_performance_test_cache");
-            database.EnsureNew();
-
-            var config = new WorkerConfiguration();
-            config.DepthSearch = false;
-
-            int memLimit = 100000;
-            var wm = new WorkManager(config, database, memLimit);
-
-            // generate URLs over memory limit
-            int count = memLimit + 50;
-            var urls = new List<string>();
-            for (int i = 0; i < count; i++) urls.Add($"google-someurl-this-url{(i + 1)}-needs-to-be-relatively-long/page{i}/host{i}");
-
-            var sw = Stopwatch.StartNew();
-            Parallel.ForEach(urls, a => wm.AddToBacklog(a));
-            sw.Stop();
-            var time = sw.ElapsedMilliseconds;
-
-            Assert.Equal(count, wm.WorkCount);
-            Assert.True(time < 3000);
-
-            database.Dispose();
-            database.Delete();
-        }
-
-        [Fact]
-        public void CachePerformanceTestBulk()
-        {
-            var database = new CacheDatabase("testing_wm_performance_test_cache_bulk");
-            database.EnsureNew();
-
-            var config = new WorkerConfiguration();
-            config.DepthSearch = false;
-
-            int memLimit = 100000;
-            var wm = new WorkManager(config, database, memLimit);
-
-            // generate URLs over memory limit
-            int count = memLimit + 10000;
-            var urls = new List<string>();
-            for (int i = 0; i < count; i++) urls.Add($"google-someurl-this-url{(i + 1)}-needs-to-be-relatively-long/page{i}/host{i}");
-
-            var sw = Stopwatch.StartNew();
-            wm.AddToBacklog(urls);
-            sw.Stop();
-            var time = sw.ElapsedMilliseconds;
-
-            Assert.Equal(count, wm.WorkCount);
-            Assert.True(time < 1500);
-
-            database.Dispose();
-            database.Delete();
-        }
+  
     }
 }

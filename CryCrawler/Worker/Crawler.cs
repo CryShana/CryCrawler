@@ -18,12 +18,12 @@ namespace CryCrawler.Worker
     {
         public bool IsActive { get; private set; }
         public WorkManager Manager { get; }
-        public WorkerConfiguration Config { get; }
+        public Configuration Config { get; }
 
         private HttpClient httpClient;
         private CancellationTokenSource cancelSource;
 
-        public Crawler(WorkManager manager, WorkerConfiguration config)
+        public Crawler(WorkManager manager, Configuration config)
         {
             Config = config;
             Manager = manager;
@@ -38,7 +38,7 @@ namespace CryCrawler.Worker
             httpClient.DefaultRequestHeaders.Add("User-Agent", "CryCrawler");
             cancelSource = new CancellationTokenSource();
 
-            for (int i = 0; i < Config.MaxConcurrency; i++)
+            for (int i = 0; i < Config.WorkerConfig.MaxConcurrency; i++)
                 new Task(Work, cancelSource.Token, TaskCreationOptions.LongRunning).Start();
         }
 
@@ -79,7 +79,7 @@ namespace CryCrawler.Worker
                     var mediaType = response.Content.Headers.ContentType.MediaType;
 
                     // Check if media type is set as a scanning target, if yes, scan it for new URLs
-                    if (Config.ScanTargetsMediaTypes.Count(x => x == mediaType) > 0)
+                    if (Config.WorkerConfig.ScanTargetsMediaTypes.Count(x => x == mediaType) > 0)
                     {
                         // scan the content for more urls
                         var content = await response.Content.ReadAsStringAsync();
@@ -138,16 +138,16 @@ namespace CryCrawler.Worker
         /// <returns>True if file is acceptable</returns>
         public bool IsAcceptable(string filename, string mediaType)
         {
-            if (Config.AcceptAllFiles) return true;
+            if (Config.WorkerConfig.AcceptAllFiles) return true;
 
             var ext = Path.GetExtension(filename).ToLower().Trim();
             var mty = mediaType.ToLower().Trim();
 
             // check extension
-            if (Config.AcceptedExtensions.Count(x => x.ToLower().Trim() == ext) > 0) return true;
+            if (Config.WorkerConfig.AcceptedExtensions.Count(x => x.ToLower().Trim() == ext) > 0) return true;
 
             // check media type
-            if (Config.AcceptedMediaTypes.Count(x => x.ToLower().Trim() == mty) > 0) return true;
+            if (Config.WorkerConfig.AcceptedMediaTypes.Count(x => x.ToLower().Trim() == mty) > 0) return true;
 
             // if both are not accepted, we are not interested
             return false;
@@ -191,7 +191,7 @@ namespace CryCrawler.Worker
         /// <returns>Path based on URL</returns>
         public string GetDirectoryPath(string url, bool createDirectory = false)
         {
-            string path = Config.DownloadsPath;
+            string path = Config.WorkerConfig.DownloadsPath;
 
             // if any query parameters present, remove them
             var index = url.IndexOf('?');

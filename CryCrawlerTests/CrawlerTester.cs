@@ -12,12 +12,15 @@ namespace CryCrawlerTests
         [Fact]
         public void FilenamesTest()
         {
+            var dbname = "filenames_test";
             var config = new Configuration();
-            var database = new CacheDatabase("filenames_test");
-            database.EnsureNew();
+            config.CacheFilename = dbname;
 
-            var manager = new WorkManager(config.WorkerConfig, database);
-            var crawler = new Crawler(manager, config.WorkerConfig);
+            DatabaseContext.EnsureCreated(dbname);
+
+
+            var manager = new WorkManager(config);
+            var crawler = new Crawler(manager, config);
 
             // CHECK FILES
             var f1 = crawler.GetFilename("https://www.youtube.com/playlist?list=PLJcysJ8SvKlA4NQGW_Qh-UF7sdpC0Mo", "text/html");
@@ -78,8 +81,7 @@ namespace CryCrawlerTests
             var d10 = crawler.GetDirectoryPath("https://cryshana.me");
             Assert.Equal($"{config.WorkerConfig.DownloadsPath}\\cryshana.me", d10);
 
-            database.Dispose();
-            database.Delete();
+            DatabaseContext.Delete(dbname);
         }
     }
 }

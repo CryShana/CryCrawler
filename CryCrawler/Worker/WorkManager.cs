@@ -1,9 +1,7 @@
 using System;
 using System.Linq;
-using System.Threading;
 using CryCrawler.Structures;
 using System.Collections.Generic;
-using static CryCrawler.CacheDatabase;
 
 namespace CryCrawler.Worker
 {
@@ -13,8 +11,7 @@ namespace CryCrawler.Worker
     public class WorkManager
     {
         bool isFIFO = false;
-        readonly CacheDatabase database;
-        readonly WorkerConfiguration config;
+        readonly Configuration config;
 
         const int MaxMemoryLimitMB = 300;
         public readonly int MemoryLimitCount = (MaxMemoryLimitMB * 1024 * 1024) / 200;
@@ -27,25 +24,25 @@ namespace CryCrawler.Worker
         public bool IsWorkAvailable => Backlog.Count > 0 || CachedWorkCount > 0;
         #endregion
 
-        public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount) : this(config, database) => MemoryLimitCount = newMemoryLimitCount;
-        public WorkManager(WorkerConfiguration config, CacheDatabase database)
+        public WorkManager(Configuration config, int newMemoryLimitCount) : this(config) => MemoryLimitCount = newMemoryLimitCount;
+        public WorkManager(Configuration config)
         {
             this.config = config;
-            this.database = database;
 
             // depth-search = Stack (LIFO), breadth-search = Queue (FIFO)
-            isFIFO = !config.DepthSearch;
+            isFIFO = !config.WorkerConfig.DepthSearch;
             Backlog = new ConcurrentQueueOrStack<Work, string>(!isFIFO, t => t.Key);
 
-            if (config.HostEndpoint.UseHost)
+            if (config.WorkerConfig.HostEndpoint.UseHost)
             {
                 // HOST MODE
 
                 // use host
-                Logger.Log($"Using Host as Url source ({config.HostEndpoint.Hostname}:{config.HostEndpoint.Port})");
+                Logger.Log($"Using Host as Url source " +
+                    $"({config.WorkerConfig.HostEndpoint.Hostname}:{config.WorkerConfig.HostEndpoint.Port})");
 
                 // delete existing cache and create new one
-                database.EnsureNew();
+                DatabaseContext.EnsureNew(config.CacheFilename);
 
                 // TODO: establish connection (full proof retrying connection - make separate class for this) - keep at it even if it fails - use failproof class
             }
@@ -56,83 +53,65 @@ namespace CryCrawler.Worker
                 // use local Urls and Dashboard provided URLs
                 Logger.Log($"Using local Url source");
 
-                // load dumped 
-                if (database.GetWorks(out List<Work> dumped, -1, false, false, Collection.DumpedBacklog) &&
-                    dumped != null && dumped.Count > 0)
+                using (var db = new DatabaseContext(config.CacheFilename))
                 {
-                    // add to backlog
-                    Backlog.AddItems(dumped);
-                    database.DropCollection(Collection.DumpedBacklog);
+                    // load dumped 
+                    var dumped = db.Dumped.ToList();
+                    if (dumped != null && dumped.Count > 0)
+                    {
+                        // add to backlog
+                        Backlog.AddItems(dumped);
 
-                    Logger.Log($"Loaded {dumped.Count} backlog items from cache.");
+                        // clear dumped
+                        db.Dumped.RemoveRange(dumped);
+
+                        Logger.Log($"Loaded {dumped.Count} backlog items from cache.");
+                    }
+
+                    // load all local Urls (only if not yet crawled)
+                    foreach (var url in config.WorkerConfig.Urls)
+                    {
+                        var w = db.Crawled.Where(x => x.Url == url).FirstOrDefault();
+                        if (w == null) AddToBacklog(url);              
+                        else Logger.Log($"Skipping  specified URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);                     
+                    }
+
+
+                    // load cache stats
+                    CachedWorkCount = db.CachedBacklog.Count();
+                    CachedCrawledWorkCount = db.Crawled.Count();
                 }
-
-                // load all local Urls (only if not yet crawled)
-                foreach (var url in config.Urls)
-                    if (database.GetWork(out Work w, url, Collection.CachedCrawled) == false)
-                    {
-                        AddToBacklog(url);
-                    }
-                    else
-                    {
-                        Logger.Log($"Skipping  specified URL '{url}' - already crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
-                    }
-                    
-
-                // load cache stats
-                CachedWorkCount = database.GetWorkCount(Collection.CachedBacklog);
-                CachedCrawledWorkCount = database.GetWorkCount(Collection.CachedCrawled);
             }
         }
 
         public void AddToCrawled(Work w)
         {
-
-            addingSemaphore.Wait();
-            try
+            using (var db = new DatabaseContext(config.CacheFilename))
             {
-                if (database.Disposing) return;
-
-                if (database.Upsert(w, out bool wasIns, Collection.CachedCrawled))
-                {
-                    if (wasIns) CachedCrawledWorkCount++;
-                }
-                // TODO: better handle this
-                else if (!database.Disposing) throw new DatabaseErrorException("Failed to upsert crawled work to database!");
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-            finally
-            {
-                addingSemaphore.Release();
+                db.Crawled.Add(w);
+                CachedCrawledWorkCount += db.SaveChanges();
             }
         }
 
-        SemaphoreSlim addingSemaphore = new SemaphoreSlim(1);
         public void AddToBacklog(string url)
         {
-            var w = new Work(url);
-
-            addingSemaphore.Wait();
-            try
+            using (var db = new DatabaseContext(config.CacheFilename))
             {
-                if (database.Disposing) return;
+                var w = new Work(url);
 
                 // if above memory limit, save to database
                 if (Backlog.Count >= MemoryLimitCount)
                 {
                     // save to database     
-                    if (database.Insert(w)) CachedWorkCount++;
-                    else throw new DatabaseErrorException("Failed to insert!");
+                    db.CachedBacklog.Add(w);
+                    CachedWorkCount += db.SaveChanges();
                 }
                 // if below memory limit but cache is not empty, load cache to memory
                 else if (CachedWorkCount > 0)
                 {
-                    // save to database
-                    if (database.Insert(w)) CachedWorkCount++;
-                    else throw new DatabaseErrorException("Failed to insert!");
+                    // save to database     
+                    db.CachedBacklog.Add(w);
+                    CachedWorkCount += db.SaveChanges();
 
                     // load cache to memory
                     LoadCacheToMemory();
@@ -143,21 +122,14 @@ namespace CryCrawler.Worker
                     Backlog.AddItem(w);
                 }
             }
-            finally
-            {
-                addingSemaphore.Release();
-            }
         }
         public void AddToBacklog(IEnumerable<string> urls)
         {
             var works = new List<Work>();
             foreach (var i in urls) works.Add(new Work(i));
 
-            addingSemaphore.Wait();
-            try
+            using (var db = new DatabaseContext(config.CacheFilename))
             {
-                if (database.Disposing) return;
-
                 // if cache not empty, load it to memory first
                 if (CachedWorkCount > 0) LoadCacheToMemory();
 
@@ -177,62 +149,56 @@ namespace CryCrawler.Worker
                     var forCacheCount = works.Count - forBacklogCount;
                     var forCache = works.GetRange(forBacklogCount, forCacheCount);
 
-                    if (database.InsertBulk(forCache, forCacheCount, out int inserted)) CachedWorkCount += inserted;
-                    else throw new DatabaseErrorException("Failed to bulk insert!");
+                    db.CachedBacklog.AddRange(forCache);
+                    CachedWorkCount += db.SaveChanges();
                 }
-            }
-            finally
-            {
-                addingSemaphore.Release();
             }
         }
         public bool GetWork(out string url)
         {
             Work w = null;
+            url = null;
 
-            addingSemaphore.Wait();
-            try
+            if (isFIFO)
             {
-                if (database.Disposing)
-                {
-                    url = null;
-                    return false;
-                }
+                // take from memory if available
+                if (Backlog.Count > 0) Backlog.TryGetItem(out w);
 
-                if (isFIFO)
+                using (var db = new DatabaseContext(config.CacheFilename))
                 {
-                    // take from memory if available
-                    if (Backlog.Count > 0) Backlog.TryGetItem(out w);
-
                     // take from database if available and memory is empty
-                    if (w == null && CachedWorkCount > 0 && database.GetWorks(out List<Work> works, 1, true, true))
+                    if (w == null && CachedWorkCount > 0)
                     {
-                        w = works.FirstOrDefault();
-                        CachedWorkCount--;
+                        w = db.CachedBacklog.FirstOrDefault();
+
+                        db.CachedBacklog.Remove(w);
+                        CachedWorkCount -= db.SaveChanges();
                     }
                 }
-                else
+            }
+            else
+            {
+                using (var db = new DatabaseContext(config.CacheFilename))
                 {
                     // take from database if available
-                    if (CachedWorkCount > 0 && database.GetWorks(out List<Work> works, 1, false, true))
+                    if (CachedWorkCount > 0)
                     {
-                        w = works.FirstOrDefault();
-                        CachedWorkCount--;
-                    }
+                        w = db.CachedBacklog.LastOrDefault();
 
-                    // take from memory if available and database is empty
-                    if (w == null && Backlog.Count > 0) Backlog.TryGetItem(out w);
+                        db.CachedBacklog.Remove(w);
+                        CachedWorkCount -= db.SaveChanges();
+                    }
                 }
 
-                // if there is space to load cache to memory, do it
-                if (Backlog.Count < MemoryLimitCount && CachedWorkCount > 0) LoadCacheToMemory();
-            }
-            finally
-            {
-                addingSemaphore.Release();
+                // take from memory if available and database is empty
+                if (w == null && Backlog.Count > 0) Backlog.TryGetItem(out w);
             }
 
             url = w?.Url;
+
+            // if there is space to load cache to memory, do it
+            if (Backlog.Count < MemoryLimitCount && CachedWorkCount > 0) LoadCacheToMemory();
+
             return w != null;
         }
 
@@ -266,7 +232,7 @@ namespace CryCrawler.Worker
                 backlogContains = true;
 
                 // if URL is above max index length, the key was cut off, find actual work to confirm for sure
-                if (url.Length >= MaxIndexLength - 1)
+                if (url.Length >= Work.MaxIndexLength - 1)
                 {
                     // find work with identical url to really confirm it
                     var work = Backlog.FindItem(x => x.Url == url);
@@ -278,7 +244,8 @@ namespace CryCrawler.Worker
             if (backlogContains) return false;
 
             // check if url already crawled
-            if (database.GetWork(out _, url, Collection.CachedCrawled)) return false;
+            using (var db = new DatabaseContext(config.CacheFilename))
+                if (db.Crawled.Where(x => x.Url == url).FirstOrDefault() != null) return false;
 
             return true;
         }
@@ -287,16 +254,14 @@ namespace CryCrawler.Worker
         public void Dispose()
         {
             // dump all work if working locally - if working via Host, delete cache
-            if (!config.HostEndpoint.UseHost)
+            if (!config.WorkerConfig.HostEndpoint.UseHost)
             {
                 DumpMemoryToCache();
-                database.Dispose();
             }
             else
             {
                 // delete cache
-                database.Dispose();
-                database.Delete();
+                DatabaseContext.Delete(config.CacheFilename);
             }
         }
 
@@ -306,16 +271,28 @@ namespace CryCrawler.Worker
             long howMuch = MemoryLimitCount - (long)Backlog.Count;
             howMuch = howMuch > CachedWorkCount ? CachedWorkCount : howMuch;
 
-            if (database.GetWorks(out List<Work> works, (int)howMuch, isFIFO, true))
+            using (var db = new DatabaseContext(config.CacheFilename))
             {
-                Backlog.AddItems(works);
-                CachedWorkCount -= works.Count;
+                List<Work> ws;
+
+                if (isFIFO) ws = db.CachedBacklog.Take((int)howMuch).ToList(); 
+                else ws = db.CachedBacklog.TakeLast((int)howMuch).Reverse().ToList();
+
+                db.CachedBacklog.RemoveRange(ws);
+
+                CachedWorkCount -= db.SaveChanges();
             }
+
         }
         private void DumpMemoryToCache()
         {
-            database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
-            Logger.Log($"Dumped {inserted} backlog items to cache");
+            using (var db = new DatabaseContext(config.CacheFilename))
+            {
+                db.Dumped.AddRange(Backlog.ToList());
+                var cnt = db.SaveChanges();
+
+                Logger.Log($"Dumped {cnt} backlog items to cache");
+            }           
         }
     }
 }

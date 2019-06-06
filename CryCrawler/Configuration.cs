@@ -10,7 +10,7 @@ namespace CryCrawler
         public HostConfiguration HostConfig { get; set; } = new HostConfiguration();
         public WorkerConfiguration WorkerConfig { get; set; } = new WorkerConfiguration();
         public WebGUIEndPoint WebGUI { get; set; } = new WebGUIEndPoint();
-        public string CacheFilename { get; set; } = CacheDatabase.DefaultFilename;
+        public string CacheFilename { get; set; } = DatabaseContext.DefaultFilename;
     }
 
     [MessagePackObject(keyAsPropertyName: true)]
