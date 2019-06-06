@@ -119,9 +119,18 @@ namespace CryCrawler.Worker
                     success = true;
                 }
                 catch (OperationCanceledException) { }
+                catch (NullReferenceException nex)
+                {
+                    Logger.Log($"Failed to crawl '{url}' - {nex.Message} -- {nex.StackTrace}", Logger.LogSeverity.Error);
+                }
+                catch (IOException iex)
+                {
+                    // usually happens when trying to download file with same name
+                    Logger.Log($"{iex.Message}", Logger.LogSeverity.Debug);
+                }
                 catch (Exception ex)
                 {
-                    Logger.Log($"Failed to crawl '{url}' - ({ex.GetType().Name}) {ex.Message}", Logger.LogSeverity.Error);
+                    Logger.Log($"Failed to crawl '{url}' - ({ex.GetType().Name}) {ex.Message}", Logger.LogSeverity.Debug);
                 }
                 finally
                 {
@@ -259,7 +268,10 @@ namespace CryCrawler.Worker
                     // quick check if valid url
 
                     // absolute url must contain ':' - (http: or https:) and must be more than 8 in length
-                    if (url.Length <= 8 || (!url.Contains("http:") && !url.Contains("https:"))) continue; 
+                    if (url.Length <= 8 || (!url.Contains("http:") && !url.Contains("https:"))) continue;
+
+                    // url can't be longer than 2000 characters
+                    if (url.Length > 2000) continue;
 
                     //var valid = Regex.IsMatch(url, @"^(ht|f)tp(s?)\:\/\/[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&%\$#_]*)?$");
 
