@@ -16,8 +16,7 @@ namespace CryCrawler.Worker
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
 
-        const int MaxMemoryLimitMB = 300;
-        public readonly int MemoryLimitCount = (MaxMemoryLimitMB * 1024 * 1024) / 200;
+        public readonly int MemoryLimitCount = 500000;
 
         #region Public Properties
         public ConcurrentQueueOrStack<Work, string> Backlog { get; }

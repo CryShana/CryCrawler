@@ -204,7 +204,7 @@ namespace CryCrawler.Worker
 
             // if any query parameters present, remove them
             var index = url.IndexOf('?');
-            if (index >= 0) url = url.Substring(0, index);
+            if (index >= 0) url = url.Substring(0, index).Replace(':','-');
 
             // start splitting the url
             var urlParts = url.Split('/');
