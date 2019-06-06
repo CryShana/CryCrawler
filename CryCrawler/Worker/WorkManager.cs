@@ -75,7 +75,7 @@ namespace CryCrawler.Worker
                     }
                     else
                     {
-                        Logger.Log($"Skipping  specified URL '{url}' - already crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
+                        Logger.Log($"Skipping  specified URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
                     }
                     
 
