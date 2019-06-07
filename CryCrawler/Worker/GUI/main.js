@@ -106,16 +106,22 @@ function addDownloadLog(el) {
     td1.css("width", "170px");
     td1.text(el.DownloadedTime);
 
-    let td2 = $("<td class='clickable'></td>");
-    td2.css("white-space", "nowrap");
-    td2.click(function () {
+    let td2 = $("<td class='midcol'></td>");
+    td2.css("color", "#848484");
+    td2.css("width", "80px");
+    td2.text(el.Size);
+
+    let td3 = $("<td class='clickable'></td>");
+    td3.css("white-space", "nowrap");
+    td3.click(function () {
         alert(el.FilePath);
     });
-    td2.text(el.FileName);
+    td3.text(el.FileName);
 
     let tr = $("<tr></tr>");
     tr.append(td1);
     tr.append(td2);
+    tr.append(td3);
 
     $("table#table-downloads").prepend(tr);
 

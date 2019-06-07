@@ -38,14 +38,29 @@ namespace CryCrawler.Worker
 
     public class DownloadedWork
     {
+        public string Size { get; set; }
         public string FileName { get; set; }
         public string FilePath { get; set; }
-        public string DownloadedTime{ get; set; }
-        public DownloadedWork(string path)
+        public string DownloadedTime { get; set; }
+
+        public DownloadedWork(string path, long? size)
         {
             FilePath = path;
             FileName = Path.GetFileName(path);
+            Size = size == null ? "-" : ByteSizeToString(size.Value);
             DownloadedTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+        }
+
+        /// <summary>
+        /// Convert size in bytes to string
+        /// </summary>
+        /// <param name="sizeInBytes">Size in bytes</param>
+        public static string ByteSizeToString(long sizeInBytes)
+        {
+            if (sizeInBytes < 1024) return $"{sizeInBytes} bytes";
+            else if (sizeInBytes < 1024 * 1024) return $"{Math.Round(sizeInBytes / 1024.0, 2)} kB";
+            else if (sizeInBytes < 1024 * 1024 * 1024) return $"{Math.Round((sizeInBytes / 1024.0) / 1024.0, 2)} MB";
+            else return $"{Math.Round(((sizeInBytes / 1024.0) / 1024.0) / 1024.0, 2)} GB";
         }
     }
 }

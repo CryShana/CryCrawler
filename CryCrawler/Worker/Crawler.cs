@@ -161,7 +161,7 @@ namespace CryCrawler.Worker
                         await response.Content.CopyToAsync(fstream).ConfigureAwait(false);
 
                     // log the download
-                    RecentDownloads.Add(new DownloadedWork(path));
+                    RecentDownloads.Add(new DownloadedWork(path, response.Content.Headers.ContentLength.Value));
 
                     // Logger.Log($"Downloaded '{url}' to '{path}'");
                     success = true;
