@@ -9,10 +9,43 @@
     <script src="main.js"></script>
 </head>
 <body>
-    <table>
-        <tr>
-            <td></td>
-        </tr>
-    </table>
+    <h2>CryCrawler</h2>
+
+    <div class="flexbox">
+        <div id="div-status">
+            <table id="table-status">
+                <tr>
+                    <td><b>Status</b></td>
+                    <td id="crawler-status">Offline</td>
+                </tr>
+                <tr>
+                    <td><b>Source</b></td>
+                    <td id="crawler-work-source">-</td>
+                </tr>
+                <tr>
+                    <td><b>Work</b></td>
+                    <td id="crawler-work-count">0</td>
+                </tr>
+                <tr>
+                    <td><b>Crawled</b></td>
+                    <td id="crawler-crawled-count">0</td>
+                </tr>
+                <tr>
+                    <td><b>Cached Work</b></td>
+                    <td id="crawler-cached-work-count">0</td>
+                </tr>
+            </table>
+        </div>
+        <div id="div-tasks">
+            <p style="margin-top: 9px;margin-bottom: 10px;">Current tasks:</p>
+            <table id="table-tasks">
+                
+            </table>
+        </div>
+    </div> 
+
+    <div id="div-footer">
+        Memory usage: <b id="crawler-ram">0.00 MB</b>
+    </div>
 </body>
 </html>

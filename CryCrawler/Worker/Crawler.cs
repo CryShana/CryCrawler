@@ -94,7 +94,8 @@ namespace CryCrawler.Worker
                         continue;
                     }
 
-                    var mediaType = response.Content.Headers.ContentType.MediaType;
+                    var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+                    if (mediaType == null) continue;
 
                     // Check if media type is set as a scanning target, if yes, scan it for new URLs
                     if (Config.ScanTargetsMediaTypes.Count(x => x == mediaType) > 0)
