@@ -1,5 +1,7 @@
 ﻿using CryCrawler.Network;
 using Newtonsoft.Json;
+using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace CryCrawler.Worker
 {
@@ -30,20 +32,29 @@ namespace CryCrawler.Worker
         string getStatus() => JsonConvert.SerializeObject(new StatusResponses
         {
             IsActive = crawler.IsActive,
+            IsWorking = !crawler.WaitingForWork,
             UsingHost = config.WorkerConfig.HostEndpoint.UseHost,
             WorkCount = crawler.Manager.WorkCount,
             CacheCount = crawler.Manager.CachedWorkCount,
-            CacheCrawledCount = crawler.Manager.CachedCrawledWorkCount
+            CacheCrawledCount = crawler.Manager.CachedCrawledWorkCount,
+            UsageRAM = Process.GetCurrentProcess().PrivateMemorySize64,
+            CurrentTasks = new Dictionary<int, string>(crawler.CurrentTasks),
+            ConfigurationWorker = crawler.Config
         });
+
         
 
         class StatusResponses
         {
             public bool IsActive { get; set; }
+            public bool IsWorking { get; set; }
             public bool UsingHost { get; set; }
             public long WorkCount { get; set; }
             public long CacheCount { get; set; }
             public long CacheCrawledCount { get; set; }
+            public long UsageRAM { get; set; }
+            public Dictionary<int, string> CurrentTasks { get; set; }
+            public WorkerConfiguration ConfigurationWorker { get; set; }
         }
     }
 }

@@ -8,6 +8,7 @@ using System.Collections;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Collections.Concurrent;
 
 namespace CryCrawler.Worker
 {
@@ -16,12 +17,19 @@ namespace CryCrawler.Worker
     /// </summary>
     public class Crawler
     {
+        #region Public Properties
         public bool IsActive { get; private set; }
         public WorkManager Manager { get; }
         public WorkerConfiguration Config { get; }
 
+        public bool WaitingForWork => CurrentTasks.All(x => x.Value == null);
+        public ConcurrentDictionary<int, string> CurrentTasks { get; } = new ConcurrentDictionary<int, string>();
+        #endregion
+
         private HttpClient httpClient;
         private CancellationTokenSource cancelSource;
+        private SemaphoreSlim semaphore = new SemaphoreSlim(1);
+        private int currentTaskNumber = 1;
 
         public Crawler(WorkManager manager, WorkerConfiguration config)
         {
@@ -52,16 +60,26 @@ namespace CryCrawler.Worker
 
         private async void Work()
         {
+            var taskNumber = 0;
+
+            semaphore.Wait();
+            taskNumber = currentTaskNumber++;
+            CurrentTasks.TryAdd(taskNumber, null);
+            semaphore.Release();
+
             while (!cancelSource.IsCancellationRequested)
             {
                 if (!Manager.IsWorkAvailable || Manager.GetWork(out string url) == false)
                 {
                     // unable to get work, wait a bit and try again
+                    CurrentTasks[taskNumber] = null;
+
                     await Task.Delay(100).ConfigureAwait(false);
                     continue;
                 }
 
                 bool success = false;
+                CurrentTasks[taskNumber] = url;
                 try
                 {
                     // Get response headers - DO NOT READ CONTENT yet (performance reasons)
@@ -110,6 +128,29 @@ namespace CryCrawler.Worker
                     // construct path
                     var directory = GetDirectoryPath(url, true);
                     var path = Path.Combine(directory, filename);
+
+                    // check if file exists
+                    if (File.Exists(path))
+                    {
+                        // if files have same size, they are most likely the same file - overwrite it
+                        var currentSize = new FileInfo(path).Length;
+                        var newSize = response.Content.Headers.ContentLength;
+
+                        if (currentSize != newSize)
+                        {
+                            // otherwise rename it
+                            var count = 1;
+                            var fn = "";
+                            do
+                            {
+                                fn = $"{Path.GetFileNameWithoutExtension(filename)} ({count}){Path.GetExtension(filename)}";
+                                count++;
+
+                            } while (File.Exists(Path.Combine(directory, fn)) && count < int.MaxValue);
+
+                            path = Path.Combine(directory, fn);
+                        }
+                    }
 
                     // download content to file
                     using (var fstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
@@ -260,7 +301,7 @@ namespace CryCrawler.Worker
                     // read until a non-URL character is found
                     var nextindex = content.IndexOfAny(new[] { '<', '>', '(', ')', '\'', '"', '\n', '\r', '\t', ' ', '[', ']' }, cindex + 1);
                     var url = content.Substring(cindex, nextindex - cindex);
-                    cindex++;
+                    cindex = nextindex - 1;
 
                     // url decode it
                     url = HttpUtility.UrlDecode(url);
@@ -268,7 +309,7 @@ namespace CryCrawler.Worker
                     // quick check if valid url
 
                     // absolute url must contain ':' - (http: or https:) and must be more than 8 in length
-                    if (url.Length <= 8 || (!url.Contains("http:") && !url.Contains("https:"))) continue;
+                    if (url.Length <= 8 || (!url.Contains("http:/") && !url.Contains("https:/"))) continue;
 
                     // url can't be longer than 2000 characters
                     if (url.Length > 2000) continue;

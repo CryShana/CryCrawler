@@ -66,7 +66,7 @@ namespace CryCrawler.Worker
                     Logger.Log($"Loaded {dumped.Count} backlog items from cache.");
                 }
 
-                // load all local Urls (only if not yet crawled)
+                // load all local Urls (only if not yet crawled and dumped backlog items were loaded to continue work)
                 foreach (var url in config.Urls)
                     if (database.GetWork(out Work w, url, Collection.CachedCrawled) == false)
                     {
@@ -74,7 +74,12 @@ namespace CryCrawler.Worker
                     }
                     else
                     {
-                        Logger.Log($"Skipping  specified URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
+                        if (dumped.Count == 0)
+                        {
+                            // no dumped items loaded, so load this anyway
+                            AddToBacklog(url);
+                        }
+                        else Logger.Log($"Skipping  specified URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
                     }
                     
 

@@ -27,10 +27,8 @@ namespace CryCrawler.Worker
 
         public void Start()
         {
-            // Start UI server
             webgui.Start();
 
-            // Start crawler
             crawler.Start();
         }
 

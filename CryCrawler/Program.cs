@@ -1,13 +1,10 @@
 ﻿using System;
+using System.IO;
 using CommandLine;
 using System.Linq;
 using CryCrawler.Host;
 using CryCrawler.Worker;
 using System.Threading.Tasks;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace CryCrawler
 {
