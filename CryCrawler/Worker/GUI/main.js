@@ -44,15 +44,15 @@ function setStatus(data) {
     // set tasks
     $("table#table-tasks").empty();
 
-    for (var i = 1; i <= data.TaskCount; i++) {
+    for (let i = 1; i <= data.TaskCount; i++) {
         var currentUrl = data.CurrentTasks[i];
 
-        var td1 = $("<td></td>");
+        let td1 = $("<td></td>");
         td1.css("font-weight", "bold");
         td1.css("width", "15px");
         td1.text(i);
 
-        var td2 = $("<td></td>");
+        let td2 = $("<td></td>");
         td2.css("white-space", "nowrap");
 
         if (currentUrl === null) {
@@ -61,12 +61,18 @@ function setStatus(data) {
         }
         else td2.text(currentUrl);
 
-
-        var tr = $("<tr></tr>");
+        let tr = $("<tr></tr>");
         tr.append(td1);
         tr.append(td2);
 
         $("table#table-tasks").append(tr);
+    }
+
+    // set logs
+    var l = data.RecentDownloads.length;
+    for (let i = 0; i < l; i++) {
+        var el = data.RecentDownloads[i];
+        if (currentLogs.indexOf(el.FilePath) === -1) addDownloadLog(el);
     }
 }
 
@@ -88,5 +94,34 @@ function setStatusText(text) {
         $("#crawler-status").removeClass("offline");
         $("#crawler-status").addClass("idle");
         $("#crawler-status").text("Idle");
+    }
+}
+
+
+currentLogs = [];
+var maxLogs = 50;
+function addDownloadLog(el) {
+    let td1 = $("<td></td>");
+    td1.css("font-weight", "bold");
+    td1.css("width", "170px");
+    td1.text(el.DownloadedTime);
+
+    let td2 = $("<td class='clickable'></td>");
+    td2.css("white-space", "nowrap");
+    td2.click(function () {
+        alert(el.FilePath);
+    });
+    td2.text(el.FileName);
+
+    let tr = $("<tr></tr>");
+    tr.append(td1);
+    tr.append(td2);
+
+    $("table#table-downloads").prepend(tr);
+
+    currentLogs.push(el.FilePath);
+    while (currentLogs.length > maxLogs) {
+        currentLogs.splice(0, 1);
+        $("table#table-downloads tr").slice(-1).remove();
     }
 }

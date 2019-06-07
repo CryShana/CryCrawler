@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Collections.Concurrent;
+using CryCrawler.Structures;
 
 namespace CryCrawler.Worker
 {
@@ -24,6 +25,7 @@ namespace CryCrawler.Worker
 
         public bool WaitingForWork => CurrentTasks.All(x => x.Value == null);
         public ConcurrentDictionary<int, string> CurrentTasks { get; } = new ConcurrentDictionary<int, string>();
+        public ConcurrentSlidingBuffer<DownloadedWork> RecentDownloads { get; }
         #endregion
 
         private HttpClient httpClient;
@@ -35,6 +37,7 @@ namespace CryCrawler.Worker
         {
             Config = config;
             Manager = manager;
+            RecentDownloads = new ConcurrentSlidingBuffer<DownloadedWork>(config.MaxLoggedDownloads);
         }
 
         public void Start()
@@ -156,6 +159,9 @@ namespace CryCrawler.Worker
                     // download content to file
                     using (var fstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
                         await response.Content.CopyToAsync(fstream).ConfigureAwait(false);
+
+                    // log the download
+                    RecentDownloads.Add(new DownloadedWork(path));
 
                     // Logger.Log($"Downloaded '{url}' to '{path}'");
                     success = true;

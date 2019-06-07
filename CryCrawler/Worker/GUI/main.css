@@ -24,12 +24,15 @@ h2 {
     margin: 0px 0px 20px 0px;
 }
 
-table {
-    margin-bottom: 5px;
+.nicebox {
     border: 1px solid #d8d8d8;
     border-radius: 5px;
     background: #f7f7f7;
     padding: 20px;
+}
+
+table {
+    margin-bottom: 5px;
     width: 100%;
 }
 
@@ -42,6 +45,20 @@ table {
             text-overflow: ellipsis;
         }
 
+    table#table-downloads {
+        table-layout: fixed;
+    }
+
+        table#table-downloads td {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+            table#table-downloads td.clickable:hover {
+                text-decoration: underline;
+                cursor: pointer;
+            }
+
 div.flexbox {
     display: flex;
     width: 100%;
@@ -49,6 +66,8 @@ div.flexbox {
 
 #div-status, #div-tasks {
     min-width: 230px;
+    display: flex;
+    flex-direction: column;
 }
 
 #div-tasks {
@@ -59,7 +78,21 @@ div.flexbox {
 #div-footer {
     position: fixed;
     bottom: 20px;
-    left: 20px;
+    right: 20px;
+    background: white;
+    padding: 13px;
+    border-radius: 5px;
+    box-shadow: -2px 1px 6px #bbbbbb;
+}
+
+#div-downloads {
+    width: 100%;
+}
+
+div#downloadsbox {
+    height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 @media only screen and (max-width: 600px) {
