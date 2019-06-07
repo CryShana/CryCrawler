@@ -27,6 +27,7 @@ namespace CryCrawler
         public string DownloadsPath { get; set; } = "downloads";
         public int MaxConcurrency { get; set; } = 3;
         public bool DepthSearch { get; set; } = false;
+        public int MaxLoggedDownloads { get; set; } = 30;
 
         public List<string> AcceptedExtensions { get; set; } = new List<string>()
         {

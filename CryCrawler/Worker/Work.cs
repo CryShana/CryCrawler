@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Text;
 
 namespace CryCrawler.Worker
@@ -33,5 +34,18 @@ namespace CryCrawler.Worker
         }
 
         public static string GetKeyFromUrl(string url) => LimitText(url, CacheDatabase.MaxIndexLength);
+    }
+
+    public class DownloadedWork
+    {
+        public string FileName { get; set; }
+        public string FilePath { get; set; }
+        public string DownloadedTime{ get; set; }
+        public DownloadedWork(string path)
+        {
+            FilePath = path;
+            FileName = Path.GetFileName(path);
+            DownloadedTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+        }
     }
 }
