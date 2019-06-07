@@ -95,12 +95,17 @@ div#downloadsbox {
     overflow-x: hidden;
 }
 
+
 @media only screen and (max-width: 600px) {
-    div.flexbox {
+    .flexbox {
         flex-direction: column;
     }
 
     #div-tasks {
         margin-left: 0;
+    }
+
+    td.midcol {
+        display: none;
     }
 }
