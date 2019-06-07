@@ -39,7 +39,8 @@ namespace CryCrawler.Worker
             CacheCrawledCount = crawler.Manager.CachedCrawledWorkCount,
             UsageRAM = Process.GetCurrentProcess().PrivateMemorySize64,
             CurrentTasks = new Dictionary<int, string>(crawler.CurrentTasks),
-            ConfigurationWorker = crawler.Config
+            ConfigurationWorker = crawler.Config,
+            TaskCount = crawler.CurrentTasks.Count
         });
 
         
@@ -53,6 +54,7 @@ namespace CryCrawler.Worker
             public long CacheCount { get; set; }
             public long CacheCrawledCount { get; set; }
             public long UsageRAM { get; set; }
+            public int TaskCount { get; set; }
             public Dictionary<int, string> CurrentTasks { get; set; }
             public WorkerConfiguration ConfigurationWorker { get; set; }
         }
