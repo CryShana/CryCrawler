@@ -25,6 +25,7 @@ namespace CryCrawler
         public HostEndPoint HostEndpoint { get; set; } = new HostEndPoint();
 
         public string DownloadsPath { get; set; } = "downloads";
+        public bool DontCreateSubfolders { get; set; } = false;
         public int MaxConcurrency { get; set; } = 3;
         public bool DepthSearch { get; set; } = false;
         public int MaxLoggedDownloads { get; set; } = 30;

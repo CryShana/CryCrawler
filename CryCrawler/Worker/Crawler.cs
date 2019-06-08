@@ -250,18 +250,22 @@ namespace CryCrawler.Worker
         {
             string path = Config.DownloadsPath;
 
-            // if any query parameters present, remove them
-            var index = url.IndexOf('?');
-            if (index >= 0) url = url.Substring(0, index).Replace(':','-');
-
-            // start splitting the url
-            var urlParts = url.Split('/');
-            for (int i = 1; i < urlParts.Length; i++)
+            // create subfolders based on URL if allowed
+            if (Config.DontCreateSubfolders == false)
             {
-                if (i > 2 && i == urlParts.Length - 1) continue;
+                // if any query parameters present, remove them
+                var index = url.IndexOf('?');
+                if (index >= 0) url = url.Substring(0, index).Replace(':', '-');
 
-                var fixedPath = FixPath(urlParts[i]);
-                path = Path.Combine(path, fixedPath);
+                // start splitting the url
+                var urlParts = url.Split('/');
+                for (int i = 1; i < urlParts.Length; i++)
+                {
+                    if (i > 2 && i == urlParts.Length - 1) continue;
+
+                    var fixedPath = FixPath(urlParts[i]);
+                    path = Path.Combine(path, fixedPath);
+                }
             }
 
             if (createDirectory) Directory.CreateDirectory(path);

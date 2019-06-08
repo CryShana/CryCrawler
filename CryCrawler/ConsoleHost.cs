@@ -46,7 +46,7 @@ namespace CryCrawler
                 // wait for the "WaitForTokenShutdownAsync" to detect token cancellation and do cleanup
                 resetEvent.Wait();
             };
-
+                       
             AppDomain.CurrentDomain.ProcessExit += (a, b) => ShutDown();
             Console.CancelKeyPress += (a, b) =>
             {
