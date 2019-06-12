@@ -17,7 +17,10 @@ namespace CryCrawler.Host
 
         readonly string passwordHash;
         readonly TcpListener listener;
-        readonly ConcurrentBag<WorkerClient> clients = new ConcurrentBag<WorkerClient>();
+        readonly List<WorkerClient> clients = new List<WorkerClient>();
+
+        public event EventHandler ClientJoined;
+        public event EventHandler ClientLeft;
 
 
         public WorkerManager(IPEndPoint endpoint, string password = null)
@@ -62,14 +65,24 @@ namespace CryCrawler.Host
             Logger.Log($"Client connecting from {client.Client.RemoteEndPoint}...");
 
             // Create client object
-            var wc = new WorkerClient() { Client = client };
+            var wc = new WorkerClient(client);
 
             // Start handshake
             try
             {
                 wc.MesssageHandler = new NetworkMessageHandler<NetworkMessage>(client.GetStream(), m => ClientMessageReceived(wc, m));
+                wc.MesssageHandler.ExceptionThrown += (a, b) =>
+                {
+                    wc.MesssageHandler.Dispose();
 
-                SecurityUtils.DoHandshake(wc.MesssageHandler, passwordHash);
+                    // TODO: maybe just update status
+                    lock (clients) clients.Remove(wc);
+                    ClientLeft?.Invoke(this, null);
+
+                    Logger.Log($"Client disconnected from {wc.RemoteEndpoint}");
+                };
+
+                SecurityUtils.DoHandshake(wc.MesssageHandler, passwordHash, false);
 
                 wc.HandshakeCompleted = true;
             }
@@ -78,14 +91,21 @@ namespace CryCrawler.Host
                 Logger.Log($"Rejected client from {client.Client.RemoteEndPoint}", Logger.LogSeverity.Warning);
                 Logger.Log(ex.GetDetailedMessage(), Logger.LogSeverity.Debug);
 
-                wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Reject));
+                try
+                {
+                    wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Reject));
+                }
+                catch { }
+
                 client.ProperlyClose();
                 return;
             }
 
             // Accept valid client
             Logger.Log($"Accepted client from {client.Client.RemoteEndPoint}");
-            clients.Add(wc);
+            lock (clients) clients.Add(wc);
+
+            ClientJoined?.Invoke(this, null);
         }
 
         void ClientMessageReceived(WorkerClient client, NetworkMessage message)
@@ -119,7 +139,7 @@ namespace CryCrawler.Host
                     }
                 }
 
-                if (clients.Count > 0) Logger.Log("All connected clients disconnected.", Logger.LogSeverity.Debug);
+                if (clients.Count > 0) Logger.Log("Sent disconnect to all connected clients", Logger.LogSeverity.Debug);
             }
             catch (Exception ex)
             {
@@ -129,9 +149,16 @@ namespace CryCrawler.Host
 
         class WorkerClient
         {
+            public EndPoint RemoteEndpoint;
             public TcpClient Client;
             public bool HandshakeCompleted;
             public NetworkMessageHandler<NetworkMessage> MesssageHandler;
+
+            public WorkerClient(TcpClient client)
+            {
+                Client = client;
+                RemoteEndpoint = client.Client.RemoteEndPoint;
+            }
         }
     }
 }
