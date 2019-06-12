@@ -4,6 +4,8 @@ using System.Threading;
 using CryCrawler.Structures;
 using System.Collections.Generic;
 using static CryCrawler.CacheDatabase;
+using CryCrawler.Network;
+using System.Net;
 
 namespace CryCrawler.Worker
 {
@@ -15,6 +17,7 @@ namespace CryCrawler.Worker
         bool isFIFO = false;
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
+        readonly NetworkWorkManager networkManager;
 
         public readonly int MemoryLimitCount = 500000;
 
@@ -46,7 +49,12 @@ namespace CryCrawler.Worker
                 // delete existing cache and create new one
                 database.EnsureNew();
 
-                // TODO: establish connection (full proof retrying connection - make separate class for this) - keep at it even if it fails - use failproof class
+                networkManager = new NetworkWorkManager(
+                    config.HostEndpoint.Hostname, 
+                    config.HostEndpoint.Port, 
+                    config.HostEndpoint.Password);
+                networkManager.WorkReceived += NetworkManager_WorkReceived;
+                networkManager.Start();
             }
             else
             {
@@ -79,7 +87,7 @@ namespace CryCrawler.Worker
                             // no dumped items loaded, so load this anyway
                             AddToBacklog(url);
                         }
-                        else Logger.Log($"Skipping  specified URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
+                        else Logger.Log($"Skipping specified URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
                     }
                     
 
@@ -91,7 +99,6 @@ namespace CryCrawler.Worker
 
         public void AddToCrawled(Work w)
         {
-
             addingSemaphore.Wait();
             try
             {
@@ -287,7 +294,6 @@ namespace CryCrawler.Worker
             return true;
         }
 
-
         public void Dispose()
         {
             // dump all work if working locally - if working via Host, delete cache
@@ -320,6 +326,15 @@ namespace CryCrawler.Worker
         {
             database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
             Logger.Log($"Dumped {inserted} backlog items to cache");
+        }
+
+        private void NetworkManager_WorkReceived(NetworkMessage m)
+        {
+            var url = (string)m.Data;
+
+            Logger.Log("Work received - " + url);
+
+            AddToBacklog(url);
         }
     }
 }

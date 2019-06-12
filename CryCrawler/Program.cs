@@ -25,8 +25,17 @@ namespace CryCrawler
             // Exit program if only help or version was shown
             if (args.Contains("--help") || args.Contains("--version")) return;
 
-            // Start program with parsed arguments
-            Start(isHost, newSession);
+            try
+            {
+                // Start program with parsed arguments
+                Start(isHost, newSession);
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("FATAL ERROR: " + ex.Message + "\n" + ex.StackTrace);
+                Console.ResetColor();
+            }
         }
 
         static void Start(bool isHost, bool newSession)

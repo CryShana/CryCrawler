@@ -28,9 +28,14 @@ namespace CryCrawler
         }
 
         public static void ProperlyClose(this TcpClient client)
-        {         
-            client.GetStream().Close();
-            client.Close();
+        {
+            if (client?.Connected == true)
+            {
+                client.GetStream().Close();
+                client?.Close();
+            }
+
+            client?.Dispose();
         }
     }
 }
