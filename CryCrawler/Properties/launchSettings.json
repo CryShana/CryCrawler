@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "CryCrawler": {
-      "commandName": "Project",
-      "commandLineArgs": "-d"
-    }
-  }
-}
