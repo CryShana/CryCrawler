@@ -85,7 +85,7 @@ namespace CryCrawler
 
             Console.ForegroundColor = targetColor;
             Console.WriteLine($"[{msg.LogTime.ToString("dd.MM.yyyy HH:mm:ss.ffff")}] " +
-                $"{severityText} {msg.Caller ?? "-"} - {msg.Message}");
+                $"{severityText} - {msg.Message}");
 
             // reset color if log was not informational
             if (msg.Severity != LogSeverity.Information) Console.ResetColor();
