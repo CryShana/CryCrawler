@@ -14,7 +14,7 @@ namespace CryCrawler.Network
 
         private TaskCompletionSource<T> messageTask = new TaskCompletionSource<T>();
         private Action<T> callback;
-        private bool disposed;
+        public bool Disposed { get; private set; }
 
         public NetworkMessageHandler(Stream stream)
         {
@@ -24,10 +24,15 @@ namespace CryCrawler.Network
 
         public NetworkMessageHandler(Stream stream, Action<T> callback) : this(stream) => this.callback = callback;
 
-        public void Dispose() => disposed = true;
+        public void Dispose()
+        {
+            Disposed = true;
+            UnderlyingStream?.Close();
+        }
+
         public void SendMessage(T message)
         {
-            if (disposed) throw new ObjectDisposedException("Object disposed!");
+            if (Disposed) throw new ObjectDisposedException("Object disposed!");
 
             // use any serializer you want
             var buffer = MessagePackSerializer.Serialize(message);
@@ -38,11 +43,11 @@ namespace CryCrawler.Network
 
         public async Task<T> WaitForResponse(int timeout = 3000)
         {
-            if (disposed) throw new ObjectDisposedException("Object disposed!");
+            if (Disposed) throw new ObjectDisposedException("Object disposed!");
 
             await Task.WhenAny(Task.Delay(timeout), messageTask.Task);
 
-            if (disposed) throw new ObjectDisposedException("Object disposed!");
+            if (Disposed) throw new ObjectDisposedException("Object disposed!");
 
             if (messageTask.Task.IsCompletedSuccessfully)
             {
@@ -55,7 +60,7 @@ namespace CryCrawler.Network
 
         void handleReceiving()
         {
-            while (!disposed)
+            while (!Disposed)
             {
                 try
                 {
@@ -65,11 +70,16 @@ namespace CryCrawler.Network
                     var data = readUntilSatisfied(UnderlyingStream, contentLength);
                     var obj = MessagePackSerializer.Deserialize<T>(data);
 
-                    if (disposed) break;
+                    if (Disposed) break;
 
                     // report data
                     MessageReceived?.Invoke(this, obj);
-                    messageTask?.SetResult(obj);
+
+                    if (messageTask?.TrySetResult(obj) == false)
+                    {
+                        messageTask = new TaskCompletionSource<T>();
+                    }
+
                     callback?.Invoke(obj);
                 }
                 catch (Exception ex)
@@ -85,7 +95,7 @@ namespace CryCrawler.Network
             var offset = 0;
             while (offset < count)
             {
-                if (disposed) return null;
+                if (Disposed) return null;
 
                 var read = stream.Read(bfr, offset, (int)(count - offset));
                 if (read < 0) throw new InvalidOperationException("Stream closed!");
