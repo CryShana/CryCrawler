@@ -23,7 +23,7 @@ namespace CryCrawler
             if (!IsActive)
             {
                 // if logger not active, start the timer and activate it
-                await semaphore.WaitAsync().ConfigureAwait(false);
+                await semaphore.WaitAsync();
 
                 var timer = new System.Timers.Timer(TimerInterval);
                 timer.Elapsed += TimerElapsed;

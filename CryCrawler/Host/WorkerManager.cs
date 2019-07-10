@@ -8,6 +8,8 @@ using CryCrawler.Network;
 using CryCrawler.Security;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace CryCrawler.Host
 {
@@ -21,6 +23,7 @@ namespace CryCrawler.Host
         readonly string passwordHash;
         readonly TcpListener listener;
         readonly HostConfiguration config;
+        CancellationTokenSource cancelSource;
         public readonly List<WorkerClient> Clients = new List<WorkerClient>();
         public readonly ConcurrentDictionary<string, string> ClientWork = new ConcurrentDictionary<string, string>();
 
@@ -87,12 +90,20 @@ namespace CryCrawler.Host
             }
         }
 
-        public void StartListening()
+        public void Start()
         {
             try
             {
+                // start timer for age checking
                 timer.Start();
 
+                // initialize new cancellation source
+                cancelSource = new CancellationTokenSource();
+
+                // start new task for work
+                new Task(Work, cancelSource.Token, TaskCreationOptions.LongRunning).Start();
+
+                // start listener
                 listener.Start();
                 IsListening = true;
 
@@ -212,6 +223,8 @@ namespace CryCrawler.Host
             {
                 timer.Stop();
 
+                cancelSource.Cancel();
+
                 listener.Stop();
                 IsListening = false;
                 Logger.Log("Host listener stopped.", Logger.LogSeverity.Debug);
@@ -237,9 +250,22 @@ namespace CryCrawler.Host
             }
         }
 
-        private void clientRemoved(WorkerClient wc, object data)
+        void clientRemoved(WorkerClient wc, object data)
         {
             // TODO: take work from thata client id, remove it, add back to backlog
+        }
+
+        async void Work()
+        {
+            while (!cancelSource.IsCancellationRequested)
+            {
+                if (!manager.IsWorkAvailable || manager.GetWork(out string url) == false)
+                {
+                    // unable to get work, wait a bit and try again
+                    await Task.Delay(100);
+                    continue;
+                }
+            }
         }
 
 
