@@ -1,27 +1,24 @@
-﻿using CryCrawler.Network;
-using CryCrawler.Security;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System;
 using System.Net;
+using System.Linq;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
+using CryCrawler.Network;
+using CryCrawler.Security;
+using System.Collections.Generic;
 
 namespace CryCrawler.Host
 {
     public class WorkerManager
     {
-        public int ClientCount => clients.Count;
+        public int ClientCount => Clients.Count;
         public bool IsListening { get; private set; }
 
         readonly string passwordHash;
         readonly TcpListener listener;
-        readonly List<WorkerClient> clients = new List<WorkerClient>();
+        public readonly List<WorkerClient> Clients = new List<WorkerClient>();
 
-        public event ClientHandler ClientJoined;
         public event ClientHandler ClientLeft;
+        public event ClientHandler ClientJoined;
         public delegate void ClientHandler(WorkerClient wc, object data);
 
         public WorkerManager(IPEndPoint endpoint, string password = null)
@@ -86,10 +83,10 @@ namespace CryCrawler.Host
                 };
 
                 wc.Id = SecurityUtils.DoHandshake(wc.MesssageHandler, passwordHash, false, null,
-                    id => clients.Count(x => x.Id == id) > 0,
+                    id => Clients.Count(x => x.Id == id) > 0,
                     id =>
                     {
-                        var c = clients.Where(x => x.Id == id).FirstOrDefault();
+                        var c = Clients.Where(x => x.Id == id).FirstOrDefault();
                         if (c == null) return false; // generate new Id if client doesn't exist
                         if (c.Online == true) return false; // worker already online with this Id, generate new Id
 
@@ -118,32 +115,32 @@ namespace CryCrawler.Host
             wc.LastConnected = DateTime.Now;
 
             // try get existing client
-            var ewc = clients.Where(x => x.Id == wc.Id).FirstOrDefault();
+            var ewc = Clients.Where(x => x.Id == wc.Id).FirstOrDefault();
 
             // Accept valid client
             Logger.Log($"Accepted {(ewc == null ? "new" : "existing")} client from {client.Client.RemoteEndPoint}");
-            lock (clients)
+            lock (Clients)
             {
                 // if client doesn't exist yet, add it - otherwise replace existing client
-                if (ewc == null) clients.Add(wc);        
+                if (ewc == null) Clients.Add(wc);        
                 else
                 {
-                    var index = clients.IndexOf(ewc);
+                    var index = Clients.IndexOf(ewc);
 
-                    clients[index] = wc;
+                    Clients[index] = wc;
                 }
 
                 // also do a sweep of old clients
                 var now = DateTime.Now;
-                for (int i = 0; i < clients.Count; i++)
+                for (int i = 0; i < Clients.Count; i++)
                 {
-                    var c = clients[i];
+                    var c = Clients[i];
                     if (c.Online) continue;
-
+                    
                     // remove inactive clients older than 1 day
                     if (now.Subtract(c.LastConnected).TotalDays > 1)
                     {
-                        clients.RemoveAt(i);
+                        Clients.RemoveAt(i);
                         i--;
                     }
                 }
@@ -171,7 +168,7 @@ namespace CryCrawler.Host
                 Logger.Log("Host listener stopped.", Logger.LogSeverity.Debug);
 
                 // notify all connected clients of disconnect
-                foreach (var cl in clients)
+                foreach (var cl in Clients)
                 {
                     try
                     {
@@ -183,7 +180,7 @@ namespace CryCrawler.Host
                     }
                 }
 
-                if (clients.Count > 0) Logger.Log("Sent disconnect to all connected clients", Logger.LogSeverity.Debug);
+                if (Clients.Count > 0) Logger.Log("Sent disconnect to all connected clients", Logger.LogSeverity.Debug);
             }
             catch (Exception ex)
             {

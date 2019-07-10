@@ -26,7 +26,9 @@ function setStatus(data) {
     else setStatusText("offline");
 
     // set work mode
-    $("#crawler-work-source").text(data.UsingHost === true ? "Host" : "Local");
+    $("#crawler-work-source").text(data.UsingHost === true ? `Host (${data.HostEndpoint})` : "Local");
+
+    $("#crawler-client-id").text(data.UsingHost === true ? data.ClientId : "-");
 
     // set work count
     $("#crawler-work-count").text(data.WorkCount);
