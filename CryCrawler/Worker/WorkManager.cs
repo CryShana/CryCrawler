@@ -1,11 +1,11 @@
 using System;
 using System.Linq;
 using System.Threading;
+using CryCrawler.Network;
 using CryCrawler.Structures;
 using System.Collections.Generic;
 using static CryCrawler.CacheDatabase;
-using CryCrawler.Network;
-using System.Net;
+using CryCrawler.Host;
 
 namespace CryCrawler.Worker
 {
@@ -30,6 +30,7 @@ namespace CryCrawler.Worker
         #endregion
 
         public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount) : this(config, database) => MemoryLimitCount = newMemoryLimitCount;
+
         public WorkManager(WorkerConfiguration config, CacheDatabase database)
         {
             this.config = config;
@@ -93,7 +94,6 @@ namespace CryCrawler.Worker
                         else Logger.Log($"Skipping specified URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
                     }
                     
-
                 // load cache stats
                 CachedWorkCount = database.GetWorkCount(Collection.CachedBacklog);
                 CachedCrawledWorkCount = database.GetWorkCount(Collection.CachedCrawled);

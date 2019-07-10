@@ -1,23 +1,26 @@
-﻿using CryCrawler.Network;
-using System.Net;
+﻿using System.Net;
+using CryCrawler.Network;
+using CryCrawler.Worker;
 
 namespace CryCrawler.Host
 {
     public class HostProgram : IProgram
     {
-        readonly WorkerManager manager;
         readonly WebGUI webgui;
-
         readonly Configuration config;
+        readonly WorkerManager manager;
+        readonly CacheDatabase database;
+        readonly WorkManager workmanager;
 
         public HostProgram(Configuration config)
         {
             this.config = config;
 
-            manager = new WorkerManager(
-                config.HostConfig,
-                new IPEndPoint(IPAddress.Parse(config.HostConfig.ListenerConfiguration.IP), config.HostConfig.ListenerConfiguration.Port),
-                config.HostConfig.ListenerConfiguration.Password);
+            database = new CacheDatabase(config.CacheFilename);
+
+            workmanager = new WorkManager(config.WorkerConfig, database);
+
+            manager = new WorkerManager(workmanager, config.HostConfig);
 
             webgui = new WebGUI(new IPEndPoint(IPAddress.Parse(config.WebGUI.IP), config.WebGUI.Port), new HostResponder());
         }
