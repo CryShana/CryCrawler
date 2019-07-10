@@ -80,7 +80,7 @@ namespace CryCrawler.Worker
                     // unable to get work, wait a bit and try again
                     CurrentTasks[taskNumber] = null;
 
-                    await Task.Delay(100).ConfigureAwait(false);
+                    await Task.Delay(100);
                     continue;
                 }
 
@@ -90,8 +90,7 @@ namespace CryCrawler.Worker
                 {
                     // Get response headers - DO NOT READ CONTENT yet (performance reasons)
                     var response = await httpClient
-                        .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancelSource.Token)
-                        .ConfigureAwait(false);
+                        .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancelSource.Token);
 
                     if (!response.IsSuccessStatusCode)
                     {
@@ -161,7 +160,7 @@ namespace CryCrawler.Worker
 
                     // download content to file
                     using (var fstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
-                        await response.Content.CopyToAsync(fstream).ConfigureAwait(false);
+                        await response.Content.CopyToAsync(fstream);
 
                     // log the download
                     RecentDownloads.Add(new DownloadedWork(path, response.Content.Headers.ContentLength.Value));

@@ -28,7 +28,7 @@ namespace CryCrawler.Host
         public void Start()
         {
             // start listening for connections
-            manager.StartListening();
+            manager.Start();
             webgui.Start();
         }
 
