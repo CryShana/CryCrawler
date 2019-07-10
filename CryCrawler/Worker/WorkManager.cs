@@ -52,8 +52,11 @@ namespace CryCrawler.Worker
                 networkManager = new NetworkWorkManager(
                     config.HostEndpoint.Hostname, 
                     config.HostEndpoint.Port, 
-                    config.HostEndpoint.Password);
+                    config.HostEndpoint.Password,
+                    config.HostEndpoint.ClientId);
+
                 networkManager.WorkReceived += NetworkManager_WorkReceived;
+                networkManager.Connected += id => config.HostEndpoint.ClientId = id;
                 networkManager.Start();
             }
             else

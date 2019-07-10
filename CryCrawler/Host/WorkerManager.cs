@@ -3,6 +3,7 @@ using CryCrawler.Security;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -19,9 +20,9 @@ namespace CryCrawler.Host
         readonly TcpListener listener;
         readonly List<WorkerClient> clients = new List<WorkerClient>();
 
-        public event EventHandler ClientJoined;
-        public event EventHandler ClientLeft;
-
+        public event ClientHandler ClientJoined;
+        public event ClientHandler ClientLeft;
+        public delegate void ClientHandler(WorkerClient wc, object data);
 
         public WorkerManager(IPEndPoint endpoint, string password = null)
         {
@@ -62,7 +63,7 @@ namespace CryCrawler.Host
 
             // Start accepting client
             var client = listener.EndAcceptTcpClient(r);
-            Logger.Log($"Client connecting from {client.Client.RemoteEndPoint}...");
+            Logger.Log($"Client connecting from {client.Client.RemoteEndPoint}...", Logger.LogSeverity.Debug);
 
             // Create client object
             var wc = new WorkerClient(client);
@@ -75,20 +76,32 @@ namespace CryCrawler.Host
                 {
                     wc.MesssageHandler.Dispose();
 
-                    // TODO: maybe just update status
-                    lock (clients) clients.Remove(wc);
-                    ClientLeft?.Invoke(this, null);
+                    if (wc.Online)
+                    {
+                        wc.Online = false;
+                        ClientLeft?.Invoke(wc, null);
 
-                    Logger.Log($"Client disconnected from {wc.RemoteEndpoint}");
+                        Logger.Log($"Client disconnected from {wc.RemoteEndpoint}");
+                    }
                 };
 
-                SecurityUtils.DoHandshake(wc.MesssageHandler, passwordHash, false);
+                wc.Id = SecurityUtils.DoHandshake(wc.MesssageHandler, passwordHash, false, null,
+                    id => clients.Count(x => x.Id == id) > 0,
+                    id =>
+                    {
+                        var c = clients.Where(x => x.Id == id).FirstOrDefault();
+                        if (c == null) return false; // generate new Id if client doesn't exist
+                        if (c.Online == true) return false; // worker already online with this Id, generate new Id
+
+                        // worker with this Id is offline, assume this is that worker
+                        return true;
+                    });
 
                 wc.HandshakeCompleted = true;
             }
             catch (Exception ex)
             {
-                Logger.Log($"Rejected client from {client.Client.RemoteEndPoint}", Logger.LogSeverity.Warning);
+                Logger.Log($"Rejected client from {client.Client.RemoteEndPoint}. " + ex.Message, Logger.LogSeverity.Warning);
                 Logger.Log(ex.GetDetailedMessage(), Logger.LogSeverity.Debug);
 
                 try
@@ -101,11 +114,26 @@ namespace CryCrawler.Host
                 return;
             }
 
-            // Accept valid client
-            Logger.Log($"Accepted client from {client.Client.RemoteEndPoint}");
-            lock (clients) clients.Add(wc);
+            wc.Online = true;
 
-            ClientJoined?.Invoke(this, null);
+            // try get existing client
+            var ewc = clients.Where(x => x.Id == wc.Id).FirstOrDefault();
+
+            // Accept valid client
+            Logger.Log($"Accepted {(ewc == null ? "new" : "existing")} client from {client.Client.RemoteEndPoint}");
+            lock (clients)
+            {
+                // if client doesn't exist yet, add it - otherwise replace existing client
+                if (ewc == null) clients.Add(wc);
+                else
+                {
+                    var index = clients.IndexOf(ewc);
+
+                    clients[index] = wc;
+                }
+            }
+
+            ClientJoined?.Invoke(wc, ewc != null);
         }
 
         void ClientMessageReceived(WorkerClient client, NetworkMessage message)
@@ -147,10 +175,12 @@ namespace CryCrawler.Host
             }
         }
 
-        class WorkerClient
+        public class WorkerClient
         {
-            public EndPoint RemoteEndpoint;
+            public string Id;
+            public bool Online;
             public TcpClient Client;
+            public EndPoint RemoteEndpoint;
             public bool HandshakeCompleted;
             public NetworkMessageHandler<NetworkMessage> MesssageHandler;
 

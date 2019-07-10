@@ -19,17 +19,21 @@ namespace CryCrawler.Network
         public int Port { get; }
         public bool IsActive { get; private set; }
         public bool IsConnected { get; private set; }
+        public string ClientId { get; private set; }
         public string PasswordHash { get; }
 
+        public delegate void ConnectedHandler(string clientid);
         public delegate void WorkHandler(NetworkMessage w);
         public event WorkHandler WorkReceived;
+        public event ConnectedHandler Connected;
 
         private CancellationTokenSource csrc;
 
-        public NetworkWorkManager(string hostname, int port, string password = null)
+        public NetworkWorkManager(string hostname, int port, string password = null, string clientId = null)
         {
             Port = port;
             Hostname = hostname;
+            ClientId = clientId;
             PasswordHash = SecurityUtils.GetHash(password);
         }
 
@@ -46,7 +50,7 @@ namespace CryCrawler.Network
                     var hostEntry = Dns.GetHostEntry(Hostname);
                     if (hostEntry.AddressList.Length > 0)
                     {
-                        Address = hostEntry.AddressList[0];
+                        Address = hostEntry.AddressList.Last();
                     }
                     else throw new InvalidOperationException("Failed to resolve hostname!");
                 }
@@ -115,9 +119,15 @@ namespace CryCrawler.Network
                         };
 
                         // handshake
-                        SecurityUtils.DoHandshake(messageHandler, PasswordHash, true);
+                        ClientId = SecurityUtils.DoHandshake(messageHandler, PasswordHash, true, ClientId);
+
+                        // wait a bit (to make sure message handler callbacks don't get early messages)
+                        Task.Delay(100).Wait();
 
                         IsConnected = true;
+
+                        Logger.Log("Connected to host");
+                        Connected?.Invoke(ClientId);
 
                         // wait here until exception is thrown on message handler
                         reset.WaitOne();
@@ -128,9 +138,13 @@ namespace CryCrawler.Network
                     }
                     finally
                     {
-                        Logger.Log("Disconnected");
+                        if (IsConnected)
+                        {
+                            Logger.Log("Disconnected from host");
+                            IsConnected = false;
+                        }
+
                         client.ProperlyClose();
-                        IsConnected = false;
                     }
 
                     Task.Delay(300).Wait();

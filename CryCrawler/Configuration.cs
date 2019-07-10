@@ -86,6 +86,7 @@ namespace CryCrawler
         public int Port { get; set; } = 6000;
         public string Password { get; set; } = "";
         public bool UseHost { get; set; } = false;
+        public string ClientId { get; set; }
     }
     #endregion
 
