@@ -2,6 +2,7 @@
 using System.Net;
 using System.Linq;
 using System.Timers;
+using CryCrawler.Worker;
 using System.Net.Sockets;
 using CryCrawler.Network;
 using CryCrawler.Security;
@@ -16,6 +17,7 @@ namespace CryCrawler.Host
         public bool IsListening { get; private set; }
 
         readonly Timer timer;
+        readonly WorkManager manager;
         readonly string passwordHash;
         readonly TcpListener listener;
         readonly HostConfiguration config;
@@ -36,15 +38,27 @@ namespace CryCrawler.Host
         public event ClientHandler ClientRemoved;
         public delegate void ClientHandler(WorkerClient wc, object data);
 
-        public WorkerManager(HostConfiguration config, IPEndPoint endpoint, string password = null)
+        /// <summary>
+        /// Starts a TCP listener for clients. Uses WorkManager to get URLs to distribute among clients.
+        /// </summary>
+        public WorkerManager(WorkManager manager, HostConfiguration config)
         {
+            // paramaters
             this.config = config;
+            this.manager = manager;
+            var password = config.ListenerConfiguration.Password;
+            var endpoint = new IPEndPoint(IPAddress.Parse(config.ListenerConfiguration.IP), config.ListenerConfiguration.Port);
+
+            // initialize everything
             listener = new TcpListener(endpoint);
+
             passwordHash = string.IsNullOrEmpty(password) ? null : SecurityUtils.GetHash(password);
 
+            // prepare checking timer
             timer = new Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
             timer.Elapsed += OldClientCheck;
 
+            // subscribe to events
             this.ClientRemoved += clientRemoved;
         }
 
@@ -197,6 +211,7 @@ namespace CryCrawler.Host
             try
             {
                 timer.Stop();
+
                 listener.Stop();
                 IsListening = false;
                 Logger.Log("Host listener stopped.", Logger.LogSeverity.Debug);

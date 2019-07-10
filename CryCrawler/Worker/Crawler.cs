@@ -29,10 +29,13 @@ namespace CryCrawler.Worker
         #endregion
 
         private HttpClient httpClient;
-        private CancellationTokenSource cancelSource;
-        private SemaphoreSlim semaphore = new SemaphoreSlim(1);
         private int currentTaskNumber = 1;
+        private CancellationTokenSource cancelSource;
+        private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
 
+        /// <summary>
+        /// Crawler uses WorkManager to get URLs to crawl through.
+        /// </summary>
         public Crawler(WorkManager manager, WorkerConfiguration config)
         {
             Config = config;
