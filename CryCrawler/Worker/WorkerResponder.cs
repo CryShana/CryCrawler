@@ -29,11 +29,13 @@ namespace CryCrawler.Worker
         }
 
         // get worker information here
-        string getStatus() => JsonConvert.SerializeObject(new StatusResponses
+        string getStatus() => JsonConvert.SerializeObject(new
         {
             IsActive = crawler.IsActive,
             IsWorking = !crawler.WaitingForWork,
             UsingHost = config.WorkerConfig.HostEndpoint.UseHost,
+            HostEndpoint = $"{crawler.Config.HostEndpoint.Hostname}:{crawler.Config.HostEndpoint.Port}",
+            ClientId = crawler.Config.HostEndpoint.ClientId,
             WorkCount = crawler.Manager.WorkCount,
             CacheCount = crawler.Manager.CachedWorkCount,
             CacheCrawledCount = crawler.Manager.CachedCrawledWorkCount,
@@ -43,22 +45,5 @@ namespace CryCrawler.Worker
             TaskCount = crawler.CurrentTasks.Count,
             RecentDownloads = new List<DownloadedWork>(crawler.RecentDownloads)
         });
-
-        
-
-        class StatusResponses
-        {
-            public bool IsActive { get; set; }
-            public bool IsWorking { get; set; }
-            public bool UsingHost { get; set; }
-            public long WorkCount { get; set; }
-            public long CacheCount { get; set; }
-            public long CacheCrawledCount { get; set; }
-            public long UsageRAM { get; set; }
-            public int TaskCount { get; set; }
-            public List<DownloadedWork> RecentDownloads { get; set; }
-            public Dictionary<int, string> CurrentTasks { get; set; }
-            public WorkerConfiguration ConfigurationWorker { get; set; }
-        }
     }
 }
