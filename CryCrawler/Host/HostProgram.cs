@@ -15,6 +15,7 @@ namespace CryCrawler.Host
             this.config = config;
 
             manager = new WorkerManager(
+                config.HostConfig,
                 new IPEndPoint(IPAddress.Parse(config.HostConfig.ListenerConfiguration.IP), config.HostConfig.ListenerConfiguration.Port),
                 config.HostConfig.ListenerConfiguration.Password);
 

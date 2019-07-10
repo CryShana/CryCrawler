@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Net;
 using System.Linq;
+using System.Timers;
 using System.Net.Sockets;
 using CryCrawler.Network;
 using CryCrawler.Security;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace CryCrawler.Host
 {
@@ -13,24 +15,70 @@ namespace CryCrawler.Host
         public int ClientCount => Clients.Count;
         public bool IsListening { get; private set; }
 
+        readonly Timer timer;
         readonly string passwordHash;
         readonly TcpListener listener;
+        readonly HostConfiguration config;
         public readonly List<WorkerClient> Clients = new List<WorkerClient>();
+        public readonly ConcurrentDictionary<string, string> ClientWork = new ConcurrentDictionary<string, string>();
 
+        /// <summary>
+        /// Called when client gets disconnected.
+        /// </summary>
         public event ClientHandler ClientLeft;
+        /// <summary>
+        /// Called when new or existing client joins. If second parameter is true, existing client reconnected.
+        /// </summary>
         public event ClientHandler ClientJoined;
+        /// <summary>
+        /// Called when an existing inactive client exceeds max age threshold and gets removed.
+        /// </summary>
+        public event ClientHandler ClientRemoved;
         public delegate void ClientHandler(WorkerClient wc, object data);
 
-        public WorkerManager(IPEndPoint endpoint, string password = null)
+        public WorkerManager(HostConfiguration config, IPEndPoint endpoint, string password = null)
         {
+            this.config = config;
             listener = new TcpListener(endpoint);
             passwordHash = string.IsNullOrEmpty(password) ? null : SecurityUtils.GetHash(password);
+
+            timer = new Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
+            timer.Elapsed += OldClientCheck;
+
+            this.ClientRemoved += clientRemoved;
+        }
+
+        private void OldClientCheck(object sender, ElapsedEventArgs e)
+        {
+            if (Clients == null) return;
+
+            lock (Clients)
+            {
+                // do a sweep of old clients
+                var now = DateTime.Now;
+                for (int i = 0; i < Clients.Count; i++)
+                {
+                    var c = Clients[i];
+                    if (c.Online) continue;
+
+                    // remove inactive clients older than 1 day
+                    if (now.Subtract(c.LastConnected).TotalMinutes > config.MaxClientAgeMinutes)
+                    {
+                        Clients.RemoveAt(i);
+                        ClientRemoved?.Invoke(c, null);
+
+                        i--;
+                    }
+                }
+            }
         }
 
         public void StartListening()
         {
             try
             {
+                timer.Start();
+
                 listener.Start();
                 IsListening = true;
 
@@ -129,21 +177,6 @@ namespace CryCrawler.Host
 
                     Clients[index] = wc;
                 }
-
-                // also do a sweep of old clients
-                var now = DateTime.Now;
-                for (int i = 0; i < Clients.Count; i++)
-                {
-                    var c = Clients[i];
-                    if (c.Online) continue;
-                    
-                    // remove inactive clients older than 1 day
-                    if (now.Subtract(c.LastConnected).TotalDays > 1)
-                    {
-                        Clients.RemoveAt(i);
-                        i--;
-                    }
-                }
             }
 
             ClientJoined?.Invoke(wc, ewc != null);
@@ -163,6 +196,7 @@ namespace CryCrawler.Host
             // cleanup
             try
             {
+                timer.Stop();
                 listener.Stop();
                 IsListening = false;
                 Logger.Log("Host listener stopped.", Logger.LogSeverity.Debug);
@@ -187,6 +221,12 @@ namespace CryCrawler.Host
                 Logger.Log(ex.GetDetailedMessage(), Logger.LogSeverity.Debug);
             }
         }
+
+        private void clientRemoved(WorkerClient wc, object data)
+        {
+            // TODO: take work from thata client id, remove it, add back to backlog
+        }
+
 
         public class WorkerClient
         {
