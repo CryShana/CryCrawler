@@ -115,6 +115,7 @@ namespace CryCrawler.Host
             }
 
             wc.Online = true;
+            wc.LastConnected = DateTime.Now;
 
             // try get existing client
             var ewc = clients.Where(x => x.Id == wc.Id).FirstOrDefault();
@@ -124,12 +125,27 @@ namespace CryCrawler.Host
             lock (clients)
             {
                 // if client doesn't exist yet, add it - otherwise replace existing client
-                if (ewc == null) clients.Add(wc);
+                if (ewc == null) clients.Add(wc);        
                 else
                 {
                     var index = clients.IndexOf(ewc);
 
                     clients[index] = wc;
+                }
+
+                // also do a sweep of old clients
+                var now = DateTime.Now;
+                for (int i = 0; i < clients.Count; i++)
+                {
+                    var c = clients[i];
+                    if (c.Online) continue;
+
+                    // remove inactive clients older than 1 day
+                    if (now.Subtract(c.LastConnected).TotalDays > 1)
+                    {
+                        clients.RemoveAt(i);
+                        i--;
+                    }
                 }
             }
 
@@ -180,6 +196,7 @@ namespace CryCrawler.Host
             public string Id;
             public bool Online;
             public TcpClient Client;
+            public DateTime LastConnected;
             public EndPoint RemoteEndpoint;
             public bool HandshakeCompleted;
             public NetworkMessageHandler<NetworkMessage> MesssageHandler;
