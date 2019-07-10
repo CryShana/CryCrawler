@@ -3,6 +3,8 @@ using System.Timers;
 using System.Threading;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
+using System.Diagnostics;
 
 namespace CryCrawler
 {
@@ -17,7 +19,11 @@ namespace CryCrawler
 
         public static async Task Log(string message, LogSeverity severity = LogSeverity.Information)
         {
-            QueuedLogs.Enqueue(new LogMessage(message, severity));
+            // get caller name
+            var stack = new StackTrace();
+            var l = stack.FrameCount > 4 ? stack.GetFrame(4)?.GetMethod()?.DeclaringType.Name : null;
+
+            QueuedLogs.Enqueue(new LogMessage(message, severity, l));
 
             // check if logger active
             if (!IsActive)
@@ -41,9 +47,10 @@ namespace CryCrawler
             if (!DebugMode && msg.Severity == LogSeverity.Debug) return;
 
             // set Console color if log not informational
-            if (msg.Severity == LogSeverity.Error) Console.ForegroundColor = ConsoleColor.Red;
-            else if (msg.Severity == LogSeverity.Warning) Console.ForegroundColor = ConsoleColor.Yellow;
-            else if (msg.Severity == LogSeverity.Debug) Console.ForegroundColor = ConsoleColor.DarkGray;
+            var targetColor = ConsoleColor.Gray;
+            if (msg.Severity == LogSeverity.Error) targetColor = ConsoleColor.Red;
+            else if (msg.Severity == LogSeverity.Warning) targetColor = ConsoleColor.Yellow;
+            else if (msg.Severity == LogSeverity.Debug) targetColor = ConsoleColor.DarkGray;
 
             // severity text
             var severityText = "";
@@ -64,7 +71,21 @@ namespace CryCrawler
             }
 
             // display log message
-            Console.WriteLine($"[{msg.LogTime.ToString("dd.MM.yyyy HH:mm:ss.ffff")}] {severityText} - {msg.Message}");
+
+            /*
+            Console.ForegroundColor = targetColor;
+            Console.Write($"[{msg.LogTime.ToString("dd.MM.yyyy HH:mm:ss.ffff")}] {severityText} ");
+
+            Console.ForegroundColor = targetColor;
+            Console.Write($"{msg.Caller ?? "-"}");
+
+            Console.ForegroundColor = targetColor;
+            Console.WriteLine($" - {msg.Message}");
+            */
+
+            Console.ForegroundColor = targetColor;
+            Console.WriteLine($"[{msg.LogTime.ToString("dd.MM.yyyy HH:mm:ss.ffff")}] " +
+                $"{severityText} {msg.Caller ?? "-"} - {msg.Message}");
 
             // reset color if log was not informational
             if (msg.Severity != LogSeverity.Information) Console.ResetColor();
@@ -72,11 +93,13 @@ namespace CryCrawler
 
         private struct LogMessage
         {
+            public readonly string Caller;
             public readonly string Message;
             public readonly LogSeverity Severity;
             public readonly DateTime LogTime;
-            public LogMessage(string message, LogSeverity severity)
+            public LogMessage(string message, LogSeverity severity, string caller = null)
             {
+                Caller = caller;
                 Message = message;
                 Severity = severity;
                 LogTime = DateTime.Now;
