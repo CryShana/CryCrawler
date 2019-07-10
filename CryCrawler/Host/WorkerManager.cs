@@ -2,14 +2,16 @@
 using System.Net;
 using System.Linq;
 using System.Timers;
+using System.Threading;
 using CryCrawler.Worker;
 using System.Net.Sockets;
 using CryCrawler.Network;
 using CryCrawler.Security;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using Timer = System.Timers.Timer;
+using System.Collections.Concurrent;
+
 
 namespace CryCrawler.Host
 {
@@ -257,14 +259,45 @@ namespace CryCrawler.Host
 
         async void Work()
         {
+            string failedUrl = null, url = null;
             while (!cancelSource.IsCancellationRequested)
             {
-                if (!manager.IsWorkAvailable || manager.GetWork(out string url) == false)
+                if (Clients == null || Clients.Count(x => x.Online) == 0)
                 {
-                    // unable to get work, wait a bit and try again
-                    await Task.Delay(100);
+                    // no clients to give work to
+                    await Task.Delay(1000);
                     continue;
                 }
+
+                // if there is a failed url, use it again
+                if (string.IsNullOrEmpty(failedUrl))
+                {
+                    if (!manager.IsWorkAvailable || manager.GetWork(out url) == false)
+                    {
+                        // unable to get work, wait a bit and try again
+                        await Task.Delay(100);
+                        continue;
+                    }
+                }
+                else url = failedUrl;
+
+                try
+                {
+                    // do something with work
+                    Logger.Log("Sending work to client... " + url);
+
+                    // for now pick first client (TODO: picking algorithm -- probably by how busy they are - status reporting)
+                    var c = Clients.Where(x => x.Online).FirstOrDefault();
+                    c?.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Work, url));
+
+                    failedUrl = null;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log("Failed to distribute work! " + ex.Message + "\n" + ex.StackTrace, Logger.LogSeverity.Warning);
+                    failedUrl = url;                   
+                }
+
             }
         }
 
