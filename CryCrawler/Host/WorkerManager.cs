@@ -153,7 +153,8 @@ namespace CryCrawler.Host
                         wc.Online = false;
                         ClientLeft?.Invoke(wc, null);
 
-                        Logger.Log($"Client disconnected from {wc.RemoteEndpoint}");
+                        Logger.Log($"Client disconnected from {wc.RemoteEndpoint}! ");
+                        Logger.Log(b.GetDetailedMessage(), Logger.LogSeverity.Debug);
                     }
                 };
 
@@ -173,7 +174,7 @@ namespace CryCrawler.Host
             }
             catch (Exception ex)
             {
-                Logger.Log($"Rejected client from {client.Client.RemoteEndPoint}. " + ex.Message, Logger.LogSeverity.Warning);
+                Logger.Log($"Rejected client from {wc.RemoteEndpoint}. " + ex.Message, Logger.LogSeverity.Warning);
                 Logger.Log(ex.GetDetailedMessage(), Logger.LogSeverity.Debug);
 
                 try

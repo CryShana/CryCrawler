@@ -103,6 +103,9 @@ namespace CryCrawler.Network
                                         case NetworkMessageType.Work:
                                             WorkReceived?.Invoke(w);
                                             break;
+                                        case NetworkMessageType.Disconnect:
+                                            client.ProperlyClose();
+                                            break;
                                     }                                  
                                 }
                             });
