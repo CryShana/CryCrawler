@@ -26,6 +26,8 @@ namespace CryCrawler.Worker
         public bool WaitingForWork => CurrentTasks.All(x => x.Value == null);
         public ConcurrentDictionary<int, string> CurrentTasks { get; } = new ConcurrentDictionary<int, string>();
         public ConcurrentSlidingBuffer<DownloadedWork> RecentDownloads { get; }
+
+        public event EventHandler<bool> StateChanged;
         #endregion
 
         private HttpClient httpClient;
@@ -54,6 +56,8 @@ namespace CryCrawler.Worker
 
             for (int i = 0; i < Config.MaxConcurrency; i++)
                 new Task(Work, cancelSource.Token, TaskCreationOptions.LongRunning).Start();
+
+            StateChanged?.Invoke(this, true);
         }
 
         public void Stop()
@@ -62,6 +66,8 @@ namespace CryCrawler.Worker
 
             IsActive = false;
             cancelSource.Cancel();
+
+            StateChanged?.Invoke(this, false);
         }
 
         private async void Work()
