@@ -36,14 +36,20 @@ table {
     width: 100%;
 }
 
-    table#table-tasks {
-        table-layout: fixed;
+div#list-clients {
+    max-height: 300px;
+    overflow-y: scroll;
+    padding-right: 8px;
+}
+
+    div#list-clients .client-item {
+        padding: 10px;
+        margin: 10px 0;
+        background: white;
+        border-radius: 5px;
+        box-shadow: 0 0 8px #d0d0d0;
     }
 
-        table#table-tasks td {
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
 
 div.flexbox {
     display: flex;
@@ -51,8 +57,9 @@ div.flexbox {
 }
 
 #div-status, #div-tasks {
-    min-width: 230px;
     display: flex;
+    min-width: 230px;
+    min-height: 300px;
     flex-direction: column;
 }
 
