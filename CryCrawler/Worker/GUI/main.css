@@ -4,7 +4,7 @@
     margin: 0px;
 }
 
-#crawler-status.active {
+#crawler-status.active, .green {
     color: green;
 }
 
@@ -12,7 +12,7 @@
     color: orange;
 }
 
-#crawler-status.offline {
+#crawler-status.offline, .red {
     color: red;
 }
 
@@ -96,7 +96,7 @@ div#downloadsbox {
 }
 
 
-@media only screen and (max-width: 600px) {
+@media only screen and (max-width: 800px) {
     .flexbox {
         flex-direction: column;
     }

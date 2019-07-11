@@ -5,14 +5,26 @@
 function startPollingForStatus() {
     fetchStatus();
     setInterval(function () {
-        fetchStatus();
+        if (stillFetching === false || failcount > 5) {
+            stillFetching = false;
+            failcount = 0;
+            fetchStatus();
+        }
+        else failcount++;
     }, 1000);
 }
 
+var failcount = 0;
+var stillFetching = false;
 function fetchStatus() {
+    stillFetching = true;
+
     $.post("/status", function (data) {
         setStatus(data);
+    }).done(function () {
+        stillFetching = false;
     }).fail(function () {
+        stillFetching = false;
         console.log("Invalid response or connection failed!");
         setStatusText("offline");
     });
@@ -25,9 +37,17 @@ function setStatus(data) {
     else if (data.IsActive === true) setStatusText("idle");
     else setStatusText("offline");
 
-    // set work mode
-    $("#crawler-work-source").text(data.UsingHost === true ? `Host (${data.HostEndpoint})` : "Local");
+    var cclass = "red";
+    var ctext = "Disconnected";
+    if (data.ConnectedToHost === true) {
+        cclass = "green";
+        ctext = "Connected";
+    }
 
+    // set work mode
+    $("#crawler-work-source").html(data.UsingHost === true ? `Host (${data.HostEndpoint}) - <span class='${cclass}'>${ctext}</span>` : "Local");
+
+    // set client id
     $("#crawler-client-id").text(data.UsingHost === true ? data.ClientId : "-");
 
     // set work count

@@ -8,9 +8,9 @@ namespace CryCrawler.Host
     {
         readonly WebGUI webgui;
         readonly Configuration config;
-        readonly WorkerManager manager;
         readonly CacheDatabase database;
         readonly WorkManager workmanager;
+        readonly WorkerManager workermanager;
 
         public HostProgram(Configuration config)
         {
@@ -20,22 +20,22 @@ namespace CryCrawler.Host
 
             workmanager = new WorkManager(config.WorkerConfig, database);
 
-            manager = new WorkerManager(workmanager, config.HostConfig);
+            workermanager = new WorkerManager(workmanager, config.HostConfig);
 
-            webgui = new WebGUI(new IPEndPoint(IPAddress.Parse(config.WebGUI.IP), config.WebGUI.Port), new HostResponder());
+            webgui = new WebGUI(new IPEndPoint(IPAddress.Parse(config.WebGUI.IP), config.WebGUI.Port), new HostResponder(config, workmanager, workermanager));
         }
 
         public void Start()
         {
             // start listening for connections
-            manager.Start();
+            workermanager.Start();
             webgui.Start();
         }
 
         public void Stop()
         {
             // cleanup
-            manager.Stop();
+            workermanager.Stop();
             webgui.Stop();
         }
     }
