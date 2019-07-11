@@ -27,6 +27,7 @@ namespace CryCrawler.Worker
         public long CachedWorkCount { get; private set; } = 0;
         public long CachedCrawledWorkCount { get; private set; } = 0;
         public bool IsWorkAvailable => Backlog.Count > 0 || CachedWorkCount > 0;
+
         public bool HostMode { get; }
         public bool ConnectedToHost { get; private set; }
         #endregion
@@ -58,13 +59,15 @@ namespace CryCrawler.Worker
                     config.HostEndpoint.Hostname, 
                     config.HostEndpoint.Port, 
                     config.HostEndpoint.Password,
-                    config.HostEndpoint.ClientId);
+                    config.HostEndpoint.ClientId); 
 
                 networkManager.WorkReceived += NetworkManager_WorkReceived;
                 networkManager.Disconnected += id => ConnectedToHost = false;
                 networkManager.Connected += id =>
                 {
                     config.HostEndpoint.ClientId = id;
+                    ConfigManager.SaveConfiguration(ConfigManager.LastLoaded);
+
                     ConnectedToHost = true;
                 };
                 

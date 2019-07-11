@@ -44,9 +44,9 @@ namespace CryCrawler.Host
             UsageRAM = Process.GetCurrentProcess().PrivateMemorySize64,
             Clients = workerManager.Clients.Select(x => new
             {
-                Id = x.Id,
-                Online = x.Online,
-                LastConnected = x.LastConnected,
+                x.Id,
+                x.Online,
+                LastConnected = x.LastConnected.ToString("dd.MM.yyyy HH:mm:ss"),
                 RemoteEndpoint = x.RemoteEndpoint.ToString()
             })
         });

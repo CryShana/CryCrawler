@@ -63,6 +63,55 @@ function setStatus(data) {
     // set RAM usage
     var usage = Math.round((data.UsageRAM / 1024.0) / 1024.0);
     $("#crawler-ram").text(usage + "MB");
+
+    // display clients
+    var clientList = $("#list-clients");
+    data.Clients.forEach(function (val, i) {
+        let id = val.Id;
+        let online = val.Online === true ? "Online" : "Offine";
+        let lconnected = val.LastConnected;
+        let endpoint = val.RemoteEndpoint;
+
+        let onlineClass = val.Online === true ? "green" : "red";
+
+        let exists = false;
+
+        // find if it exists
+        clientList.find(".client-item").each(function (ind, el) {
+            let c_id = $(el).find(".client-id").text();
+
+            if (id === c_id) {
+                exists = true;
+
+                // update values
+                let c_online = $(el).find(".client-online");
+                c_online.text(online);
+                c_online.removeClass("red");
+                c_online.removeClass("green");
+                c_online.addClass(onlineClass);
+
+                // break loop
+                return false;
+            }
+        });
+
+        if (exists === false) {
+            clientList.append($(`<div class="client-item">
+                <div class="client-id">${id}</div>
+                <div class="client-online ${onlineClass}">${online}</div>
+            </div>`));
+        }
+    });
+
+    // check if clientList contains extra clients that need to be removed
+    clientList.find(".client-item").each(function (i, el) {
+        let c_id = $(el).find(".client-id").text();
+
+        let client = data.Clients.find(function (x) { return x.Id === c_id; });
+        if (client === undefined || client === null) {
+            $(el).remove();
+        }
+    });
 }
 
 function setStatusText(text) {

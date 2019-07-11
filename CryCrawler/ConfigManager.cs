@@ -9,6 +9,7 @@ namespace CryCrawler
     {
         public const string FileName = "config.json";
 
+        public static Configuration LastLoaded { get; private set; }
         public static bool LoadConfiguration(out Configuration config)
         {
             config = new Configuration();
@@ -29,6 +30,8 @@ namespace CryCrawler
                         throw new Exception($"'{config.HostConfig.ListenerConfiguration.IP}' is not a valid IP address for listener!");
                     if (IPAddress.TryParse(config.WebGUI.IP, out IPAddress addr2) == false)
                         throw new Exception($"'{config.WebGUI.IP}' is not a valid IP address for listener!");
+
+                    LastLoaded = config;
 
                     return true;
                 }
