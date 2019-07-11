@@ -20,18 +20,17 @@ namespace CryCrawler.Network
         public bool IsConnected { get; private set; }
         public string ClientId { get; private set; }
         public string PasswordHash { get; }
+        public NetworkMessageHandler<NetworkMessage> MessageHandler { get; private set; }
 
         public delegate void ConnectedHandler(string clientid);
-        public delegate void MessageHandler(NetworkMessage w, 
+        public delegate void MessageReceivedHandler(NetworkMessage w,
             NetworkMessageHandler<NetworkMessage> msgHandler);
 
         public event ConnectedHandler Connected;
         public event ConnectedHandler Disconnected;
-        public event MessageHandler MessageReceived;
+        public event MessageReceivedHandler MessageReceived;
 
         private TcpClient client;
-        private NetworkMessageHandler<NetworkMessage> messageHandler;
-
         private CancellationTokenSource csrc;
 
         public NetworkWorkManager(string hostname, int port, string password = null, string clientId = null)
@@ -100,7 +99,7 @@ namespace CryCrawler.Network
                         client.Connect(new IPEndPoint(Address, Port));
 
                         // message handler here
-                        messageHandler = new NetworkMessageHandler<NetworkMessage>(
+                        MessageHandler = new NetworkMessageHandler<NetworkMessage>(
                             client.GetStream(),
                             w =>
                             {
@@ -112,19 +111,19 @@ namespace CryCrawler.Network
 
                                     if (w.MessageType == NetworkMessageType.Disconnect) client.ProperlyClose();
 
-                                    MessageReceived?.Invoke(w, messageHandler);
+                                    MessageReceived?.Invoke(w, MessageHandler);
                                 }
                             });
 
                         // if message handler throws an exception, dispose it
-                        messageHandler.ExceptionThrown += (a, b) =>
+                        MessageHandler.ExceptionThrown += (a, b) =>
                         {
-                            messageHandler.Dispose();
+                            MessageHandler.Dispose();
                             reset.Set();
                         };
 
                         // handshake
-                        ClientId = SecurityUtils.DoHandshake(messageHandler, PasswordHash, true, ClientId);
+                        ClientId = SecurityUtils.DoHandshake(MessageHandler, PasswordHash, true, ClientId);
 
                         // wait a bit (to make sure message handler callbacks don't get early messages)
                         Task.Delay(100).Wait();

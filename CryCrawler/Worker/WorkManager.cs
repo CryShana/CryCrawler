@@ -17,11 +17,11 @@ namespace CryCrawler.Worker
         bool isFIFO = false;
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
-        readonly NetworkWorkManager networkManager;
 
         public readonly int MemoryLimitCount = 500000;
 
         #region Public Properties
+        public NetworkWorkManager NetworkManager { get; private set; }
         public ConcurrentQueueOrStack<Work, string> Backlog { get; }
         public long WorkCount => Backlog.Count + CachedWorkCount;
         public long CachedWorkCount { get; private set; } = 0;
@@ -30,7 +30,7 @@ namespace CryCrawler.Worker
 
         public bool HostMode { get; }
         public bool ConnectedToHost { get; private set; }
-        public event NetworkWorkManager.MessageHandler HostMessageReceived;
+        public event NetworkWorkManager.MessageReceivedHandler HostMessageReceived;
         #endregion
 
         public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount) : this(config, database) => MemoryLimitCount = newMemoryLimitCount;
@@ -56,15 +56,15 @@ namespace CryCrawler.Worker
                 // delete existing cache and create new one
                 database.EnsureNew();
 
-                networkManager = new NetworkWorkManager(
+                NetworkManager = new NetworkWorkManager(
                     config.HostEndpoint.Hostname, 
                     config.HostEndpoint.Port, 
                     config.HostEndpoint.Password,
                     config.HostEndpoint.ClientId);
 
-                networkManager.MessageReceived += NetworkManager_MessageReceived;
-                networkManager.Disconnected += id => ConnectedToHost = false;
-                networkManager.Connected += id =>
+                NetworkManager.MessageReceived += NetworkManager_MessageReceived;
+                NetworkManager.Disconnected += id => ConnectedToHost = false;
+                NetworkManager.Connected += id =>
                 {
                     config.HostEndpoint.ClientId = id;
                     ConfigManager.SaveConfiguration(ConfigManager.LastLoaded);
@@ -72,7 +72,7 @@ namespace CryCrawler.Worker
                     ConnectedToHost = true;
                 };
                 
-                networkManager.Start();
+                NetworkManager.Start();
             }
             else
             {

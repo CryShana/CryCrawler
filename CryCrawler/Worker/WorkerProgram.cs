@@ -19,11 +19,14 @@ namespace CryCrawler.Worker
             database = new CacheDatabase(config.CacheFilename);
 
             workmanager = new WorkManager(config.WorkerConfig, database);
-            workmanager.HostMessageReceived += Workmanager_HostMessageReceived;
 
             crawler = new Crawler(workmanager, config.WorkerConfig);
 
             webgui = new WebGUI(new IPEndPoint(IPAddress.Parse(config.WebGUI.IP), config.WebGUI.Port), new WorkerResponder(config, crawler));
+
+            // register events
+            workmanager.HostMessageReceived += Workmanager_HostMessageReceived;
+            crawler.StateChanged += Crawler_StateChanged;
         }
 
         public void Start()
@@ -43,19 +46,29 @@ namespace CryCrawler.Worker
             workmanager.Dispose();
         }
 
-        void Workmanager_HostMessageReceived(NetworkMessage w, NetworkMessageHandler<NetworkMessage> msgHandler)
+        void Crawler_StateChanged(object sender, bool e) => SendStatusMessage(workmanager.NetworkManager.MessageHandler);      
+
+        void Workmanager_HostMessageReceived(NetworkMessage w, 
+            NetworkMessageHandler<NetworkMessage> msgHandler)
         {
             switch (w.MessageType)
             {
                 case NetworkMessageType.StatusCheck:
-                    var msg = JsonConvert.SerializeObject(new
-                    {
-                        IsActive = crawler.IsActive
-                    });
-
-                    msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
+                    SendStatusMessage(msgHandler);
                     break;
             }
+        }
+
+        void SendStatusMessage(NetworkMessageHandler<NetworkMessage> msgHandler)
+        {
+            if (workmanager.ConnectedToHost == false) return;
+
+            var msg = JsonConvert.SerializeObject(new
+            {
+                IsActive = crawler.IsActive
+            });
+
+            msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
         }
     }
 }
