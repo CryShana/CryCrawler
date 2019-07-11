@@ -90,6 +90,9 @@ function setStatus(data) {
                 c_online.removeClass("green");
                 c_online.addClass(onlineClass);
 
+                let c_last = $(el).find(".client-last");
+                c_last.html(`${lconnected} (${endpoint})`);
+
                 // break loop
                 return false;
             }
@@ -99,6 +102,7 @@ function setStatus(data) {
             clientList.append($(`<div class="client-item">
                 <div class="client-id">${id}</div>
                 <div class="client-online ${onlineClass}">${online}</div>
+                <div class="client-last">${lconnected} (${endpoint})</div>
             </div>`));
         }
     });

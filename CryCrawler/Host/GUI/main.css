@@ -37,7 +37,7 @@ table {
 }
 
 div#list-clients {
-    max-height: 300px;
+    max-height: 400px;
     overflow-y: scroll;
     padding-right: 8px;
 }
@@ -49,6 +49,11 @@ div#list-clients {
         border-radius: 5px;
         box-shadow: 0 0 8px #d0d0d0;
     }
+
+        div#list-clients .client-item .client-last {
+            margin-top: 10px;
+            color: #a7a7a7;
+        }
 
 
 div.flexbox {
