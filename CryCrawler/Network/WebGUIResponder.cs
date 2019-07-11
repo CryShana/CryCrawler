@@ -89,12 +89,12 @@ namespace CryCrawler.Network
 
             // Handle methods
             if (method == "GET") return ResponseGET(filename, out contentType);
-            else if (method == "POST") return ResponsePOST(filename, out contentType);
+            else if (method == "POST") return ResponsePOST(filename, body, out contentType);
             else return GetJSON("Invalid HTTP method!", out contentType);            
         }
 
         protected virtual string ResponseGET(string filename, out string contentType) => GetPage(filename, out contentType);       
-        protected virtual string ResponsePOST(string filename, out string contentType) => GetJSON("Invalid HTTP method!", out contentType);
+        protected virtual string ResponsePOST(string filename, string body, out string contentType) => GetJSON("Invalid HTTP method!", out contentType);
 
         protected virtual string GetJSON(string message, out string contentType)
         {
