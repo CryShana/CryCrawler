@@ -1,7 +1,7 @@
-﻿using CryCrawler.Network;
-using Newtonsoft.Json;
-using System.Collections.Generic;
+﻿using Newtonsoft.Json;
+using CryCrawler.Network;
 using System.Diagnostics;
+using System.Collections.Generic;
 
 namespace CryCrawler.Worker
 {
@@ -18,7 +18,6 @@ namespace CryCrawler.Worker
             else return base.ResponsePOST(filename, out contentType);
         }
 
-
         Crawler crawler;
         Configuration config;
 
@@ -33,6 +32,7 @@ namespace CryCrawler.Worker
         {
             IsActive = crawler.IsActive,
             IsWorking = !crawler.WaitingForWork,
+            ConnectedToHost = crawler.Manager.ConnectedToHost,
             UsingHost = config.WorkerConfig.HostEndpoint.UseHost,
             HostEndpoint = $"{crawler.Config.HostEndpoint.Hostname}:{crawler.Config.HostEndpoint.Port}",
             ClientId = crawler.Config.HostEndpoint.ClientId,

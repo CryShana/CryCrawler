@@ -27,6 +27,8 @@ namespace CryCrawler.Worker
         public long CachedWorkCount { get; private set; } = 0;
         public long CachedCrawledWorkCount { get; private set; } = 0;
         public bool IsWorkAvailable => Backlog.Count > 0 || CachedWorkCount > 0;
+        public bool HostMode { get; }
+        public bool ConnectedToHost { get; private set; }
         #endregion
 
         public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount) : this(config, database) => MemoryLimitCount = newMemoryLimitCount;
@@ -43,6 +45,8 @@ namespace CryCrawler.Worker
             if (config.HostEndpoint.UseHost)
             {
                 // HOST MODE
+                HostMode = true;
+                ConnectedToHost = false;
 
                 // use host
                 Logger.Log($"Using Host as Url source ({config.HostEndpoint.Hostname}:{config.HostEndpoint.Port})");
@@ -57,12 +61,20 @@ namespace CryCrawler.Worker
                     config.HostEndpoint.ClientId);
 
                 networkManager.WorkReceived += NetworkManager_WorkReceived;
-                networkManager.Connected += id => config.HostEndpoint.ClientId = id;
+                networkManager.Disconnected += id => ConnectedToHost = false;
+                networkManager.Connected += id =>
+                {
+                    config.HostEndpoint.ClientId = id;
+                    ConnectedToHost = true;
+                };
+                
                 networkManager.Start();
             }
             else
             {
                 // LOCAL MODE
+                HostMode = false;
+                ConnectedToHost = false;
 
                 // use local Urls and Dashboard provided URLs
                 Logger.Log($"Using local Url source");

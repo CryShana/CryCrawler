@@ -25,6 +25,7 @@
   <ItemGroup>
     <None Remove="Host\GUI\Home.html" />
     <None Remove="Host\GUI\main.css" />
+    <None Remove="Host\GUI\main.js" />
     <None Remove="Worker\GUI\Home.html" />
     <None Remove="Worker\GUI\jquery.min.js" />
     <None Remove="Worker\GUI\main.css" />
@@ -43,7 +44,9 @@
   <ItemGroup>
     <EmbeddedResource Include="Host\GUI\Home.html" />
     <EmbeddedResource Include="Host\GUI\main.css" />
+    <EmbeddedResource Include="Host\GUI\main.js" />
     <EmbeddedResource Include="Worker\GUI\Home.html" />
+    <EmbeddedResource Include="Host\GUI\jquery.min.js" />
     <EmbeddedResource Include="Worker\GUI\jquery.min.js" />
     <EmbeddedResource Include="Worker\GUI\main.css" />
     <EmbeddedResource Include="Worker\GUI\main.js" />

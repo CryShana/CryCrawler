@@ -22,6 +22,7 @@ namespace CryCrawler.Network
         public delegate void WorkHandler(NetworkMessage w);
         public event WorkHandler WorkReceived;
         public event ConnectedHandler Connected;
+        public event ConnectedHandler Disconnected;
 
         private CancellationTokenSource csrc;
 
@@ -140,6 +141,7 @@ namespace CryCrawler.Network
                         if (IsConnected)
                         {
                             Logger.Log("Disconnected from host");
+                            Disconnected?.Invoke(ClientId);
                             IsConnected = false;
                         }
 

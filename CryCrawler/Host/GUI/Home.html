@@ -3,10 +3,64 @@
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <meta charset="utf-8" />
-    <title>Worker WebGUI</title>
+    <title>Host WebGUI</title>
     <link rel="stylesheet" href="main.css">
+    <script src="jquery.min.js"></script>
+    <script src="main.js"></script>
 </head>
 <body>
-    Host home page
+    <h2>CryCrawler</h2>
+
+    <div class="flexbox">
+        <div id="div-status">
+            <div class="nicebox" style="flex: 1;">
+                <table id="table-status">
+                    <tr>
+                        <td><b>Status</b></td>
+                        <td id="crawler-status">Offline</td>
+                    </tr>
+                    <tr>
+                        <td><b>Source</b></td>
+                        <td id="crawler-work-source">-</td>
+                    </tr>
+                    <tr>
+                        <td><b>Client ID</b></td>
+                        <td id="crawler-client-id">-</td>
+                    </tr>
+                    <tr>
+                        <td><b>Work</b></td>
+                        <td id="crawler-work-count">0</td>
+                    </tr>
+                    <tr>
+                        <td><b>Crawled</b></td>
+                        <td id="crawler-crawled-count">0</td>
+                    </tr>
+                    <tr>
+                        <td><b>Cached Work</b></td>
+                        <td id="crawler-cached-work-count">0</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <div id="div-tasks">
+            <p style="margin-top: 12px;margin-bottom: 10px;">Current tasks:</p>
+            <div class="nicebox" style="flex: 1;">
+                <table id="table-tasks"></table>
+            </div>
+        </div>
+    </div>
+
+
+    <h4>Configuration</h4>
+    <div>
+        Not yet implemented
+    </div>
+    <br />
+    <br />
+    <br />
+
+    <div id="div-footer">
+        Memory usage: <b id="crawler-ram">0.00 MB</b>
+    </div>
 </body>
 </html>
