@@ -1,7 +1,6 @@
-﻿using MessagePack;
-using System;
+﻿using System;
 using System.IO;
-using System.Threading;
+using MessagePack;
 using System.Threading.Tasks;
 
 namespace CryCrawler.Network

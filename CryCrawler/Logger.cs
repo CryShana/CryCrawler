@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Timers;
 using System.Threading;
-using System.Collections.Concurrent;
-using System.Threading.Tasks;
-using System.Runtime.CompilerServices;
 using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 
 namespace CryCrawler
 {
@@ -21,9 +21,31 @@ namespace CryCrawler
         {
             // get caller name
             var stack = new StackTrace();
-            var l = stack.FrameCount > 4 ? stack.GetFrame(4)?.GetMethod()?.DeclaringType.Name : null;
+            var callername = "";
+            for (int i = 0; i < stack.FrameCount; i++)
+            {
+                var m = stack.GetFrame(i).GetMethod();
+                var n = m.DeclaringType.FullName;
 
-            QueuedLogs.Enqueue(new LogMessage(message, severity, l));
+                if (n.StartsWith("CryCrawler"))
+                {
+                    if (n.Contains("Logger")) continue;
+
+                    var name = "";
+                    if (n.Contains('+'))
+                    {
+                        var match = Regex.Match(m.DeclaringType.FullName, @"\.(\w*?)\+");
+                        name = match.Groups[1].Value;
+                    }
+                    else name = m.DeclaringType.Name;
+
+                    callername = name;
+                    break;
+                }
+            }
+
+            // enqueue log
+            QueuedLogs.Enqueue(new LogMessage(message, severity, callername));
 
             // check if logger active
             if (!IsActive)
@@ -72,20 +94,22 @@ namespace CryCrawler
 
             // display log message
 
+            
+            Console.ForegroundColor = targetColor;
+            Console.Write($"[{msg.LogTime.ToString("dd.MM.yyyy HH:mm:ss.ffff")}] {severityText, -5} ");
+
+            const int length = 20;
+            Console.ForegroundColor = targetColor;
+            Console.Write($"{msg.Caller.Limit(length - 1) ?? "-", -length}");
+
+            Console.ForegroundColor = targetColor;
+            Console.WriteLine($"{msg.Message}");
+            
+
             /*
             Console.ForegroundColor = targetColor;
-            Console.Write($"[{msg.LogTime.ToString("dd.MM.yyyy HH:mm:ss.ffff")}] {severityText} ");
-
-            Console.ForegroundColor = targetColor;
-            Console.Write($"{msg.Caller ?? "-"}");
-
-            Console.ForegroundColor = targetColor;
-            Console.WriteLine($" - {msg.Message}");
-            */
-
-            Console.ForegroundColor = targetColor;
             Console.WriteLine($"[{msg.LogTime.ToString("dd.MM.yyyy HH:mm:ss.ffff")}] " +
-                $"{severityText} - {msg.Message}");
+                $"{severityText} - {msg.Message}");*/
 
             // reset color if log was not informational
             if (msg.Severity != LogSeverity.Information) Console.ResetColor();

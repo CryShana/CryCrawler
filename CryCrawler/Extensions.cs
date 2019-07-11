@@ -37,5 +37,7 @@ namespace CryCrawler
 
             client?.Dispose();
         }
+
+        public static string Limit(this string text, int size) => text.Length > size ? text.Substring(0, size) : text;
     }
 }
