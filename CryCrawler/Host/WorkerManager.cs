@@ -11,7 +11,8 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Timer = System.Timers.Timer;
 using System.Collections.Concurrent;
-
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace CryCrawler.Host
 {
@@ -21,6 +22,7 @@ namespace CryCrawler.Host
         public bool IsListening { get; private set; }
 
         readonly Timer timer;
+        readonly Timer workerTimer;
         readonly WorkManager manager;
         readonly string passwordHash;
         readonly TcpListener listener;
@@ -63,33 +65,12 @@ namespace CryCrawler.Host
             timer = new Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
             timer.Elapsed += OldClientCheck;
 
+            // prepare worker timer
+            workerTimer = new Timer(TimeSpan.FromSeconds(2).TotalMilliseconds);
+            workerTimer.Elapsed += WorkerStatusCheck;
+
             // subscribe to events
             this.ClientRemoved += clientRemoved;
-        }
-
-        private void OldClientCheck(object sender, ElapsedEventArgs e)
-        {
-            if (Clients == null) return;
-
-            lock (Clients)
-            {
-                // do a sweep of old clients
-                var now = DateTime.Now;
-                for (int i = 0; i < Clients.Count; i++)
-                {
-                    var c = Clients[i];
-                    if (c.Online) continue;
-
-                    // remove inactive clients older than 1 day
-                    if (now.Subtract(c.LastConnected).TotalMinutes > config.MaxClientAgeMinutes)
-                    {
-                        Clients.RemoveAt(i);
-                        ClientRemoved?.Invoke(c, null);
-
-                        i--;
-                    }
-                }
-            }
         }
 
         public void Start()
@@ -98,6 +79,9 @@ namespace CryCrawler.Host
             {
                 // start timer for age checking
                 timer.Start();
+
+                // start timer for checking workers
+                workerTimer.Start();
 
                 // initialize new cancellation source
                 cancelSource = new CancellationTokenSource();
@@ -194,11 +178,11 @@ namespace CryCrawler.Host
             var ewc = Clients.Where(x => x.Id == wc.Id).FirstOrDefault();
 
             // Accept valid client
-            Logger.Log($"Accepted {(ewc == null ? "new" : "existing")} client from {client.Client.RemoteEndPoint}");
+            Logger.Log($"Accepted {(ewc == null ? "new" : "existing")} client from {client.Client.RemoteEndPoint}. ({wc.Id})");
             lock (Clients)
             {
                 // if client doesn't exist yet, add it - otherwise replace existing client
-                if (ewc == null) Clients.Add(wc);        
+                if (ewc == null) Clients.Add(wc);
                 else
                 {
                     var index = Clients.IndexOf(ewc);
@@ -214,9 +198,22 @@ namespace CryCrawler.Host
         {
             if (!client.HandshakeCompleted) return;
 
-            Logger.Log($"Received message from {client.Client.Client.RemoteEndPoint} -> {message.MessageType}", Logger.LogSeverity.Debug);
+            // do not log status checks because they happen too frequently
+            if (message.MessageType != NetworkMessageType.StatusCheck)
+                Logger.Log($"Received message from '{client.Id}' -> {message.MessageType}", Logger.LogSeverity.Debug);
 
-            // TODO: add message handling
+            // TODO: improve message handling
+
+            switch (message.MessageType)
+            {
+                case NetworkMessageType.StatusCheck:
+                    var status = JsonConvert.DeserializeObject<JObject>((string)message.Data);
+
+                    var isActive = (bool)status["IsActive"];
+                    break;
+                case NetworkMessageType.ResultsReady:                   
+                    break;
+            }
         }
 
         public void Stop()
@@ -225,7 +222,7 @@ namespace CryCrawler.Host
             try
             {
                 timer.Stop();
-
+                workerTimer.Stop();
                 cancelSource.Cancel();
 
                 listener.Stop();
@@ -296,12 +293,42 @@ namespace CryCrawler.Host
                 catch (Exception ex)
                 {
                     Logger.Log("Failed to distribute work! " + ex.Message + "\n" + ex.StackTrace, Logger.LogSeverity.Warning);
-                    failedUrl = url;                   
+                    failedUrl = url;
                 }
 
             }
         }
 
+        void WorkerStatusCheck(object sender, ElapsedEventArgs e)
+        {
+            foreach (var c in Clients.Where(x => x.Online))
+                Task.Run(() => c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck)));    
+        }
+
+        void OldClientCheck(object sender, ElapsedEventArgs e)
+        {
+            if (Clients == null) return;
+
+            lock (Clients)
+            {
+                // do a sweep of old clients
+                var now = DateTime.Now;
+                for (int i = 0; i < Clients.Count; i++)
+                {
+                    var c = Clients[i];
+                    if (c.Online) continue;
+
+                    // remove inactive clients older than 1 day
+                    if (now.Subtract(c.LastConnected).TotalMinutes > config.MaxClientAgeMinutes)
+                    {
+                        Clients.RemoveAt(i);
+                        ClientRemoved?.Invoke(c, null);
+
+                        i--;
+                    }
+                }
+            }
+        }
 
         public class WorkerClient
         {

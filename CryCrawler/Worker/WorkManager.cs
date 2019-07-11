@@ -1,11 +1,11 @@
 using System;
 using System.Linq;
+using Newtonsoft.Json;
 using System.Threading;
 using CryCrawler.Network;
 using CryCrawler.Structures;
 using System.Collections.Generic;
 using static CryCrawler.CacheDatabase;
-using CryCrawler.Host;
 
 namespace CryCrawler.Worker
 {
@@ -30,6 +30,7 @@ namespace CryCrawler.Worker
 
         public bool HostMode { get; }
         public bool ConnectedToHost { get; private set; }
+        public event NetworkWorkManager.MessageHandler HostMessageReceived;
         #endregion
 
         public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount) : this(config, database) => MemoryLimitCount = newMemoryLimitCount;
@@ -59,9 +60,9 @@ namespace CryCrawler.Worker
                     config.HostEndpoint.Hostname, 
                     config.HostEndpoint.Port, 
                     config.HostEndpoint.Password,
-                    config.HostEndpoint.ClientId); 
+                    config.HostEndpoint.ClientId);
 
-                networkManager.WorkReceived += NetworkManager_WorkReceived;
+                networkManager.MessageReceived += NetworkManager_MessageReceived;
                 networkManager.Disconnected += id => ConnectedToHost = false;
                 networkManager.Connected += id =>
                 {
@@ -346,13 +347,27 @@ namespace CryCrawler.Worker
             Logger.Log($"Dumped {inserted} backlog items to cache");
         }
 
-        private void NetworkManager_WorkReceived(NetworkMessage m)
+        private void NetworkManager_MessageReceived(NetworkMessage w, NetworkMessageHandler<NetworkMessage> msgHandler)
         {
-            var url = (string)m.Data;
+            // handle message inside work manager
+            switch (w.MessageType)
+            {
+                case NetworkMessageType.Work:
+                    WorkReceived((string)w.Data);
+                    break;
+                case NetworkMessageType.Disconnect:
+                    break;
+            }
 
-            Logger.Log("Work received - " + url);
+            // pass it on
+            HostMessageReceived?.Invoke(w, msgHandler);
+        }
 
-            AddToBacklog(url);
+        private void WorkReceived(string work)
+        {
+            Logger.Log("Work received - " + work);
+
+            AddToBacklog(work);
         }
     }
 }

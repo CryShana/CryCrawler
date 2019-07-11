@@ -1,4 +1,7 @@
 ﻿using CryCrawler.Security;
+using CryCrawler.Worker;
+using LiteDB;
+using Newtonsoft.Json;
 using System;
 using System.Linq;
 using System.Net;
@@ -19,10 +22,15 @@ namespace CryCrawler.Network
         public string PasswordHash { get; }
 
         public delegate void ConnectedHandler(string clientid);
-        public delegate void WorkHandler(NetworkMessage w);
-        public event WorkHandler WorkReceived;
+        public delegate void MessageHandler(NetworkMessage w, 
+            NetworkMessageHandler<NetworkMessage> msgHandler);
+
         public event ConnectedHandler Connected;
         public event ConnectedHandler Disconnected;
+        public event MessageHandler MessageReceived;
+
+        private TcpClient client;
+        private NetworkMessageHandler<NetworkMessage> messageHandler;
 
         private CancellationTokenSource csrc;
 
@@ -77,13 +85,13 @@ namespace CryCrawler.Network
                 IsConnected = false;
             }
         }
-        private void ConnectionLoop(CancellationToken token)
+
+        void ConnectionLoop(CancellationToken token)
         {
             new Task(() =>
             {
                 while (!token.IsCancellationRequested)
                 {
-                    TcpClient client = null;
                     ManualResetEvent reset = new ManualResetEvent(false);
 
                     try
@@ -92,22 +100,19 @@ namespace CryCrawler.Network
                         client.Connect(new IPEndPoint(Address, Port));
 
                         // message handler here
-                        var messageHandler = new NetworkMessageHandler<NetworkMessage>(
+                        messageHandler = new NetworkMessageHandler<NetworkMessage>(
                             client.GetStream(),
                             w =>
                             {
                                 if (!token.IsCancellationRequested && IsConnected)
                                 {
-                                    Logger.Log("Received msg type -> " + w.MessageType.ToString());
-                                    switch (w.MessageType)
-                                    {
-                                        case NetworkMessageType.Work:
-                                            WorkReceived?.Invoke(w);
-                                            break;
-                                        case NetworkMessageType.Disconnect:
-                                            client.ProperlyClose();
-                                            break;
-                                    }                                  
+                                    // do not log status checks because they happen too frequently
+                                    if (w.MessageType != NetworkMessageType.StatusCheck)
+                                        Logger.Log("Received message -> " + w.MessageType.ToString(), Logger.LogSeverity.Debug);
+
+                                    if (w.MessageType == NetworkMessageType.Disconnect) client.ProperlyClose();
+
+                                    MessageReceived?.Invoke(w, messageHandler);
                                 }
                             });
 

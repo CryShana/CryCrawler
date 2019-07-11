@@ -24,7 +24,7 @@ namespace CryCrawler.Network
         Join,           // request to join Host worker chain
         Reject,         // response to rejected Join request
         Accept,         // response to accepted Join request
-        CheckAlive,     // for checking whether clients are alive and responsive
+        StatusCheck,     // for checking whether clients are alive and responsive
         ResultsReady,   // for reporting to Host whether results are ready to be delivered
         Disconnect,     // for reporting imminent client/Host disconnect
         Work,           // for giving new work to clients

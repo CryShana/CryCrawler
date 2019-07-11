@@ -1,4 +1,5 @@
 ﻿using CryCrawler.Network;
+using Newtonsoft.Json;
 using System.Net;
 
 namespace CryCrawler.Worker
@@ -18,6 +19,7 @@ namespace CryCrawler.Worker
             database = new CacheDatabase(config.CacheFilename);
 
             workmanager = new WorkManager(config.WorkerConfig, database);
+            workmanager.HostMessageReceived += Workmanager_HostMessageReceived;
 
             crawler = new Crawler(workmanager, config.WorkerConfig);
 
@@ -39,6 +41,21 @@ namespace CryCrawler.Worker
             crawler.Stop();
 
             workmanager.Dispose();
+        }
+
+        void Workmanager_HostMessageReceived(NetworkMessage w, NetworkMessageHandler<NetworkMessage> msgHandler)
+        {
+            switch (w.MessageType)
+            {
+                case NetworkMessageType.StatusCheck:
+                    var msg = JsonConvert.SerializeObject(new
+                    {
+                        IsActive = crawler.IsActive
+                    });
+
+                    msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
+                    break;
+            }
         }
     }
 }
