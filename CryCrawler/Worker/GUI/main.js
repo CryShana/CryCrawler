@@ -26,23 +26,37 @@ function fetchStatus() {
     }).fail(function () {
         stillFetching = false;
         console.log("Invalid response or connection failed!");
-        setStatusText("offline");
+        setStatusText("unreachable");
     });
 }
 
 // update webgui
+var isActive = false;
 function setStatus(data) {
     // set status
     if (data.IsActive === true && data.IsWorking) setStatusText("active");
     else if (data.IsActive === true) setStatusText("idle");
     else setStatusText("offline");
 
+    // check host status
     var cclass = "red";
     var ctext = "Disconnected";
     if (data.ConnectedToHost === true) {
         cclass = "green";
         ctext = "Connected";
     }
+
+    // prepare configuration buttons
+    let startStop = $("#stop-start-button");
+    isActive = data.IsActive;
+    if (isActive) {
+        startStop.addClass("danger");
+        startStop.text("Stop");
+    }
+    else {
+        startStop.removeClass("danger");
+        startStop.text("Start");
+    } 
 
     // set work mode
     $("#crawler-work-source").html(data.UsingHost === true ? `Host (${data.HostEndpoint}) - <span class='${cclass}'>${ctext}</span>` : "Local");
@@ -111,6 +125,12 @@ function setStatusText(text) {
         $("#crawler-status").removeClass("idle");
         $("#crawler-status").text("Offline");
     }
+    else if (text === "unreachable") {
+        $("#crawler-status").removeClass("active");
+        $("#crawler-status").addClass("offline");
+        $("#crawler-status").removeClass("idle");
+        $("#crawler-status").text("Unreachable");
+    }
     else {
         $("#crawler-status").removeClass("active");
         $("#crawler-status").removeClass("offline");
@@ -152,4 +172,29 @@ function addDownloadLog(el) {
         currentLogs.splice(0, 1);
         $("table#table-downloads tr").slice(-1).remove();
     }
+}
+
+function startStop(self) {
+    let btn = $(self);
+
+    updateState({
+
+        IsActive: !isActive
+
+    }, function (s) {
+
+    });
+}
+
+function updateState(data, callback) {
+    $.post("/state", JSON.stringify(data))
+        .done(function (s) {
+            if (s.Success === true) callback(s);
+            else {
+                alert(s.Error);
+            }
+        }).fail(function (f) {
+            console.log(f);
+            alert("Lost connection!");
+        });
 }

@@ -9,14 +9,23 @@ namespace CryCrawler.Host
     class HostResponder : WebGUIResponder
     {
         protected override string GetPath() => "Host.GUI";
-        protected override string ResponsePOST(string filename, out string contentType)
+        protected override string ResponsePOST(string filename, string body, out string contentType)
         {
             if (filename == "status")
             {
                 contentType = ContentTypes["json"];
                 return getStatus();
             }
-            else return base.ResponsePOST(filename, out contentType);
+            else if (filename == "state")
+            {
+                contentType = ContentTypes["json"];
+
+                // parse content
+                var state = JsonConvert.DeserializeObject<StateUpdateRequest>(body);
+
+                return handleStateUpdate(state);
+            }
+            else return base.ResponsePOST(filename, body, out contentType);
         }
 
         Configuration config;
@@ -50,5 +59,31 @@ namespace CryCrawler.Host
                 RemoteEndpoint = x.RemoteEndpoint.ToString()
             })
         });
+
+        string handleStateUpdate(StateUpdateRequest req)
+        {
+            // handle it
+            if (req.IsActive == false)
+            {
+                // stop it if started
+                if (workerManager.IsListening) workerManager.Stop();
+            }
+            else
+            {
+                // start it if stopped
+                if (!workerManager.IsListening) workerManager.Start();
+            }
+
+            return JsonConvert.SerializeObject(new
+            {
+                Success = true,
+                Error = ""
+            });
+        }
+
+        class StateUpdateRequest
+        {
+            public bool IsActive { get; set; }
+        }
     }
 }

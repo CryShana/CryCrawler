@@ -8,14 +8,23 @@ namespace CryCrawler.Worker
     class WorkerResponder : WebGUIResponder
     {
         protected override string GetPath() => "Worker.GUI";
-        protected override string ResponsePOST(string filename, out string contentType)
+        protected override string ResponsePOST(string filename, string body, out string contentType)
         {
             if (filename == "status")
             {
                 contentType = ContentTypes["json"];
                 return getStatus();
             }
-            else return base.ResponsePOST(filename, out contentType);
+            else if (filename == "state")
+            {
+                contentType = ContentTypes["json"];
+
+                // parse content
+                var state = JsonConvert.DeserializeObject<StateUpdateRequest>(body);
+
+                return handleStateUpdate(state);
+            }
+            else return base.ResponsePOST(filename, body, out contentType);
         }
 
         Crawler crawler;
@@ -45,5 +54,31 @@ namespace CryCrawler.Worker
             TaskCount = crawler.CurrentTasks.Count,
             RecentDownloads = new List<DownloadedWork>(crawler.RecentDownloads)
         });
+
+        string handleStateUpdate(StateUpdateRequest req)
+        {
+            // handle it
+            if (req.IsActive == false)
+            {
+                // stop it if started
+                if (crawler.IsActive) crawler.Stop();                
+            }
+            else
+            {
+                // start it if stopped
+                if (!crawler.IsActive) crawler.Start();
+            }
+
+            return JsonConvert.SerializeObject(new
+            {
+                Success = true,
+                Error = ""
+            });
+        }
+
+        class StateUpdateRequest
+        {
+            public bool IsActive { get; set; }
+        }
     }
 }
