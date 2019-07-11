@@ -55,6 +55,7 @@ namespace CryCrawler.Host
             {
                 x.Id,
                 x.Online,
+                x.IsActive,
                 LastConnected = x.LastConnected.ToString("dd.MM.yyyy HH:mm:ss"),
                 RemoteEndpoint = x.RemoteEndpoint.ToString()
             })

@@ -210,6 +210,9 @@ namespace CryCrawler.Host
                     var status = JsonConvert.DeserializeObject<JObject>((string)message.Data);
 
                     var isActive = (bool)status["IsActive"];
+
+                    // update client information
+                    client.IsActive = isActive;
                     break;
                 case NetworkMessageType.ResultsReady:                   
                     break;
@@ -334,6 +337,7 @@ namespace CryCrawler.Host
         {
             public string Id;
             public bool Online;
+            public bool IsActive;
             public TcpClient Client;
             public DateTime LastConnected;
             public EndPoint RemoteEndpoint;

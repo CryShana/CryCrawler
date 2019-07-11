@@ -81,17 +81,20 @@ function setStatus(data) {
     var clientList = $("#list-clients");
     data.Clients.forEach(function (val, i) {
         let id = val.Id;
+        let active = val.IsActive === true ? "Active" : "Inactive";
         let online = val.Online === true ? "Online" : "Offine";
         let lconnected = val.LastConnected;
         let endpoint = val.RemoteEndpoint;
 
         let onlineClass = val.Online === true ? "green" : "red";
+        let activeClass = val.IsActive === true ? "green" : "red";
 
         let exists = false;
 
         // find if it exists
         clientList.find(".client-item").each(function (ind, el) {
-            let c_id = $(el).find(".client-id").text();
+            let c_id_el = $(el).find(".client-id");
+            let c_id = c_id_el.find("span.id").text();
 
             if (id === c_id) {
                 exists = true;
@@ -103,6 +106,12 @@ function setStatus(data) {
                 c_online.removeClass("green");
                 c_online.addClass(onlineClass);
 
+                let c_active = c_id_el.find("span.active");
+                c_active.removeClass("red");
+                c_active.removeClass("green");
+                c_active.addClass(activeClass);
+                c_active.text("("+ active + ")");
+
                 let c_last = $(el).find(".client-last");
                 c_last.html(`${lconnected} (${endpoint})`);
 
@@ -113,7 +122,7 @@ function setStatus(data) {
 
         if (exists === false) {
             clientList.append($(`<div class="client-item">
-                <div class="client-id">${id}</div>
+                <div class="client-id"><span class="id">${id}</span> <span class="active ${activeClass}">(${active})</span></div>
                 <div class="client-online ${onlineClass}">${online}</div>
                 <div class="client-last">${lconnected} (${endpoint})</div>
             </div>`));
@@ -122,7 +131,7 @@ function setStatus(data) {
 
     // check if clientList contains extra clients that need to be removed
     clientList.find(".client-item").each(function (i, el) {
-        let c_id = $(el).find(".client-id").text();
+        let c_id = $(el).find(".client-id span.id").text();
 
         let client = data.Clients.find(function (x) { return x.Id === c_id; });
         if (client === undefined || client === null) {
