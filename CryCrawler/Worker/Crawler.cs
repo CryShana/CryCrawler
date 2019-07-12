@@ -407,6 +407,8 @@ namespace CryCrawler.Worker
                     foundUrls.Add(url);
                     yield return url;
                 }
+                else if (cindex == -1) break;
+                else cindex++;
             }
         }
 
