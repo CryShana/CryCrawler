@@ -79,6 +79,9 @@ namespace CryCrawler
         /// </summary>
         public List<string> DomainBlacklist { get; set; } = new List<string>();
 
+        public double MaximumAllowedFileSizekB { get; set; } = -1;
+        public double MinimumAllowedFileSizekB { get; set; } = -1;
+
         public bool AcceptAllFiles { get; set; } = false;
 
         public List<string> Urls { get; set; } = new List<string>();

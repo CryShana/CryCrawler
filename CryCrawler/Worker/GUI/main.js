@@ -118,15 +118,23 @@ function setStatus(data) {
         // set configuration
         let allfiles = data.AllFiles;
         let seedurls = data.SeedUrls.join('\n');
+        let whitelist = data.Whitelist.join('\n');
+        let blacklist = data.Blacklist.join('\n');
         let extensions = data.AcceptedExtensions.join(' ');
         let mediaTypes = data.AccesptedMediaTypes.join(' ');
         let scantargets = data.ScanTargetMediaTypes.join(' ');
+        let minsize = data.MinSize;
+        let maxsize = data.MaxSize;
 
         $("#config-accept-files").attr("checked", allfiles);
         $("#config-extensions").val(extensions);
         $("#config-media-types").val(mediaTypes);
         $("#config-scan-targets").val(scantargets);
         $("#config-seeds").val(seedurls);
+        $("#config-whitelist").val(whitelist);
+        $("#config-blacklist").val(blacklist);
+        $("#config-min-size").val(minsize);
+        $("#config-max-size").val(maxsize);
 
         $("#update-button").removeClass("disabled");
         configNeedsUpdate = false;
@@ -219,16 +227,28 @@ function updateConfig(self) {
     let mediaTypes = $("#config-media-types").val().split(' ');
     let scanTargets = $("#config-scan-targets").val().split(' ');
     let seedUrls = $("#config-seeds").val().split('\n');
+    let whitelist = $("#config-whitelist").val().split('\n');
+    let blacklist = $("#config-blacklist").val().split('\n');
+    let minsize = parseFloat($("#config-min-size").val());
+    let maxsize = parseFloat($("#config-max-size").val());
+    if (isNaN(minsize) || isNaN(maxsize)) {
+        alert("Invalid file sizes specified!");
+        return;
+    }
 
     // update config
     btn.addClass("disabled");
     post({
 
         AllFiles: allfiles,
+        SeedUrls: seedUrls,
         Extensions: extensions,
         MediaTypes: mediaTypes,
         ScanTargets: scanTargets,
-        SeedUrls: seedUrls
+        Whitelist: whitelist,
+        Blacklist: blacklist,
+        MinSize: minsize,
+        MaxSize: maxsize
 
     }, function (s) {
 
