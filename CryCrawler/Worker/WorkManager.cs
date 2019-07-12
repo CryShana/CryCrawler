@@ -58,8 +58,8 @@ namespace CryCrawler.Worker
                 database.EnsureNew();
 
                 NetworkManager = new NetworkWorkManager(
-                    config.HostEndpoint.Hostname, 
-                    config.HostEndpoint.Port, 
+                    config.HostEndpoint.Hostname,
+                    config.HostEndpoint.Port,
                     config.HostEndpoint.Password,
                     config.HostEndpoint.ClientId);
 
@@ -72,7 +72,7 @@ namespace CryCrawler.Worker
 
                     ConnectedToHost = true;
                 };
-                
+
                 NetworkManager.Start();
             }
             else
@@ -97,7 +97,7 @@ namespace CryCrawler.Worker
 
                 // load all local Urls (only if not yet crawled and dumped backlog items were loaded to continue work)
                 ReloadUrlSource();
-                    
+
                 // load cache stats
                 CachedWorkCount = database.GetWorkCount(Collection.CachedBacklog);
                 CachedCrawledWorkCount = database.GetWorkCount(Collection.CachedCrawled);
@@ -112,7 +112,7 @@ namespace CryCrawler.Worker
             // process Urls 
             foreach (var url in config.Urls)
             {
-                if (database.GetWork(out Work w, url, Collection.CachedCrawled) == false) AddToBacklog(url);               
+                if (database.GetWork(out Work w, url, Collection.CachedCrawled) == false) AddToBacklog(url);
                 else
                 {
                     if (Backlog.Count == 0)
@@ -132,7 +132,7 @@ namespace CryCrawler.Worker
         /// Clears download cache and starts downloading from seed Urls again
         /// </summary>
         public void ClearCache()
-        {         
+        {
             database.EnsureNew();
 
             Backlog.Clear();
@@ -171,39 +171,7 @@ namespace CryCrawler.Worker
         public void AddToBacklog(string url)
         {
             var w = new Work(url);
-
-            addingSemaphore.Wait();
-            try
-            {
-                if (database.Disposing) return;
-
-                // if above memory limit, save to database
-                if (Backlog.Count >= MemoryLimitCount)
-                {
-                    // save to database     
-                    if (database.Insert(w)) CachedWorkCount++;
-                    else throw new DatabaseErrorException("Failed to insert!");
-                }
-                // if below memory limit but cache is not empty, load cache to memory
-                else if (CachedWorkCount > 0)
-                {
-                    // save to database
-                    if (database.Insert(w)) CachedWorkCount++;
-                    else throw new DatabaseErrorException("Failed to insert!");
-
-                    // load cache to memory
-                    LoadCacheToMemory();
-                }
-                else
-                {
-                    // normally add to memory
-                    Backlog.AddItem(w);
-                }
-            }
-            finally
-            {
-                addingSemaphore.Release();
-            }
+            AddToBacklog(w);         
         }
         public void AddToBacklog(IEnumerable<string> urls)
         {
@@ -243,9 +211,46 @@ namespace CryCrawler.Worker
                 addingSemaphore.Release();
             }
         }
-        public bool GetWork(out string url)
+        public void AddToBacklog(Work w)
         {
-            Work w = null;
+            addingSemaphore.Wait();
+            try
+            {
+                if (database.Disposing) return;
+
+                // if above memory limit, save to database
+                if (Backlog.Count >= MemoryLimitCount)
+                {
+                    // save to database     
+                    if (database.Insert(w)) CachedWorkCount++;
+                    else throw new DatabaseErrorException("Failed to insert!");
+                }
+                // if below memory limit but cache is not empty, load cache to memory
+                else if (CachedWorkCount > 0)
+                {
+                    // save to database
+                    if (database.Insert(w)) CachedWorkCount++;
+                    else throw new DatabaseErrorException("Failed to insert!");
+
+                    // load cache to memory
+                    LoadCacheToMemory();
+                }
+                else
+                {
+                    // normally add to memory
+                    Backlog.AddItem(w);
+                }
+            }
+            finally
+            {
+                addingSemaphore.Release();
+            }
+        }
+
+        public bool GetWork(out Work w)
+        {
+            w = null;
+            string url = null;
 
             addingSemaphore.Wait();
             try
@@ -259,7 +264,7 @@ namespace CryCrawler.Worker
                 if (isFIFO)
                 {
                     // take from memory if available
-                    if (Backlog.Count > 0) Backlog.TryGetItem(out w);
+                    if (Backlog.Count > 0) Backlog.TryGetItem(out w);                
 
                     // take from database if available and memory is empty
                     if (w == null && CachedWorkCount > 0 && database.GetWorks(out List<Work> works, 1, true, true))
@@ -293,18 +298,26 @@ namespace CryCrawler.Worker
             return w != null;
         }
 
-        public void ReportWorkResult(string url, bool success)
+        public void ReportWorkResult(Work w)
         {
-            // TODO: improve this whole thing
-
-            // report result
-
-            // if recrawl is enabled, re-add it here, otherwise dump the url
-
-            if (success) AddToCrawled(new Work(url)
+            if (w.RecrawlDate != null)
             {
-                LastCrawled = DateTime.Now
-            });
+                // check if recrawl date is valid
+                if (w.RecrawlDate.Value.Subtract(DateTime.Now).TotalDays < 7)
+                {
+                    // add back to backlog with a recrawl date
+                    AddToBacklog(w);
+                }
+                else
+                {
+                    // add to crawled as a failed crawl
+                    AddToCrawled(w);
+                }
+            }
+            else
+            {
+                AddToCrawled(w);
+            }
         }
 
         /// <summary>

@@ -12,6 +12,11 @@ namespace CryCrawler.Worker
         public string Key { get; set; }
         public string Url { get; set; }
 
+        // Information
+        public bool Success { get; set; }
+        public string DownloadLocation { get; set; }
+        public DateTime? RecrawlDate { get; set; } // this should be set if we want delayed recrawling
+
         public DateTime? LastCrawled { get; set; }  // use this to log time of crawling
         public DateTime AddedTime { get; set; }
 
@@ -20,8 +25,19 @@ namespace CryCrawler.Worker
             Url = url;
             Key = GetKeyFromUrl(url);
             AddedTime = DateTime.Now;
+
+            Success = false;
+            DownloadLocation = null;
         }
         public Work() { }
+
+
+        public bool IsEligibleForCrawl()
+        {
+            if (RecrawlDate != null && DateTime.Now.Subtract(RecrawlDate.Value).TotalMinutes < 0) return false;
+
+            return true;
+        }
 
         public static string LimitText(string text, int maxLenBytes)
         {
