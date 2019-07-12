@@ -69,6 +69,16 @@ namespace CryCrawler
             "application/javascript"
         };
 
+        /// <summary>
+        /// If not empty, only URLs that contain whitelisted strings will be added to backlog
+        /// </summary>
+        public List<string> DomainWhitelist { get; set; } = new List<string>();
+
+        /// <summary>
+        /// URLs that contain blacklisted strings will not be added to backlog
+        /// </summary>
+        public List<string> DomainBlacklist { get; set; } = new List<string>();
+
         public bool AcceptAllFiles { get; set; } = false;
 
         public List<string> Urls { get; set; } = new List<string>();
