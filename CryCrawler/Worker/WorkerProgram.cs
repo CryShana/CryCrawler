@@ -46,7 +46,7 @@ namespace CryCrawler.Worker
             workmanager.Dispose();
         }
 
-        void Crawler_StateChanged(object sender, bool e) => SendStatusMessage(workmanager.NetworkManager.MessageHandler);      
+        void Crawler_StateChanged(object sender, bool e) => SendStatusMessage(workmanager?.NetworkManager?.MessageHandler);      
 
         void Workmanager_HostMessageReceived(NetworkMessage w, 
             NetworkMessageHandler<NetworkMessage> msgHandler)
@@ -61,7 +61,7 @@ namespace CryCrawler.Worker
 
         void SendStatusMessage(NetworkMessageHandler<NetworkMessage> msgHandler)
         {
-            if (workmanager.ConnectedToHost == false) return;
+            if (workmanager.ConnectedToHost == false || msgHandler == null) return;
 
             var msg = JsonConvert.SerializeObject(new
             {

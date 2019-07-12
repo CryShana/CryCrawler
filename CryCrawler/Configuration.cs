@@ -32,6 +32,9 @@ namespace CryCrawler
         public bool DepthSearch { get; set; } = false;
         public int MaxLoggedDownloads { get; set; } = 30;
 
+        /// <summary>
+        /// When deciding if file is acceptable to be downloaded, extension is checked first
+        /// </summary>
         public List<string> AcceptedExtensions { get; set; } = new List<string>()
         {
             ".jpg",
@@ -43,6 +46,9 @@ namespace CryCrawler
             ".txt"
         };
 
+        /// <summary>
+        /// When deciding if file is acceptable to be downloaded, media type is checked second
+        /// </summary>
         public List<string> AcceptedMediaTypes { get; set; } = new List<string>()
         {
             "image/png",
@@ -53,6 +59,9 @@ namespace CryCrawler
             "application/pdf"
         };
 
+        /// <summary>
+        /// Decides which files should be scanned for new URLs to crawl
+        /// </summary>
         public List<string> ScanTargetsMediaTypes { get; set; } = new List<string>()
         {
             "text/html",

@@ -58,7 +58,34 @@
 
     <h4>Configuration</h4>
     <div>
-        <button id="stop-start-button" class="button" onclick="startStop(this)">Stop</button>
+        <table id="table-config">
+            <tr>
+                <td style="width: 200px;">Depth Search:</td>
+                <td><input id="config-depth-search" type="checkbox" /></td>
+            </tr>
+            <tr>
+                <td>Accept All Files:</td>
+                <td><input id="config-accept-files" type="checkbox" /></td>
+            </tr>
+            <tr>
+                <td>Accepted Extensions:</td>
+                <td><input id="config-extensions" type="text" placeholder=".jpg, .jpeg, .png" /></td>
+            </tr>
+            <tr>
+                <td>Accepted Media Types:</td>
+                <td><input id="config-media-types" type="text" placeholder="image/png, image/jpeg" /></td>
+            </tr>
+            <tr>
+                <td>Scan Target Media Types:</td>
+                <td><input id="config-scan-targets" type="text" placeholder="text/html, text/css, application/javascript" /></td>
+            </tr>
+            <tr>
+                <td>Seed Urls:</td>
+                <td><textarea placeholder="http://examplepage.com/" rows="10" cols="40" id="config-seeds"></textarea></td>
+            </tr>
+        </table>
+        <button id="update-button" class="button" onclick="updateConfig(this)">Update Configuration</button>
+        <button id="stop-start-button" class="button" onclick="startStop(this)">Stop Crawler</button>
     </div>
     <br />
     <br />

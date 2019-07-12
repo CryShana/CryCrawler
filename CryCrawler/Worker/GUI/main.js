@@ -48,15 +48,16 @@ function setStatus(data) {
 
     // prepare configuration buttons
     let startStop = $("#stop-start-button");
+    startStop.removeClass("disabled");
     isActive = data.IsActive;
     if (isActive) {
         startStop.addClass("danger");
-        startStop.text("Stop");
+        startStop.text("Stop Crawler");
     }
     else {
         startStop.removeClass("danger");
-        startStop.text("Start");
-    } 
+        startStop.text("Start Crawler");
+    }
 
     // set work mode
     $("#crawler-work-source").html(data.UsingHost === true ? `Host (${data.HostEndpoint}) - <span class='${cclass}'>${ctext}</span>` : "Local");
@@ -177,6 +178,7 @@ function addDownloadLog(el) {
 function startStop(self) {
     let btn = $(self);
 
+    btn.addClass("disabled");
     updateState({
 
         IsActive: !isActive
@@ -197,4 +199,13 @@ function updateState(data, callback) {
             console.log(f);
             alert("Lost connection!");
         });
+}
+
+function updateConfig(self) {
+    let btn = $(self);
+
+    // update config
+    btn.addClass("disabled");
+
+    btn.removeClass("disabled");
 }
