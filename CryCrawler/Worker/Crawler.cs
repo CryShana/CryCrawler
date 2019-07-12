@@ -208,10 +208,10 @@ namespace CryCrawler.Worker
             var ext = Path.GetExtension(filename).ToLower().Trim();
             var mty = mediaType.ToLower().Trim();
 
-            // check extension
+            // first check extension
             if (Config.AcceptedExtensions.Count(x => x.ToLower().Trim() == ext) > 0) return true;
 
-            // check media type
+            // then check media type
             if (Config.AcceptedMediaTypes.Count(x => x.ToLower().Trim() == mty) > 0) return true;
 
             // if both are not accepted, we are not interested
