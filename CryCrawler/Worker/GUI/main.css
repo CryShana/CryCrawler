@@ -131,6 +131,7 @@ table#table-config input, table#table-config textarea {
     white-space: nowrap;
     background: #f5f5f5;
     border: 1px solid gray;
+    font-family: Courier New, Courier, monospace;
 }
 
     table#table-config input[type="checkbox"] {

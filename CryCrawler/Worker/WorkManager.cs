@@ -17,6 +17,7 @@ namespace CryCrawler.Worker
         bool isFIFO = false;
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
+        List<string> lastLoadedSeedUrls = new List<string>();
 
         public readonly int MemoryLimitCount = 500000;
 
@@ -95,25 +96,36 @@ namespace CryCrawler.Worker
                 }
 
                 // load all local Urls (only if not yet crawled and dumped backlog items were loaded to continue work)
-                foreach (var url in config.Urls)
-                    if (database.GetWork(out Work w, url, Collection.CachedCrawled) == false)
-                    {
-                        AddToBacklog(url);
-                    }
-                    else
-                    {
-                        if (dumped.Count == 0)
-                        {
-                            // no dumped items loaded, so load this anyway
-                            AddToBacklog(url);
-                        }
-                        else Logger.Log($"Skipping specified URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
-                    }
+                ReloadUrlSource();
                     
                 // load cache stats
                 CachedWorkCount = database.GetWorkCount(Collection.CachedBacklog);
                 CachedCrawledWorkCount = database.GetWorkCount(Collection.CachedCrawled);
             }
+        }
+
+        /// <summary>
+        /// Checks the Url source for changes and adds new items to backlog
+        /// </summary>
+        public void ReloadUrlSource()
+        {
+            // process only new Urls that were not yet loaded
+            foreach (var url in config.Urls.Where(x => lastLoadedSeedUrls.Contains(x) == false))
+            {
+                if (database.GetWork(out Work w, url, Collection.CachedCrawled) == false) AddToBacklog(url);               
+                else
+                {
+                    if (Backlog.Count == 0)
+                    {
+                        // no backlog loaded, so load this anyway
+                        AddToBacklog(url);
+                    }
+                    else Logger.Log($"Skipping specified URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
+                }
+            }
+
+            // save Urls
+            lastLoadedSeedUrls = config.Urls;
         }
 
         public void AddToCrawled(Work w)
