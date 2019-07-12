@@ -32,6 +32,7 @@ function fetchStatus() {
 
 // update webgui
 var isActive = false;
+var usingHost = false;
 var configNeedsUpdate = true;
 var shouldClearCache = false;
 function setStatus(data) {
@@ -59,6 +60,12 @@ function setStatus(data) {
     else {
         startStop.removeClass("danger");
         startStop.text("Start Crawler");
+    }
+
+    usingHost = data.UsingHost;
+    if (usingHost) {
+        $("#update-button").addClass("disabled");
+        $("#clear-cache-button").addClass("disabled");
     }
 
     // set work mode
@@ -114,7 +121,7 @@ function setStatus(data) {
         if (currentLogs.indexOf(el.FilePath) === -1) addDownloadLog(el);
     }
 
-    if (configNeedsUpdate === true) {
+    if (configNeedsUpdate === true && usingHost === false) {
         // set configuration
         let allfiles = data.AllFiles;
         let seedurls = data.SeedUrls.join('\n');
@@ -212,6 +219,11 @@ function startStop(self) {
 }
 
 function clearCache(self) {
+    if (usingHost === true) {
+        alert("Can not clear cache when using Host as Url source!");
+        return;
+    }
+
     let btn = $(self);
 
     shouldClearCache = true;
@@ -220,6 +232,11 @@ function clearCache(self) {
 }
 
 function updateConfig(self) {
+    if (usingHost === true) {
+        alert("Can not update configuration when using Host as Url source!");
+        return;
+    }
+
     let btn = $(self);
 
     let allfiles = $("#config-accept-files").is(":checked");
@@ -264,7 +281,9 @@ function updateState() {
         ClearCache: shouldClearCache
 
     }, function (s) {
-        $("#clear-cache-button").removeClass("disabled");
+        if (usingHost === false) {
+            $("#clear-cache-button").removeClass("disabled");
+        }
         shouldClearCache = false;
     });
 }
