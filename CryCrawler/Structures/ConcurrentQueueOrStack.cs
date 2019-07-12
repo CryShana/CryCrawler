@@ -69,6 +69,8 @@ namespace CryCrawler.Structures
 
         public void Clear()
         {
+            addedItems.Clear();
+
             if (queue == null) stack.Clear();
             else queue.Clear();
         }

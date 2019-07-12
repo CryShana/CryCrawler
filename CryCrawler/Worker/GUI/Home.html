@@ -60,10 +60,6 @@
     <div>
         <table id="table-config">
             <tr>
-                <td style="width: 200px;">Depth Search:</td>
-                <td><input id="config-depth-search" type="checkbox" /></td>
-            </tr>
-            <tr>
                 <td>Accept All Files:</td>
                 <td><input id="config-accept-files" type="checkbox" /></td>
             </tr>
@@ -85,6 +81,7 @@
             </tr>
         </table>
         <button id="update-button" class="button" onclick="updateConfig(this)">Update Configuration</button>
+        <button id="clear-cache-button" class="button" onclick="clearCache(this)">Clear Cache</button>
         <button id="stop-start-button" class="button" onclick="startStop(this)">Stop Crawler</button>
     </div>
     <br />
