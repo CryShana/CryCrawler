@@ -40,35 +40,40 @@ namespace CryCrawlerTests
             Assert.Equal(4, wm.Backlog.Count);
             Assert.Equal(6, wm.WorkCount);
 
-            wm.GetWork(out string url);
+            wm.GetWork(out Work w);
+            var url = w.Url;
 
             Assert.Equal("google1.com", url);
             Assert.Equal(1, wm.CachedWorkCount);
             Assert.Equal(4, wm.Backlog.Count);
             Assert.Equal(5, wm.WorkCount);
 
-            wm.GetWork(out url);
+            wm.GetWork(out w);
+            url = w.Url;
 
             Assert.Equal("google2.com", url);
             Assert.Equal(0, wm.CachedWorkCount);
             Assert.Equal(4, wm.Backlog.Count);
             Assert.Equal(4, wm.WorkCount);
 
-            wm.GetWork(out url);
+            wm.GetWork(out w);
+            url = w.Url;
 
             Assert.Equal("google3.com", url);
             Assert.Equal(0, wm.CachedWorkCount);
             Assert.Equal(3, wm.Backlog.Count);
             Assert.Equal(3, wm.WorkCount);
 
-            wm.GetWork(out url);
+            wm.GetWork(out w);
+            url = w.Url;
 
             Assert.Equal("google4.com", url);
             Assert.Equal(0, wm.CachedWorkCount);
             Assert.Equal(2, wm.Backlog.Count);
             Assert.Equal(2, wm.WorkCount);
 
-            wm.GetWork(out url);
+            wm.GetWork(out w);
+            url = w.Url;
 
             Assert.Equal("google5.com", url);
             Assert.Equal(0, wm.CachedWorkCount);
@@ -110,35 +115,40 @@ namespace CryCrawlerTests
             Assert.Equal(4, wm.Backlog.Count);
             Assert.Equal(6, wm.WorkCount);
 
-            wm.GetWork(out string url);
+            wm.GetWork(out Work w);
+            var url = w.Url;
 
             Assert.Equal("google6.com", url);
             Assert.Equal(1, wm.CachedWorkCount);
             Assert.Equal(4, wm.Backlog.Count);
             Assert.Equal(5, wm.WorkCount);
 
-            wm.GetWork(out url);
+            wm.GetWork(out w);
+            url = w.Url;
 
             Assert.Equal("google5.com", url);
             Assert.Equal(0, wm.CachedWorkCount);
             Assert.Equal(4, wm.Backlog.Count);
             Assert.Equal(4, wm.WorkCount);
 
-            wm.GetWork(out url);
+            wm.GetWork(out w);
+            url = w.Url;
 
             Assert.Equal("google4.com", url);
             Assert.Equal(0, wm.CachedWorkCount);
             Assert.Equal(3, wm.Backlog.Count);
             Assert.Equal(3, wm.WorkCount);
 
-            wm.GetWork(out url);
+            wm.GetWork(out w);
+            url = w.Url;
 
             Assert.Equal("google3.com", url);
             Assert.Equal(0, wm.CachedWorkCount);
             Assert.Equal(2, wm.Backlog.Count);
             Assert.Equal(2, wm.WorkCount);
 
-            wm.GetWork(out url);
+            wm.GetWork(out w);
+            url = w.Url;
 
             Assert.Equal("google2.com", url);
             Assert.Equal(0, wm.CachedWorkCount);

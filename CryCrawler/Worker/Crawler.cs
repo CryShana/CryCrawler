@@ -1,17 +1,16 @@
 ﻿using System;
 using System.IO;
 using System.Web;
+using System.Net;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Collections;
+using CryCrawler.Structures;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.Collections.Concurrent;
-using CryCrawler.Structures;
-using System.Net.Mime;
-using System.Reflection.Metadata.Ecma335;
+using System.Text.RegularExpressions;
 
 namespace CryCrawler.Worker
 {
@@ -85,7 +84,7 @@ namespace CryCrawler.Worker
 
             while (!cancelSource.IsCancellationRequested)
             {
-                if (!Manager.IsWorkAvailable || Manager.GetWork(out string url) == false)
+                if (!Manager.IsWorkAvailable || Manager.GetWork(out Work w) == false)
                 {
                     // unable to get work, wait a bit and try again
                     CurrentTasks[taskNumber] = null;
@@ -94,10 +93,24 @@ namespace CryCrawler.Worker
                     continue;
                 }
 
+                var url = w.Url;
+
+                if (w.IsEligibleForCrawl() == false)
+                {
+                    Manager.AddToBacklog(w);
+
+                    await Task.Delay(100);
+                    continue;
+                }
+
                 // check if url is whitelisted
-                if (IsUrlWhitelisted(url) == false) continue;             
+                if (IsUrlWhitelisted(url) == false) continue;
 
                 bool success = false;
+                string downloadPath = null;
+                DateTime? recrawlDate = null;
+                w.LastCrawled = DateTime.Now;
+
                 CurrentTasks[taskNumber] = url;
                 try
                 {
@@ -110,13 +123,26 @@ namespace CryCrawler.Worker
                         // TODO: treat differently based on status code (for ex. if page doesn't exist at all, or if 500, 404,...)
                         switch (response.StatusCode)
                         {
-                            case System.Net.HttpStatusCode.TooManyRequests:
+                            case HttpStatusCode.TooManyRequests:
+                                if (w.RecrawlDate == null && w.LastCrawled != null) recrawlDate = DateTime.Now.AddMinutes(10);
+                                else
+                                {
+                                    var duration = w.RecrawlDate.Value.Subtract(w.LastCrawled.Value);
+                                    recrawlDate = DateTime.Now.Add(duration.Multiply(2));
+                                }
+
                                 break;
-                            case System.Net.HttpStatusCode.NotFound:
+                            case HttpStatusCode.NotFound:
                                 break;
-                            case System.Net.HttpStatusCode.Forbidden:
+                            case HttpStatusCode.Forbidden:
                                 break;
                             default:
+                                if (w.RecrawlDate == null && w.LastCrawled != null) recrawlDate = DateTime.Now.AddMinutes(1);
+                                else
+                                {
+                                    var duration = w.RecrawlDate.Value.Subtract(w.LastCrawled.Value);
+                                    recrawlDate = DateTime.Now.Add(duration.Multiply(2));
+                                }
                                 break;
                         }
 
@@ -205,7 +231,8 @@ namespace CryCrawler.Worker
                     RecentDownloads.Add(new DownloadedWork(path, response.Content.Headers.ContentLength.Value));
 
                     // Logger.Log($"Downloaded '{url}' to '{path}'");
-                    success = true;
+                    w.DownloadLocation = path;
+                    w.Success = true;
                 }
                 catch (OperationCanceledException) { }
                 catch (NullReferenceException nex)
@@ -223,7 +250,7 @@ namespace CryCrawler.Worker
                 }
                 finally
                 {
-                    Manager.ReportWorkResult(url, success);
+                    Manager.ReportWorkResult(w);
                 }
             }
         }

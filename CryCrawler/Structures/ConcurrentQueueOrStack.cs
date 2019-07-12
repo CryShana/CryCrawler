@@ -1,7 +1,7 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System;
 
 namespace CryCrawler.Structures
 {

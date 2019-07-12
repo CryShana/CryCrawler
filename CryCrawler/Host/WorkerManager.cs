@@ -273,12 +273,15 @@ namespace CryCrawler.Host
                 // if there is a failed url, use it again
                 if (string.IsNullOrEmpty(failedUrl))
                 {
-                    if (!manager.IsWorkAvailable || manager.GetWork(out url) == false)
+                    if (!manager.IsWorkAvailable || manager.GetWork(out Work w) == false)
                     {
                         // unable to get work, wait a bit and try again
                         await Task.Delay(100);
                         continue;
                     }
+
+                    if (w.IsEligibleForCrawl()) url = w.Url;
+                    else manager.AddToBacklog(w);
                 }
                 else url = failedUrl;
 
