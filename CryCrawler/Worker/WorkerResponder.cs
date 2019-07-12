@@ -63,11 +63,15 @@ namespace CryCrawler.Worker
             TaskCount = crawler.CurrentTasks.Count,
             RecentDownloads = new List<DownloadedWork>(crawler.RecentDownloads),
             // read local config, not Host provided
+            Whitelist = config.WorkerConfig.DomainWhitelist,
+            Blacklist = config.WorkerConfig.DomainBlacklist,
             AcceptedExtensions = config.WorkerConfig.AcceptedExtensions,
             AccesptedMediaTypes = config.WorkerConfig.AcceptedMediaTypes,
             ScanTargetMediaTypes = config.WorkerConfig.ScanTargetsMediaTypes,
             SeedUrls = config.WorkerConfig.Urls,
-            AllFiles = config.WorkerConfig.AcceptAllFiles
+            AllFiles = config.WorkerConfig.AcceptAllFiles,
+            MaxSize = config.WorkerConfig.MaximumAllowedFileSizekB,
+            MinSize = config.WorkerConfig.MinimumAllowedFileSizekB
         });
 
         string handleStateUpdate(StateUpdateRequest req)
@@ -117,12 +121,19 @@ namespace CryCrawler.Worker
 
         string handleConfigUpdate(ConfigUpdateRequest req)
         {
-            // handle it
+            // update configuration and save it
             config.WorkerConfig.Urls = req.SeedUrls;
             config.WorkerConfig.AcceptAllFiles = req.AllFiles;
+            config.WorkerConfig.DomainWhitelist = req.Whitelist;
+            config.WorkerConfig.DomainBlacklist = req.Blacklist;
             config.WorkerConfig.AcceptedExtensions = req.Extensions;
             config.WorkerConfig.AcceptedMediaTypes = req.MediaTypes;
             config.WorkerConfig.ScanTargetsMediaTypes = req.ScanTargets;
+            config.WorkerConfig.MaximumAllowedFileSizekB = req.MaxSize;
+            config.WorkerConfig.MinimumAllowedFileSizekB = req.MinSize;
+            ConfigManager.SaveConfiguration(ConfigManager.LastLoaded);
+
+            // reload seed urls
             crawler.Manager.ReloadUrlSource();
 
             return JsonConvert.SerializeObject(new
@@ -146,6 +157,10 @@ namespace CryCrawler.Worker
             public List<string> MediaTypes { get; set; }
             public List<string> ScanTargets { get; set; }
             public List<string> SeedUrls { get; set; }
+            public List<string> Whitelist { get; set; }
+            public List<string> Blacklist { get; set; }
+            public double MaxSize { get; set; }
+            public double MinSize { get; set; }
         }
     }
 }

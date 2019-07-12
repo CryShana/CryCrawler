@@ -65,19 +65,35 @@
             </tr>
             <tr>
                 <td>Accepted Extensions:</td>
-                <td><input id="config-extensions" type="text" placeholder=".jpg, .jpeg, .png" /></td>
+                <td><input id="config-extensions" type="text" placeholder="Extensions separated by space (ex: .jpeg .jpg .png)" /></td>
             </tr>
             <tr>
                 <td>Accepted Media Types:</td>
-                <td><input id="config-media-types" type="text" placeholder="image/png, image/jpeg" /></td>
+                <td><input id="config-media-types" type="text" placeholder="Media types separated by space (ex: image/png image/jpeg)" /></td>
             </tr>
             <tr>
                 <td>Scan Target Media Types:</td>
-                <td><input id="config-scan-targets" type="text" placeholder="text/html, text/css, application/javascript" /></td>
+                <td><input id="config-scan-targets" type="text" placeholder="Media types separated by space (ex: text/html application/javascript)" /></td>
             </tr>
             <tr>
                 <td>Seed Urls:</td>
-                <td><textarea id="config-seeds" placeholder="http://examplepage.com/" rows="10" cols="40"></textarea></td>
+                <td><textarea id="config-seeds" placeholder="Websites separated by line (ex: https://example.com)" rows="10" cols="40"></textarea></td>
+            </tr>
+            <tr>
+                <td>Domain Whitelist:</td>
+                <td><textarea id="config-whitelist" placeholder="Domain words separated by line (ex: example.com)" rows="10" cols="40"></textarea></td>
+            </tr>
+            <tr>
+                <td>Domain Blacklist:</td>
+                <td><textarea id="config-blacklist" placeholder="Domain words separated by line (ex: example.com)" rows="10" cols="40"></textarea></td>
+            </tr>
+            <tr>
+                <td>Max. allowed file size: (kB)</td>
+                <td><input id="config-max-size" type="text" placeholder="Size in kB (-1 is no limit)" /></td>
+            </tr>
+            <tr>
+                <td>Min. allowed file size: (kB)</td>
+                <td><input id="config-min-size" type="text" placeholder="Size in kB (-1 is no limit)" /></td>
             </tr>
         </table>
         <button id="update-button" class="button" onclick="updateConfig(this)">Update Configuration</button>

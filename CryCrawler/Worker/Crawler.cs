@@ -10,6 +10,8 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Collections.Concurrent;
 using CryCrawler.Structures;
+using System.Net.Mime;
+using System.Reflection.Metadata.Ecma335;
 
 namespace CryCrawler.Worker
 {
@@ -92,6 +94,9 @@ namespace CryCrawler.Worker
                     continue;
                 }
 
+                // check if url is whitelisted
+                if (IsUrlWhitelisted(url) == false) continue;             
+
                 bool success = false;
                 CurrentTasks[taskNumber] = url;
                 try
@@ -118,7 +123,7 @@ namespace CryCrawler.Worker
 
                         // find URLs
                         int cnt = 0;
-                        foreach (var u in FindUrls(content))
+                        foreach (var u in FindUrls(url, content))
                         {
                             if (cancelSource.IsCancellationRequested) break;
 
@@ -141,7 +146,17 @@ namespace CryCrawler.Worker
                     // don't download file if not acceptable
                     if (IsAcceptable(filename, mediaType) == false || 
                         cancelSource.IsCancellationRequested) continue;
-                    
+
+                    // check file size limits
+                    var size = response.Content.Headers.ContentLength;
+
+                    // if content length is not provided, ignore file
+                    if (size == null) continue;
+
+                    var sizekB = size / 1024;
+                    if (Config.MinimumAllowedFileSizekB != -1 && sizekB < Config.MinimumAllowedFileSizekB) continue;
+                    if (Config.MaximumAllowedFileSizekB != -1 && sizekB > Config.MaximumAllowedFileSizekB) continue;
+
                     // construct path
                     var directory = GetDirectoryPath(url, true);
                     var path = Path.Combine(directory, filename);
@@ -151,9 +166,8 @@ namespace CryCrawler.Worker
                     {
                         // if files have same size, they are most likely the same file - overwrite it
                         var currentSize = new FileInfo(path).Length;
-                        var newSize = response.Content.Headers.ContentLength;
 
-                        if (currentSize != newSize)
+                        if (currentSize != size)
                         {
                             // otherwise rename it
                             var count = 1;
@@ -313,11 +327,15 @@ namespace CryCrawler.Worker
         /// </summary>
         /// <param name="content">Text content that might contain URLs</param>
         /// <returns>A collection of found URLs</returns>
-        public IEnumerable<string> FindUrls(string content)
+        public IEnumerable<string> FindUrls(string currentUrl, string content)
         {
-            // TODO: check for relative URLs
+            var domain = GetDomainName(currentUrl, out string protocol, true);
+
+            var foundUrls = new HashSet<string>();
 
             // Check for URLs beginning with HTTP
+            var endings = new[] { '<', '>', '(', ')', '\'', '"', '\n', '\r', '\t', ' ', '[', ']' };
+
             int cindex = 0;
             while (cindex < content.Length && cindex != -1)
             {   
@@ -325,9 +343,9 @@ namespace CryCrawler.Worker
                 if (cindex >= 0)
                 {
                     // read until a non-URL character is found
-                    var nextindex = content.IndexOfAny(new[] { '<', '>', '(', ')', '\'', '"', '\n', '\r', '\t', ' ', '[', ']' }, cindex + 1);
+                    var nextindex = content.IndexOfAny(endings, cindex + 1);
                     var url = content.Substring(cindex, nextindex - cindex);
-                    cindex = nextindex - 1;
+                    cindex = nextindex;
 
                     // url decode it
                     url = HttpUtility.UrlDecode(url);
@@ -344,11 +362,52 @@ namespace CryCrawler.Worker
 
                     if (IsUrlWhitelisted(url) == false) continue;
 
+                    if (foundUrls.Contains(url)) continue;
+                    foundUrls.Add(url);
                     yield return url;
                 }
             }
 
             // Check for relative URLs
+            var startings = new[] { '"', '\'', '`', '(', ' ' };
+            endings = new[] { '"', '\'', '`', ')', ' ', '\n', '\r', '\t', '>', '<' };
+
+            cindex = 0;
+            while (cindex < content.Length && cindex != -1)
+            {
+                cindex = content.IndexOf('/', cindex);
+                if (cindex > 0)
+                {
+                    var charBefore = content[cindex - 1];
+                    if (startings.Contains(charBefore) == false) { cindex++; continue; }
+
+                    var nextindex = content.IndexOfAny(endings, cindex + 1);
+                    var url = content.Substring(cindex, nextindex - cindex);
+                    cindex = nextindex;
+
+                    if (url.Length <= 2) continue;
+
+                    url = HttpUtility.UrlDecode(url);
+
+                    if (url.StartsWith("//"))
+                    {
+                        url = protocol + ":" + url;
+                    }
+                    else
+                    {
+                        url = domain + url;
+                    }
+
+                    // url can't be longer than 2000 characters
+                    if (url.Length > 2000) continue;
+
+                    if (IsUrlWhitelisted(url) == false) continue;
+
+                    if (foundUrls.Contains(url)) continue;
+                    foundUrls.Add(url);
+                    yield return url;
+                }
+            }
         }
 
         /// <summary>
@@ -356,12 +415,11 @@ namespace CryCrawler.Worker
         /// </summary>
         public bool IsUrlWhitelisted(string url)
         {
-            // should be case insensitive!
-            var match = Regex.Match(url, @"http[s]?:\/\/(.*?)\/");
-            var domain = match.Groups[1].Value;
+            // check if url ends with a slash, otherwise add it
+            var domain = GetDomainName(url, out _);
 
             // reject url if domain is empty
-            if (string.IsNullOrEmpty(domain)) return false;
+            if (string.IsNullOrEmpty(domain)) return false;         
 
             // check whitelist first
             if (Config.DomainWhitelist.Count > 0)
@@ -385,6 +443,28 @@ namespace CryCrawler.Worker
 
             // accept url if it doesn't contain any blacklisted word
             return true;
+        }
+
+        public string GetDomainName(string url, out string protocol, bool withProtocol = false)
+        {
+            // check if url ends with a slash, otherwise add it
+            if (url.Count(x => x == '/') == 2) url += '/';
+
+            try
+            {
+                // should be case insensitive!
+                var match = Regex.Match(url, @"(http[s]?):\/\/(.*?)\/");
+                protocol = match.Groups[1].Value;
+                var domain = match.Groups[2].Value;
+
+                if (withProtocol == false) return domain;
+                else return $"{protocol}://{domain}";
+            }
+            catch
+            {
+                protocol = null;
+                return null;
+            }
         }
     }
 }
