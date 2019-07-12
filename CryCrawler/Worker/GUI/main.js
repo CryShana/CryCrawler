@@ -31,6 +31,7 @@ function fetchStatus() {
 }
 
 // update webgui
+var configNeedsUpdate = true;
 var isActive = false;
 function setStatus(data) {
     // set status
@@ -111,6 +112,26 @@ function setStatus(data) {
         var el = data.RecentDownloads[i];
         if (currentLogs.indexOf(el.FilePath) === -1) addDownloadLog(el);
     }
+
+    if (configNeedsUpdate === true) {
+        // set configuration
+        let allfiles = data.AllFiles;
+        let depthSearch = data.DepthSearch;
+        let seedurls = data.SeedUrls.join('\n');
+        let extensions = data.AcceptedExtensions.join(' ');
+        let mediaTypes = data.AccesptedMediaTypes.join(' ');
+        let scantargets = data.ScanTargetMediaTypes.join(' ');
+
+        $("#config-accept-files").attr("checked", allfiles);
+        $("#config-depth-search").attr("checked", depthSearch);
+        $("#config-extensions").val(extensions);
+        $("#config-media-types").val(mediaTypes);
+        $("#config-scan-targets").val(scantargets);
+        $("#config-seeds").val(seedurls);
+
+        $("#update-button").removeClass("disabled");
+        configNeedsUpdate = false;
+    }
 }
 
 function setStatusText(text) {
@@ -188,8 +209,8 @@ function startStop(self) {
     });
 }
 
-function updateState(data, callback) {
-    $.post("/state", JSON.stringify(data))
+function updateState(data, callback, endpoint = "/state") {
+    $.post(endpoint, JSON.stringify(data))
         .done(function (s) {
             if (s.Success === true) callback(s);
             else {
@@ -204,8 +225,27 @@ function updateState(data, callback) {
 function updateConfig(self) {
     let btn = $(self);
 
+    let allfiles = $("#config-accept-files").is(":checked");
+    let depthSearch = $("#config-depth-search").is(":checked");
+    let extensions = $("#config-extensions").val().split(' ');
+    let mediaTypes = $("#config-media-types").val().split(' ');
+    let scanTargets = $("#config-scan-targets").val().split(' ');
+    let seedUrls = $("#config-seeds").val().split('\n');
+
     // update config
     btn.addClass("disabled");
+    updateState({
 
-    btn.removeClass("disabled");
+        AllFiles: allfiles,
+        DepthSearch: depthSearch,
+        Extensions: extensions,
+        MediaTypes: mediaTypes,
+        ScanTargets: scanTargets,
+        SeedUrls: seedUrls
+
+    }, function (s) {
+
+        configNeedsUpdate = true;
+
+    }, "/config");
 }

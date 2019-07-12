@@ -24,6 +24,15 @@ namespace CryCrawler.Worker
 
                 return handleStateUpdate(state);
             }
+            else if (filename == "config")
+            {
+                contentType = ContentTypes["json"];
+
+                // parse content
+                var config = JsonConvert.DeserializeObject<ConfigUpdateRequest>(body);
+
+                return handleConfigUpdate(config);
+            }
             else return base.ResponsePOST(filename, body, out contentType);
         }
 
@@ -50,9 +59,15 @@ namespace CryCrawler.Worker
             CacheCrawledCount = crawler.Manager.CachedCrawledWorkCount,
             UsageRAM = Process.GetCurrentProcess().PrivateMemorySize64,
             CurrentTasks = new Dictionary<int, string>(crawler.CurrentTasks),
-            ConfigurationWorker = crawler.Config,
             TaskCount = crawler.CurrentTasks.Count,
-            RecentDownloads = new List<DownloadedWork>(crawler.RecentDownloads)
+            RecentDownloads = new List<DownloadedWork>(crawler.RecentDownloads),
+            // read local config, not Host provided
+            AcceptedExtensions = config.WorkerConfig.AcceptedExtensions,
+            AccesptedMediaTypes = config.WorkerConfig.AcceptedMediaTypes,
+            ScanTargetMediaTypes = config.WorkerConfig.ScanTargetsMediaTypes,
+            SeedUrls = config.WorkerConfig.Urls,
+            DepthSearch = config.WorkerConfig.DepthSearch,
+            AllFiles = config.WorkerConfig.AcceptAllFiles
         });
 
         string handleStateUpdate(StateUpdateRequest req)
@@ -76,9 +91,38 @@ namespace CryCrawler.Worker
             });
         }
 
+        string handleConfigUpdate(ConfigUpdateRequest req)
+        {
+            // handle it
+            config.WorkerConfig.Urls = req.SeedUrls;
+            config.WorkerConfig.DepthSearch = req.DepthSearch;
+            config.WorkerConfig.AcceptAllFiles = req.AllFiles;
+            config.WorkerConfig.AcceptedExtensions = req.Extensions;
+            config.WorkerConfig.AcceptedMediaTypes = req.MediaTypes;
+            config.WorkerConfig.ScanTargetsMediaTypes = req.ScanTargets;
+            crawler.Manager.ReloadUrlSource();
+
+            return JsonConvert.SerializeObject(new
+            {
+                Success = true,
+                Error = ""
+            });
+        }
+
+
         class StateUpdateRequest
         {
             public bool IsActive { get; set; }
+        }
+
+        class ConfigUpdateRequest
+        {
+            public bool AllFiles { get; set; }
+            public bool DepthSearch { get; set; }
+            public List<string> Extensions { get; set; }
+            public List<string> MediaTypes { get; set; }
+            public List<string> ScanTargets { get; set; }
+            public List<string> SeedUrls { get; set; }
         }
     }
 }
