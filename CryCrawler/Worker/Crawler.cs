@@ -108,6 +108,18 @@ namespace CryCrawler.Worker
                     if (!response.IsSuccessStatusCode || cancelSource.IsCancellationRequested)
                     {
                         // TODO: treat differently based on status code (for ex. if page doesn't exist at all, or if 500, 404,...)
+                        switch (response.StatusCode)
+                        {
+                            case System.Net.HttpStatusCode.TooManyRequests:
+                                break;
+                            case System.Net.HttpStatusCode.NotFound:
+                                break;
+                            case System.Net.HttpStatusCode.Forbidden:
+                                break;
+                            default:
+                                break;
+                        }
+
                         // Logger.Log($"Failed to crawl '{url}' ({response.StatusCode})", Logger.LogSeverity.Information);
                         continue;
                     }
