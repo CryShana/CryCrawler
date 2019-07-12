@@ -342,11 +342,49 @@ namespace CryCrawler.Worker
 
                     //var valid = Regex.IsMatch(url, @"^(ht|f)tp(s?)\:\/\/[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&%\$#_]*)?$");
 
+                    if (IsUrlWhitelisted(url) == false) continue;
+
                     yield return url;
                 }
             }
 
             // Check for relative URLs
+        }
+
+        /// <summary>
+        /// Based on domain whitelist and blacklist, decides if URL is allowed to be added to backlog
+        /// </summary>
+        public bool IsUrlWhitelisted(string url)
+        {
+            // should be case insensitive!
+            var match = Regex.Match(url, @"http[s]?:\/\/(.*?)\/");
+            var domain = match.Groups[1].Value;
+
+            // reject url if domain is empty
+            if (string.IsNullOrEmpty(domain)) return false;
+
+            // check whitelist first
+            if (Config.DomainWhitelist.Count > 0)
+            {
+                foreach (var w in Config.DomainWhitelist)
+                {
+                    // if domain contains any of the words, automatically accept it
+                    if (domain.Contains(w.ToLower())) return true;
+                }
+
+                // if whitelist is not empty, any non-matching domains are rejected!
+                return false;
+            }
+
+            // check blacklist second
+            foreach (var w in Config.DomainBlacklist)
+            { 
+                // if domain contains any of the blacklisted words, automatically reject it
+                if (domain.Contains(w.ToLower())) return false;
+            }
+
+            // accept url if it doesn't contain any blacklisted word
+            return true;
         }
     }
 }
