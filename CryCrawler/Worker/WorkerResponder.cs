@@ -2,6 +2,7 @@
 using CryCrawler.Network;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System;
 
 namespace CryCrawler.Worker
 {
@@ -66,28 +67,51 @@ namespace CryCrawler.Worker
             AccesptedMediaTypes = config.WorkerConfig.AcceptedMediaTypes,
             ScanTargetMediaTypes = config.WorkerConfig.ScanTargetsMediaTypes,
             SeedUrls = config.WorkerConfig.Urls,
-            DepthSearch = config.WorkerConfig.DepthSearch,
             AllFiles = config.WorkerConfig.AcceptAllFiles
         });
 
         string handleStateUpdate(StateUpdateRequest req)
         {
-            // handle it
-            if (req.IsActive == false)
+            var error = "";
+
+            try
             {
-                // stop it if started
-                if (crawler.IsActive) crawler.Stop();                
+                // handle it
+                if (req.IsActive == false)
+                {
+                    // stop it if started
+                    if (crawler.IsActive) crawler.Stop();
+                }
+                else
+                {
+                    // start it if stopped
+                    if (!crawler.IsActive) crawler.Start();
+                }
+
+                if (req.ClearCache == true)
+                {
+                    if (crawler.IsActive)
+                    {
+                        crawler.Stop();
+                        crawler.Manager.ClearCache();
+                        crawler.Start();
+                    }
+                    else
+                    {
+                        crawler.Manager.ClearCache();
+                    }
+                }
+
             }
-            else
+            catch (Exception ex)
             {
-                // start it if stopped
-                if (!crawler.IsActive) crawler.Start();
+                error = ex.Message;
             }
 
             return JsonConvert.SerializeObject(new
             {
-                Success = true,
-                Error = ""
+                Success = string.IsNullOrEmpty(error),
+                Error = error
             });
         }
 
@@ -95,7 +119,6 @@ namespace CryCrawler.Worker
         {
             // handle it
             config.WorkerConfig.Urls = req.SeedUrls;
-            config.WorkerConfig.DepthSearch = req.DepthSearch;
             config.WorkerConfig.AcceptAllFiles = req.AllFiles;
             config.WorkerConfig.AcceptedExtensions = req.Extensions;
             config.WorkerConfig.AcceptedMediaTypes = req.MediaTypes;
@@ -113,12 +136,12 @@ namespace CryCrawler.Worker
         class StateUpdateRequest
         {
             public bool IsActive { get; set; }
+            public bool ClearCache { get; set; }
         }
 
         class ConfigUpdateRequest
         {
             public bool AllFiles { get; set; }
-            public bool DepthSearch { get; set; }
             public List<string> Extensions { get; set; }
             public List<string> MediaTypes { get; set; }
             public List<string> ScanTargets { get; set; }

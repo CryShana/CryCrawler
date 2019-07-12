@@ -66,6 +66,8 @@ namespace CryCrawler.Worker
 
             IsActive = false;
             cancelSource.Cancel();
+            CurrentTasks.Clear();
+            currentTaskNumber = 1;
 
             StateChanged?.Invoke(this, false);
         }
@@ -98,7 +100,7 @@ namespace CryCrawler.Worker
                     var response = await httpClient
                         .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancelSource.Token);
 
-                    if (!response.IsSuccessStatusCode)
+                    if (!response.IsSuccessStatusCode || cancelSource.IsCancellationRequested)
                     {
                         // TODO: treat differently based on status code (for ex. if page doesn't exist at all, or if 500, 404,...)
                         // Logger.Log($"Failed to crawl '{url}' ({response.StatusCode})", Logger.LogSeverity.Information);
@@ -118,6 +120,8 @@ namespace CryCrawler.Worker
                         int cnt = 0;
                         foreach (var u in FindUrls(content))
                         {
+                            if (cancelSource.IsCancellationRequested) break;
+
                             // check if URL is eligible for crawling
                             if (Manager.IsUrlEligibleForCrawl(u) == false) continue;
 
@@ -135,7 +139,8 @@ namespace CryCrawler.Worker
                     var filename = GetFilename(url, mediaType);
 
                     // don't download file if not acceptable
-                    if (IsAcceptable(filename, mediaType) == false) continue;
+                    if (IsAcceptable(filename, mediaType) == false || 
+                        cancelSource.IsCancellationRequested) continue;
                     
                     // construct path
                     var directory = GetDirectoryPath(url, true);
@@ -163,6 +168,8 @@ namespace CryCrawler.Worker
                             path = Path.Combine(directory, fn);
                         }
                     }
+
+                    if (cancelSource.IsCancellationRequested) break;
 
                     // download content to file
                     using (var fstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))

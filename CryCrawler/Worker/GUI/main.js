@@ -31,8 +31,9 @@ function fetchStatus() {
 }
 
 // update webgui
-var configNeedsUpdate = true;
 var isActive = false;
+var configNeedsUpdate = true;
+var shouldClearCache = false;
 function setStatus(data) {
     // set status
     if (data.IsActive === true && data.IsWorking) setStatusText("active");
@@ -116,14 +117,12 @@ function setStatus(data) {
     if (configNeedsUpdate === true) {
         // set configuration
         let allfiles = data.AllFiles;
-        let depthSearch = data.DepthSearch;
         let seedurls = data.SeedUrls.join('\n');
         let extensions = data.AcceptedExtensions.join(' ');
         let mediaTypes = data.AccesptedMediaTypes.join(' ');
         let scantargets = data.ScanTargetMediaTypes.join(' ');
 
         $("#config-accept-files").attr("checked", allfiles);
-        $("#config-depth-search").attr("checked", depthSearch);
         $("#config-extensions").val(extensions);
         $("#config-media-types").val(mediaTypes);
         $("#config-scan-targets").val(scantargets);
@@ -200,33 +199,22 @@ function startStop(self) {
     let btn = $(self);
 
     btn.addClass("disabled");
-    updateState({
-
-        IsActive: !isActive
-
-    }, function (s) {
-
-    });
+    isActive = !isActive;
+    updateState();
 }
 
-function updateState(data, callback, endpoint = "/state") {
-    $.post(endpoint, JSON.stringify(data))
-        .done(function (s) {
-            if (s.Success === true) callback(s);
-            else {
-                alert(s.Error);
-            }
-        }).fail(function (f) {
-            console.log(f);
-            alert("Lost connection!");
-        });
+function clearCache(self) {
+    let btn = $(self);
+
+    shouldClearCache = true;
+    btn.addClass("disabled");
+    updateState();
 }
 
 function updateConfig(self) {
     let btn = $(self);
 
     let allfiles = $("#config-accept-files").is(":checked");
-    let depthSearch = $("#config-depth-search").is(":checked");
     let extensions = $("#config-extensions").val().split(' ');
     let mediaTypes = $("#config-media-types").val().split(' ');
     let scanTargets = $("#config-scan-targets").val().split(' ');
@@ -234,10 +222,9 @@ function updateConfig(self) {
 
     // update config
     btn.addClass("disabled");
-    updateState({
+    post({
 
         AllFiles: allfiles,
-        DepthSearch: depthSearch,
         Extensions: extensions,
         MediaTypes: mediaTypes,
         ScanTargets: scanTargets,
@@ -248,4 +235,29 @@ function updateConfig(self) {
         configNeedsUpdate = true;
 
     }, "/config");
+}
+
+function updateState() {
+    post({
+
+        IsActive: isActive,
+        ClearCache: shouldClearCache
+
+    }, function (s) {
+        $("#clear-cache-button").removeClass("disabled");
+        shouldClearCache = false;
+    });
+}
+
+function post(data, callback, endpoint = "/state") {
+    $.post(endpoint, JSON.stringify(data))
+        .done(function (s) {
+            if (s.Success === true) callback(s);
+            else {
+                alert(s.Error);
+            }
+        }).fail(function (f) {
+            console.log(f);
+            alert("Lost connection!");
+        });
 }

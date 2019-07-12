@@ -109,8 +109,8 @@ namespace CryCrawler.Worker
         /// </summary>
         public void ReloadUrlSource()
         {
-            // process only new Urls that were not yet loaded
-            foreach (var url in config.Urls.Where(x => lastLoadedSeedUrls.Contains(x) == false))
+            // process Urls 
+            foreach (var url in config.Urls)
             {
                 if (database.GetWork(out Work w, url, Collection.CachedCrawled) == false) AddToBacklog(url);               
                 else
@@ -126,6 +126,21 @@ namespace CryCrawler.Worker
 
             // save Urls
             lastLoadedSeedUrls = config.Urls;
+        }
+
+        /// <summary>
+        /// Clears download cache and starts downloading from seed Urls again
+        /// </summary>
+        public void ClearCache()
+        {         
+            database.EnsureNew();
+
+            Backlog.Clear();
+
+            CachedWorkCount = 0;
+            CachedCrawledWorkCount = 0;
+
+            ReloadUrlSource();
         }
 
         public void AddToCrawled(Work w)

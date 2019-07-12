@@ -170,7 +170,7 @@ function setStatusText(text) {
 function startStop(self) {
     let btn = $(self);
 
-    updateState({
+    post({
 
         IsActive: !isActive
 
@@ -179,7 +179,7 @@ function startStop(self) {
     });
 }
 
-function updateState(data, callback) {
+function post(data, callback) {
     $.post("/state", JSON.stringify(data))
         .done(function (s) {
             if (s.Success === true) callback(s);
