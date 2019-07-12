@@ -303,7 +303,7 @@ namespace CryCrawler.Worker
             if (w.RecrawlDate != null)
             {
                 // check if recrawl date is valid
-                if (w.RecrawlDate.Value.Subtract(DateTime.Now).TotalDays < 7)
+                if (w.RecrawlDate.Value.Subtract(DateTime.Now).TotalDays < 14)
                 {
                     // add back to backlog with a recrawl date
                     AddToBacklog(w);
