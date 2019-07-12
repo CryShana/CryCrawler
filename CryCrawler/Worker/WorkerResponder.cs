@@ -94,6 +94,9 @@ namespace CryCrawler.Worker
 
                 if (req.ClearCache == true)
                 {
+                    if (config.WorkerConfig.HostEndpoint.UseHost)
+                        throw new InvalidOperationException("Can not clear cache when using Host as Url source!");
+
                     if (crawler.IsActive)
                     {
                         crawler.Stop();
@@ -121,25 +124,36 @@ namespace CryCrawler.Worker
 
         string handleConfigUpdate(ConfigUpdateRequest req)
         {
-            // update configuration and save it
-            config.WorkerConfig.Urls = req.SeedUrls;
-            config.WorkerConfig.AcceptAllFiles = req.AllFiles;
-            config.WorkerConfig.DomainWhitelist = req.Whitelist;
-            config.WorkerConfig.DomainBlacklist = req.Blacklist;
-            config.WorkerConfig.AcceptedExtensions = req.Extensions;
-            config.WorkerConfig.AcceptedMediaTypes = req.MediaTypes;
-            config.WorkerConfig.ScanTargetsMediaTypes = req.ScanTargets;
-            config.WorkerConfig.MaximumAllowedFileSizekB = req.MaxSize;
-            config.WorkerConfig.MinimumAllowedFileSizekB = req.MinSize;
-            ConfigManager.SaveConfiguration(ConfigManager.LastLoaded);
+if (config.WorkerConfig.HostEndpoint.UseHost)
+                throw new InvalidOperationException("Can not update configuration when using Host as Url source!");            
 
-            // reload seed urls
-            crawler.Manager.ReloadUrlSource();
+            string error = "";
+            try
+            {
+                // update configuration and save it
+                config.WorkerConfig.Urls = req.SeedUrls;
+                config.WorkerConfig.AcceptAllFiles = req.AllFiles;
+                config.WorkerConfig.DomainWhitelist = req.Whitelist;
+                config.WorkerConfig.DomainBlacklist = req.Blacklist;
+                config.WorkerConfig.AcceptedExtensions = req.Extensions;
+                config.WorkerConfig.AcceptedMediaTypes = req.MediaTypes;
+                config.WorkerConfig.ScanTargetsMediaTypes = req.ScanTargets;
+                config.WorkerConfig.MaximumAllowedFileSizekB = req.MaxSize;
+                config.WorkerConfig.MinimumAllowedFileSizekB = req.MinSize;
+                ConfigManager.SaveConfiguration(ConfigManager.LastLoaded);
+
+                // reload seed urls
+                crawler.Manager.ReloadUrlSource();
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+            }
 
             return JsonConvert.SerializeObject(new
             {
-                Success = true,
-                Error = ""
+                Success = string.IsNullOrEmpty(error),
+                Error = error
             });
         }
 
