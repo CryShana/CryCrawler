@@ -124,8 +124,8 @@ namespace CryCrawler.Worker
 
         string handleConfigUpdate(ConfigUpdateRequest req)
         {
-if (config.WorkerConfig.HostEndpoint.UseHost)
-                throw new InvalidOperationException("Can not update configuration when using Host as Url source!");            
+            if (config.WorkerConfig.HostEndpoint.UseHost)
+                throw new InvalidOperationException("Can not update configuration when using Host as Url source!");
 
             string error = "";
             try
