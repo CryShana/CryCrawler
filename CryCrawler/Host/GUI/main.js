@@ -32,6 +32,9 @@ function fetchStatus() {
 
 // update webgui
 var isActive = false;
+var usingHost = false;
+var configNeedsUpdate = true;
+var shouldClearCache = false;
 function setStatus(data) {
     // set status
     if (data.IsListening === true && data.WorkAvailable) setStatusText("active");
@@ -56,6 +59,12 @@ function setStatus(data) {
     else {
         startStop.removeClass("danger");
         startStop.text("Start");
+    }
+
+    usingHost = data.UsingHost;
+    if (usingHost) {
+        $("#update-button").addClass("disabled");
+        $("#clear-cache-button").addClass("disabled");
     }
 
     // set work mode
@@ -110,7 +119,7 @@ function setStatus(data) {
                 c_active.removeClass("red");
                 c_active.removeClass("green");
                 c_active.addClass(activeClass);
-                c_active.text("("+ active + ")");
+                c_active.text("(" + active + ")");
 
                 let c_last = $(el).find(".client-last");
                 c_last.html(`${lconnected} (${endpoint})`);
@@ -138,6 +147,32 @@ function setStatus(data) {
             $(el).remove();
         }
     });
+
+    if (configNeedsUpdate === true && usingHost === false) {
+        // set configuration
+        let allfiles = data.AllFiles;
+        let seedurls = data.SeedUrls.join('\n');
+        let whitelist = data.Whitelist.join('\n');
+        let blacklist = data.Blacklist.join('\n');
+        let extensions = data.AcceptedExtensions.join(' ');
+        let mediaTypes = data.AccesptedMediaTypes.join(' ');
+        let scantargets = data.ScanTargetMediaTypes.join(' ');
+        let minsize = data.MinSize;
+        let maxsize = data.MaxSize;
+
+        $("#config-accept-files").attr("checked", allfiles);
+        $("#config-extensions").val(extensions);
+        $("#config-media-types").val(mediaTypes);
+        $("#config-scan-targets").val(scantargets);
+        $("#config-seeds").val(seedurls);
+        $("#config-whitelist").val(whitelist);
+        $("#config-blacklist").val(blacklist);
+        $("#config-min-size").val(minsize);
+        $("#config-max-size").val(maxsize);
+
+        $("#update-button").removeClass("disabled");
+        configNeedsUpdate = false;
+    }
 }
 
 function setStatusText(text) {
@@ -170,17 +205,83 @@ function setStatusText(text) {
 function startStop(self) {
     let btn = $(self);
 
+    btn.addClass("disabled");
+    isActive = !isActive;
+    updateState();
+}
+
+function clearCache(self) {
+    if (usingHost === true) {
+        alert("Can not clear cache when using Host as Url source!");
+        return;
+    }
+
+    let btn = $(self);
+
+    shouldClearCache = true;
+    btn.addClass("disabled");
+    updateState();
+}
+
+function updateConfig(self) {
+    if (usingHost === true) {
+        alert("Can not update configuration when using Host as Url source!");
+        return;
+    }
+
+    let btn = $(self);
+
+    let allfiles = $("#config-accept-files").is(":checked");
+    let extensions = $("#config-extensions").val().split(' ');
+    let mediaTypes = $("#config-media-types").val().split(' ');
+    let scanTargets = $("#config-scan-targets").val().split(' ');
+    let seedUrls = $("#config-seeds").val().split('\n');
+    let whitelist = $("#config-whitelist").val().split('\n');
+    let blacklist = $("#config-blacklist").val().split('\n');
+    let minsize = parseFloat($("#config-min-size").val());
+    let maxsize = parseFloat($("#config-max-size").val());
+    if (isNaN(minsize) || isNaN(maxsize)) {
+        alert("Invalid file sizes specified!");
+        return;
+    }
+
+    // update config
+    btn.addClass("disabled");
     post({
 
-        IsActive: !isActive
+        AllFiles: allfiles,
+        SeedUrls: seedUrls,
+        Extensions: extensions,
+        MediaTypes: mediaTypes,
+        ScanTargets: scanTargets,
+        Whitelist: whitelist,
+        Blacklist: blacklist,
+        MinSize: minsize,
+        MaxSize: maxsize
 
     }, function (s) {
 
+        configNeedsUpdate = true;
+
+    }, "/config");
+}
+
+function updateState() {
+    post({
+
+        IsActive: isActive,
+        ClearCache: shouldClearCache
+
+    }, function (s) {
+        if (usingHost === false) {
+            $("#clear-cache-button").removeClass("disabled");
+        }
+        shouldClearCache = false;
     });
 }
 
-function post(data, callback) {
-    $.post("/state", JSON.stringify(data))
+function post(data, callback, endpoint = "/state") {
+    $.post(endpoint, JSON.stringify(data))
         .done(function (s) {
             if (s.Success === true) callback(s);
             else {
