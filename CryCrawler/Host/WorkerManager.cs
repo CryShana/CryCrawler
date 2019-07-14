@@ -2,17 +2,17 @@
 using System.Net;
 using System.Linq;
 using System.Timers;
+using Newtonsoft.Json;
 using System.Threading;
 using CryCrawler.Worker;
 using System.Net.Sockets;
 using CryCrawler.Network;
 using CryCrawler.Security;
+using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Timer = System.Timers.Timer;
 using System.Collections.Concurrent;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace CryCrawler.Host
 {
@@ -219,10 +219,14 @@ namespace CryCrawler.Host
                 case NetworkMessageType.StatusCheck:
                     var status = JsonConvert.DeserializeObject<JObject>((string)message.Data);
 
-                    var isActive = (bool)status["IsActive"];
+                    var isActive = (bool?)status["IsActive"];
+                    var workCount = (long)status["WorkCount"];
+                    var crawledCount = (long)status["CrawledCount"];
 
                     // update client information
-                    client.IsActive = isActive;
+                    client.IsActive = isActive ?? client.IsActive;
+                    client.WorkCount = workCount;
+                    client.CrawledCount = crawledCount;
                     break;
                 case NetworkMessageType.ResultsReady:                   
                     break;
@@ -387,6 +391,9 @@ namespace CryCrawler.Host
             public string Id;
             public bool Online;
             public bool IsActive;
+            public long WorkCount;
+            public long CrawledCount;
+
             public TcpClient Client;
             public DateTime LastConnected;
             public EndPoint RemoteEndpoint;
