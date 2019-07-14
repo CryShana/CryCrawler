@@ -173,6 +173,9 @@ function setStatus(data) {
 
         // if using host, disable config options - they are received from host
         if (usingHost === true) {
+            $("#config-warning").text("Using host configuration!");
+            $("#config-warning").addClass("active");
+
             $("#config-accept-files").addClass("disabled");
             $("#config-extensions").addClass("disabled");
             $("#config-media-types").addClass("disabled");
@@ -233,7 +236,7 @@ function clearCache(self) {
         return;
     }
 
-    if (confirm("This will delete all progress and start from scratch! Are you sure?") !== true) 
+    if (confirm("This will delete all progress and start from scratch! Are you sure?") !== true) return;
 
     let btn = $(self);
 

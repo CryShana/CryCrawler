@@ -331,8 +331,10 @@ namespace CryCrawler.Host
 
                 try
                 {
+                    if (string.IsNullOrEmpty(url)) throw new InvalidOperationException("Invalid Url!");
+
                     // do something with work
-                    Logger.Log("Sending work to client... " + url);
+                    Logger.Log($"Sending work to client... '{url}'");
 
                     // for now pick first client (TODO: picking algorithm -- probably by how busy they are - status reporting)
                     var c = Clients.Where(x => x.Online).FirstOrDefault();

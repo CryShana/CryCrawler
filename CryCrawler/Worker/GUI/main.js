@@ -146,6 +146,9 @@ function setStatus(data) {
 
         // if using host, disable config options - they are received from host
         if (usingHost === true) {
+            $("#config-warning").text("Using host configuration!");
+            $("#config-warning").addClass("active");
+
             $("#config-accept-files").addClass("disabled");
             $("#config-extensions").addClass("disabled");
             $("#config-media-types").addClass("disabled");
