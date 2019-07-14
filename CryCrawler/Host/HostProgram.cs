@@ -1,8 +1,8 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Net;
+﻿using System.Collections.Generic;
 using CryCrawler.Network;
 using CryCrawler.Worker;
+using Newtonsoft.Json;
+using System.Net;
 
 namespace CryCrawler.Host
 {
@@ -54,6 +54,15 @@ namespace CryCrawler.Host
                     // override config in worker manager (this also disconnects it from local configuration)
                     workermanager.WorkerConfig = config;
 
+                    break;
+                case NetworkMessageType.StatusCheck:
+                    var msg = JsonConvert.SerializeObject(new
+                    {
+                        IsHost = true,
+                        IsActive = workermanager.IsListening
+                    });
+
+                    msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
                     break;
             }
         }
