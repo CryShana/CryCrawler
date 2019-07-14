@@ -395,6 +395,9 @@ namespace CryCrawler.Worker
                 case NetworkMessageType.Work:
                     WorkReceived((string)w.Data);
                     break;
+                case NetworkMessageType.ConfigUpdate:
+                    // this needs to be handled outside this class
+                    break;
                 case NetworkMessageType.Disconnect:
                     break;
             }

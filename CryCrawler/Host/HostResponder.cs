@@ -55,9 +55,12 @@ namespace CryCrawler.Host
             IsListening = workerManager.IsListening,
             WorkAvailable = workManager.IsWorkAvailable,
             ConnectedToHost = workManager.ConnectedToHost,
+
+            // use local config for this
             UsingHost = config.WorkerConfig.HostEndpoint.UseHost,
             HostEndpoint = $"{config.WorkerConfig.HostEndpoint.Hostname}:{config.WorkerConfig.HostEndpoint.Port}",
             ClientId = config.WorkerConfig.HostEndpoint.ClientId,
+
             WorkCount = workManager.WorkCount,
             CacheCount = workManager.CachedWorkCount,
             CacheCrawledCount = workManager.CachedCrawledWorkCount,
@@ -70,16 +73,16 @@ namespace CryCrawler.Host
                 LastConnected = x.LastConnected.ToString("dd.MM.yyyy HH:mm:ss"),
                 RemoteEndpoint = x.RemoteEndpoint.ToString()
             }),
-            // read local config, not Host provided
-            Whitelist = config.WorkerConfig.DomainWhitelist,
-            Blacklist = config.WorkerConfig.DomainBlacklist,
-            AcceptedExtensions = config.WorkerConfig.AcceptedExtensions,
-            AccesptedMediaTypes = config.WorkerConfig.AcceptedMediaTypes,
-            ScanTargetMediaTypes = config.WorkerConfig.ScanTargetsMediaTypes,
-            SeedUrls = config.WorkerConfig.Urls,
-            AllFiles = config.WorkerConfig.AcceptAllFiles,
-            MaxSize = config.WorkerConfig.MaximumAllowedFileSizekB,
-            MinSize = config.WorkerConfig.MinimumAllowedFileSizekB
+            // read current worker manager config (either local or host provided)
+            Whitelist = workerManager.WorkerConfig.DomainWhitelist,
+            Blacklist = workerManager.WorkerConfig.DomainBlacklist,
+            AcceptedExtensions = workerManager.WorkerConfig.AcceptedExtensions,
+            AccesptedMediaTypes = workerManager.WorkerConfig.AcceptedMediaTypes,
+            ScanTargetMediaTypes = workerManager.WorkerConfig.ScanTargetsMediaTypes,
+            SeedUrls = workerManager.WorkerConfig.Urls,
+            AllFiles = workerManager.WorkerConfig.AcceptAllFiles,
+            MaxSize = workerManager.WorkerConfig.MaximumAllowedFileSizekB,
+            MinSize = workerManager.WorkerConfig.MinimumAllowedFileSizekB
         });
 
         string handleStateUpdate(StateUpdateRequest req)
@@ -143,7 +146,8 @@ namespace CryCrawler.Host
                 // reload seed urls
                 workManager.ReloadUrlSource();
 
-                // TODO: send work to other clients!!!
+                // send new work config to connected clients
+                workerManager.UpdateWorkerConfigurations(config.WorkerConfig);
             }
             catch (Exception ex)
             {

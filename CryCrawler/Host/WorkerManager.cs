@@ -20,6 +20,7 @@ namespace CryCrawler.Host
     {
         public int ClientCount => Clients.Count;
         public bool IsListening { get; private set; }
+        public WorkerConfiguration WorkerConfig { get; set; }
 
         readonly Timer timer;
         readonly Timer workerTimer;
@@ -28,6 +29,7 @@ namespace CryCrawler.Host
         readonly TcpListener listener;
         readonly HostConfiguration config;
         CancellationTokenSource cancelSource;
+        WorkerConfiguration toSendConfig = null;
         public readonly List<WorkerClient> Clients = new List<WorkerClient>();
         public readonly ConcurrentDictionary<string, string> ClientWork = new ConcurrentDictionary<string, string>();
 
@@ -48,13 +50,18 @@ namespace CryCrawler.Host
         /// <summary>
         /// Starts a TCP listener for clients. Uses WorkManager to get URLs to distribute among clients.
         /// </summary>
-        public WorkerManager(WorkManager manager, HostConfiguration config)
+        public WorkerManager(WorkManager manager, Configuration config)
         {
             // paramaters
-            this.config = config;
             this.manager = manager;
-            var password = config.ListenerConfiguration.Password;
-            var endpoint = new IPEndPoint(IPAddress.Parse(config.ListenerConfiguration.IP), config.ListenerConfiguration.Port);
+            this.config = config.HostConfig;
+            this.WorkerConfig = config.WorkerConfig;
+            var password = this.config.ListenerConfiguration.Password;
+            var endpoint = new IPEndPoint(
+                IPAddress.Parse(this.config.ListenerConfiguration.IP), 
+                this.config.ListenerConfiguration.Port);
+
+            UpdateWorkerConfigurations(WorkerConfig);
 
             // initialize everything
             listener = new TcpListener(endpoint);
@@ -191,6 +198,9 @@ namespace CryCrawler.Host
                 }
             }
 
+            // send configuration
+            wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.ConfigUpdate, WorkerConfig));
+
             ClientJoined?.Invoke(wc, ewc != null);
         }
 
@@ -250,6 +260,40 @@ namespace CryCrawler.Host
             catch (Exception ex)
             {
                 Logger.Log(ex.GetDetailedMessage(), Logger.LogSeverity.Debug);
+            }
+        }
+
+        /// <summary>
+        /// Creates copy of our worker configuration without sensitive data and sends it to all online clients.
+        /// </summary>
+        public void UpdateWorkerConfigurations(WorkerConfiguration config)
+        {
+            // make new config object and remove sensitive information
+            toSendConfig = new WorkerConfiguration()
+            {
+                HostEndpoint = null,
+                AcceptAllFiles = config.AcceptAllFiles,
+                AcceptedExtensions = config.AcceptedExtensions,
+                AcceptedMediaTypes = config.AcceptedMediaTypes,
+                MaximumAllowedFileSizekB = config.MaximumAllowedFileSizekB,
+                MinimumAllowedFileSizekB = config.MinimumAllowedFileSizekB,
+                DomainBlacklist = config.DomainBlacklist,
+                DomainWhitelist = config.DomainWhitelist,
+                ScanTargetsMediaTypes = config.ScanTargetsMediaTypes,
+                Urls = config.Urls
+            };
+
+            foreach (var c in Clients.Where(x => x.Online))
+            {
+                try
+                {
+
+                    c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.ConfigUpdate, toSendConfig));
+                }
+                catch
+                {
+
+                }
             }
         }
 

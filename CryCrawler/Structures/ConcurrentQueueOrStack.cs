@@ -65,7 +65,19 @@ namespace CryCrawler.Structures
             foreach (var i in col) if (predicate(i)) return i;
             return default(T);
         }
-        
+        public void ChangeType(bool isStack)
+        {
+            if (!isStack)
+            {
+                if (queue != null) return;
+                else queue = new ConcurrentQueue<T>(stack);
+            }
+            else
+            {
+                if (stack != null) return;
+                else stack = new ConcurrentStack<T>(queue);
+            }
+        }
 
         public void Clear()
         {

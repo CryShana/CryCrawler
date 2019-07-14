@@ -121,7 +121,8 @@ function setStatus(data) {
         if (currentLogs.indexOf(el.FilePath) === -1) addDownloadLog(el);
     }
 
-    if (configNeedsUpdate === true && usingHost === false) {
+    // if using host is true, update it constantly - you can't edit it anyway
+    if (configNeedsUpdate === true || usingHost === true) {
         // set configuration
         let allfiles = data.AllFiles;
         let seedurls = data.SeedUrls.join('\n');
@@ -143,7 +144,21 @@ function setStatus(data) {
         $("#config-min-size").val(minsize);
         $("#config-max-size").val(maxsize);
 
-        $("#update-button").removeClass("disabled");
+        // if using host, disable config options - they are received from host
+        if (usingHost === true) {
+            $("#config-accept-files").addClass("disabled");
+            $("#config-extensions").addClass("disabled");
+            $("#config-media-types").addClass("disabled");
+            $("#config-scan-targets").addClass("disabled");
+            $("#config-seeds").addClass("disabled");
+            $("#config-whitelist").addClass("disabled");
+            $("#config-blacklist").addClass("disabled");
+            $("#config-min-size").addClass("disabled");
+            $("#config-max-size").addClass("disabled");
+        }
+        else {
+            $("#update-button").removeClass("disabled");
+        }
         configNeedsUpdate = false;
     }
 }
@@ -223,6 +238,8 @@ function clearCache(self) {
         alert("Can not clear cache when using Host as Url source!");
         return;
     }
+
+    if (confirm("This will delete all progress and start from scratch! Are you sure?") !== true) return;
 
     let btn = $(self);
 

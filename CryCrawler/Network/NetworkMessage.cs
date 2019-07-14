@@ -28,7 +28,7 @@ namespace CryCrawler.Network
         ResultsReady,   // for reporting to Host whether results are ready to be delivered
         Disconnect,     // for reporting imminent client/Host disconnect
         Work,           // for giving new work to clients
-        Results         // for giving results to Host
+        ConfigUpdate         // for giving results to Host
 
         // add more later
     }

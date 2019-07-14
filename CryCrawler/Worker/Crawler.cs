@@ -22,7 +22,7 @@ namespace CryCrawler.Worker
         #region Public Properties
         public bool IsActive { get; private set; }
         public WorkManager Manager { get; }
-        public WorkerConfiguration Config { get; }
+        public WorkerConfiguration Config { get; set; }
 
         public bool WaitingForWork => CurrentTasks.All(x => x.Value == null);
         public ConcurrentDictionary<int, string> CurrentTasks { get; } = new ConcurrentDictionary<int, string>();

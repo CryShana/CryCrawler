@@ -103,7 +103,8 @@ namespace CryCrawler.Network
                             client.GetStream(),
                             w =>
                             {
-                                if (!token.IsCancellationRequested && IsConnected)
+                                if (w.MessageType == NetworkMessageType.ConfigUpdate ||
+                                    (!token.IsCancellationRequested && IsConnected))
                                 {
                                     // do not log status checks because they happen too frequently
                                     if (w.MessageType != NetworkMessageType.StatusCheck)
