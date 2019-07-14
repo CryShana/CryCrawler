@@ -43,6 +43,7 @@ div#list-clients {
 }
 
     div#list-clients .client-item {
+        position: relative;
         padding: 10px;
         margin: 10px 0;
         background: white;
@@ -54,6 +55,23 @@ div#list-clients {
             margin-top: 10px;
             color: #a7a7a7;
         }
+
+        div#list-clients .client-item .client-host {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: black;
+        }
+
+            div#list-clients .client-item .client-host span {
+                color: #636363;
+            }
+
+@media only screen and (max-width: 525px) {
+    div#list-clients .client-item .client-host {
+        display: none;
+    }
+}
 
 
 div.flexbox {
