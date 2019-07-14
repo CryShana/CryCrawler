@@ -6,6 +6,7 @@ using CryCrawler.Network;
 using CryCrawler.Structures;
 using System.Collections.Generic;
 using static CryCrawler.CacheDatabase;
+using Timer = System.Timers.Timer;
 
 namespace CryCrawler.Worker
 {
@@ -15,6 +16,7 @@ namespace CryCrawler.Worker
     public class WorkManager
     {
         bool isFIFO = false;
+        readonly Timer statusTimer;
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
         List<string> lastLoadedSeedUrls = new List<string>();
@@ -50,6 +52,10 @@ namespace CryCrawler.Worker
                 // HOST MODE
                 HostMode = true;
                 ConnectedToHost = false;
+
+                statusTimer = new Timer(TimeSpan.FromSeconds(1).TotalMilliseconds);
+                statusTimer.Elapsed += StatusSend;
+                statusTimer.Start();
 
                 // use host
                 Logger.Log($"Using Host as Url source ({config.HostEndpoint.Hostname}:{config.HostEndpoint.Port})");
@@ -369,8 +375,7 @@ namespace CryCrawler.Worker
             }
         }
 
-
-        private void LoadCacheToMemory()
+        void LoadCacheToMemory()
         {
             long howMuch = MemoryLimitCount - (long)Backlog.Count;
             howMuch = howMuch > CachedWorkCount ? CachedWorkCount : howMuch;
@@ -381,13 +386,13 @@ namespace CryCrawler.Worker
                 CachedWorkCount -= works.Count;
             }
         }
-        private void DumpMemoryToCache()
+        void DumpMemoryToCache()
         {
             database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
             Logger.Log($"Dumped {inserted} backlog items to cache");
         }
 
-        private void NetworkManager_MessageReceived(NetworkMessage w, NetworkMessageHandler<NetworkMessage> msgHandler)
+        void NetworkManager_MessageReceived(NetworkMessage w, NetworkMessageHandler<NetworkMessage> msgHandler)
         {
             // handle message inside work manager
             switch (w.MessageType)
@@ -401,13 +406,7 @@ namespace CryCrawler.Worker
                 case NetworkMessageType.Disconnect:
                     break;
                 case NetworkMessageType.StatusCheck:
-                    var msg = JsonConvert.SerializeObject(new
-                    {
-                        WorkCount = WorkCount,
-                        CrawledCount = CachedCrawledWorkCount
-                    });
-
-                    msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
+                    // ignore it (status timer will send feedback handle it)
                     break;
             }
 
@@ -415,7 +414,21 @@ namespace CryCrawler.Worker
             HostMessageReceived?.Invoke(w, msgHandler);
         }
 
-        private void WorkReceived(string work)
+        void StatusSend(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (ConnectedToHost == false) return;
+
+            // TODO: refactor this - optimize the whole process
+            var msg = JsonConvert.SerializeObject(new
+            {
+                WorkCount = WorkCount,
+                CrawledCount = CachedCrawledWorkCount
+            });
+
+            NetworkManager.MessageHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
+        }
+
+        void WorkReceived(string work)
         {
             Logger.Log("Work received - " + work);
 

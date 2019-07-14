@@ -84,6 +84,10 @@ namespace CryCrawler.Network
                 catch (Exception ex)
                 {
                     ExceptionThrown?.Invoke(this, ex);
+
+                    // attempt to dispose
+                    Dispose();
+
                     Task.Delay(50).Wait();
                 }
             }

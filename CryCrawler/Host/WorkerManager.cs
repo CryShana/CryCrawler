@@ -58,7 +58,7 @@ namespace CryCrawler.Host
             this.WorkerConfig = config.WorkerConfig;
             var password = this.config.ListenerConfiguration.Password;
             var endpoint = new IPEndPoint(
-                IPAddress.Parse(this.config.ListenerConfiguration.IP), 
+                IPAddress.Parse(this.config.ListenerConfiguration.IP),
                 this.config.ListenerConfiguration.Port);
 
             UpdateWorkerConfigurations(WorkerConfig);
@@ -217,18 +217,22 @@ namespace CryCrawler.Host
             switch (message.MessageType)
             {
                 case NetworkMessageType.StatusCheck:
+
                     var status = JsonConvert.DeserializeObject<JObject>((string)message.Data);
 
+                    var hostMode = (bool?)status["IsHost"];
                     var isActive = (bool?)status["IsActive"];
-                    var workCount = (long)status["WorkCount"];
-                    var crawledCount = (long)status["CrawledCount"];
+                    var workCount = (long?)status["WorkCount"];
+                    var crawledCount = (long?)status["CrawledCount"];
 
                     // update client information
+                    client.IsHost = hostMode ?? client.IsHost;
                     client.IsActive = isActive ?? client.IsActive;
-                    client.WorkCount = workCount;
-                    client.CrawledCount = crawledCount;
+                    client.WorkCount = workCount ?? client.WorkCount;
+                    client.CrawledCount = crawledCount ?? client.CrawledCount;
+
                     break;
-                case NetworkMessageType.ResultsReady:                   
+                case NetworkMessageType.ResultsReady:
                     break;
             }
         }
@@ -358,7 +362,7 @@ namespace CryCrawler.Host
         void WorkerStatusCheck(object sender, ElapsedEventArgs e)
         {
             foreach (var c in Clients.Where(x => x.Online))
-                Task.Run(() => c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck)));    
+                Task.Run(() => c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck)));
         }
 
         void OldClientCheck(object sender, ElapsedEventArgs e)
@@ -389,6 +393,7 @@ namespace CryCrawler.Host
         public class WorkerClient
         {
             public string Id;
+            public bool IsHost;
             public bool Online;
             public bool IsActive;
             public long WorkCount;
