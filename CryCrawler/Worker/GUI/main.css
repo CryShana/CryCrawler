@@ -161,3 +161,19 @@ input.disabled, textarea.disabled {
     color: gray;
     pointer-events: none;
 }
+
+span#config-warning {
+    display: none;
+}
+
+    span#config-warning.active {
+        margin: 10px;
+        color: black;
+        padding: 20px;
+        font-weight: bold;
+        margin-top: -10px;
+        border-radius: 5px;
+        background: #ffd714;
+        display: inline-block;
+        border: 2px solid #afa100;
+    }
