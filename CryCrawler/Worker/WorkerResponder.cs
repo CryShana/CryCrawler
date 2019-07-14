@@ -52,26 +52,30 @@ namespace CryCrawler.Worker
             IsActive = crawler.IsActive,
             IsWorking = !crawler.WaitingForWork,
             ConnectedToHost = crawler.Manager.ConnectedToHost,
+
+            // use local config for this
             UsingHost = config.WorkerConfig.HostEndpoint.UseHost,
-            HostEndpoint = $"{crawler.Config.HostEndpoint.Hostname}:{crawler.Config.HostEndpoint.Port}",
-            ClientId = crawler.Config.HostEndpoint.ClientId,
+            HostEndpoint = $"{config.WorkerConfig.HostEndpoint.Hostname}:{config.WorkerConfig.HostEndpoint.Port}",
+            ClientId = config.WorkerConfig.HostEndpoint.ClientId,
+
             WorkCount = crawler.Manager.WorkCount,
+            TaskCount = crawler.CurrentTasks.Count,
             CacheCount = crawler.Manager.CachedWorkCount,
             CacheCrawledCount = crawler.Manager.CachedCrawledWorkCount,
             UsageRAM = Process.GetCurrentProcess().PrivateMemorySize64,
             CurrentTasks = new Dictionary<int, string>(crawler.CurrentTasks),
-            TaskCount = crawler.CurrentTasks.Count,
             RecentDownloads = new List<DownloadedWork>(crawler.RecentDownloads),
-            // read local config, not Host provided
-            Whitelist = config.WorkerConfig.DomainWhitelist,
-            Blacklist = config.WorkerConfig.DomainBlacklist,
-            AcceptedExtensions = config.WorkerConfig.AcceptedExtensions,
-            AccesptedMediaTypes = config.WorkerConfig.AcceptedMediaTypes,
-            ScanTargetMediaTypes = config.WorkerConfig.ScanTargetsMediaTypes,
-            SeedUrls = config.WorkerConfig.Urls,
-            AllFiles = config.WorkerConfig.AcceptAllFiles,
-            MaxSize = config.WorkerConfig.MaximumAllowedFileSizekB,
-            MinSize = config.WorkerConfig.MinimumAllowedFileSizekB
+
+            // read current crawler config (either local or host provided)
+            Whitelist = crawler.Config.DomainWhitelist,
+            Blacklist = crawler.Config.DomainBlacklist,
+            AcceptedExtensions = crawler.Config.AcceptedExtensions,
+            AccesptedMediaTypes = crawler.Config.AcceptedMediaTypes,
+            ScanTargetMediaTypes = crawler.Config.ScanTargetsMediaTypes,
+            SeedUrls = crawler.Config.Urls,
+            AllFiles = crawler.Config.AcceptAllFiles,
+            MaxSize = crawler.Config.MaximumAllowedFileSizekB,
+            MinSize = crawler.Config.MinimumAllowedFileSizekB
         });
 
         string handleStateUpdate(StateUpdateRequest req)

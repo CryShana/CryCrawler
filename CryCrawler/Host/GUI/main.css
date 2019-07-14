@@ -143,3 +143,8 @@ button {
         pointer-events: none;
         border: 1px solid #b1b1b1;
     }
+
+input.disabled, textarea.disabled {
+    color: gray;
+    pointer-events: none;
+}

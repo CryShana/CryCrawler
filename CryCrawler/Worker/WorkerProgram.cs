@@ -1,5 +1,8 @@
 ﻿using CryCrawler.Network;
+using MessagePack;
 using Newtonsoft.Json;
+using System.Collections;
+using System.Collections.Generic;
 using System.Net;
 
 namespace CryCrawler.Worker
@@ -55,6 +58,13 @@ namespace CryCrawler.Worker
             {
                 case NetworkMessageType.StatusCheck:
                     SendStatusMessage(msgHandler);
+                    break;
+                case NetworkMessageType.ConfigUpdate:
+                    Logger.Log("Host configuration receieved!");
+                    var config = ((IDictionary<object,object>)w.Data).Deserialize<WorkerConfiguration>();
+                    // override config in crawler (this also disconnects it from local configuration)
+                    crawler.Config = config;
+
                     break;
             }
         }
