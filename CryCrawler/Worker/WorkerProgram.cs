@@ -73,10 +73,7 @@ namespace CryCrawler.Worker
         {
             if (workmanager.ConnectedToHost == false || msgHandler == null) return;
 
-            var msg = JsonConvert.SerializeObject(new
-            {
-                IsActive = crawler.IsActive
-            });
+            var msg = JsonConvert.SerializeObject(new { IsActive = crawler.IsActive });
 
             msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
         }

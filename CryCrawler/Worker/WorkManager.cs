@@ -400,6 +400,15 @@ namespace CryCrawler.Worker
                     break;
                 case NetworkMessageType.Disconnect:
                     break;
+                case NetworkMessageType.StatusCheck:
+                    var msg = JsonConvert.SerializeObject(new
+                    {
+                        WorkCount = WorkCount,
+                        CrawledCount = CachedCrawledWorkCount
+                    });
+
+                    msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
+                    break;
             }
 
             // pass it on
