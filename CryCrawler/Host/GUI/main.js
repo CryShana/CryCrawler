@@ -91,9 +91,12 @@ function setStatus(data) {
     data.Clients.forEach(function (val, i) {
         let id = val.Id;
         let active = val.IsActive === true ? "Active" : "Inactive";
-        let online = val.Online === true ? "Online" : "Offine";
+        let online = val.Online === true ? "Connected" : "Unreachable";
         let lconnected = val.LastConnected;
         let endpoint = val.RemoteEndpoint;
+        let hosttext = val.IsHost === true ? "H" : "W";
+        let workcount = val.WorkCount;
+        let crawledcount = val.CrawledCount;
 
         let onlineClass = val.Online === true ? "green" : "red";
         let activeClass = val.IsActive === true ? "green" : "red";
@@ -124,6 +127,9 @@ function setStatus(data) {
                 let c_last = $(el).find(".client-last");
                 c_last.html(`${lconnected} (${endpoint})`);
 
+                let c_host = $(el).find(".client-host");
+                c_host.html(`${hosttext} <span>(${crawledcount} / ${workcount})</span>`);
+
                 // break loop
                 return false;
             }
@@ -133,6 +139,7 @@ function setStatus(data) {
             clientList.append($(`<div class="client-item">
                 <div class="client-id"><span class="id">${id}</span> <span class="active ${activeClass}">(${active})</span></div>
                 <div class="client-online ${onlineClass}">${online}</div>
+                <div class="client-host">${hosttext} <span>(${crawledcount} / ${workcount})</span></div>
                 <div class="client-last">${lconnected} (${endpoint})</div>
             </div>`));
         }

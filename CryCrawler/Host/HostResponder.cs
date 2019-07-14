@@ -68,8 +68,11 @@ namespace CryCrawler.Host
             Clients = workerManager.Clients.Select(x => new
             {
                 x.Id,
+                x.IsHost,
                 x.Online,
                 x.IsActive,
+                x.WorkCount,
+                x.CrawledCount,
                 LastConnected = x.LastConnected.ToString("dd.MM.yyyy HH:mm:ss"),
                 RemoteEndpoint = x.RemoteEndpoint.ToString()
             }),
