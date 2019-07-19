@@ -26,6 +26,7 @@ namespace CryCrawler.Host
         readonly Timer workerTimer;
         readonly WorkManager manager;
         readonly string passwordHash;
+        readonly IWorkerPicker picker;
         readonly TcpListener listener;
         readonly HostConfiguration config;
         CancellationTokenSource cancelSource;
@@ -50,10 +51,11 @@ namespace CryCrawler.Host
         /// <summary>
         /// Starts a TCP listener for clients. Uses WorkManager to get URLs to distribute among clients.
         /// </summary>
-        public WorkerManager(WorkManager manager, Configuration config)
+        public WorkerManager(WorkManager manager, Configuration config, IWorkerPicker workerPicker)
         {
             // paramaters
             this.manager = manager;
+            this.picker = workerPicker;
             this.config = config.HostConfig;
             this.WorkerConfig = config.WorkerConfig;
             var password = this.config.ListenerConfiguration.Password;
@@ -345,7 +347,7 @@ namespace CryCrawler.Host
                     Logger.Log($"Sending work to client... '{url}'");
 
                     // for now pick first client (TODO: picking algorithm -- probably by how busy they are - status reporting)
-                    var c = Clients.Where(x => x.Online).FirstOrDefault();
+                    var c = picker.Pick(Clients);
                     c?.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Work, url));
 
                     failedUrl = null;

@@ -39,7 +39,7 @@ namespace CryCrawler
         }
 
         static void Start(bool isHost, bool newSession)
-        {        
+        {
             // Load configuration
             if (ConfigManager.LoadConfiguration(out Configuration config) == false)
             {
