@@ -24,6 +24,6 @@ namespace CryCrawler.Host
         /// Picks an online worker with least amount of work
         /// </summary>
         public WorkerClient Pick(IEnumerable<WorkerClient> clients)
-            => clients.Where(x => x.Online && x.IsActive && x.AssignedWork == null).FirstOrDefault();
+            => clients.Where(x => x.Online && x.IsActive && x.AssignedUrl == null).FirstOrDefault();
     }
 }

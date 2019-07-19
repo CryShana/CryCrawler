@@ -309,8 +309,8 @@ namespace CryCrawler.Host
         void clientRemoved(WorkerClient wc, object data)
         {
             // take assigned work from client, remove it, add back to backlog
-            var w = wc.AssignedWork;
-            wc.AssignedWork = null;
+            var w = wc.AssignedUrl;
+            wc.AssignedUrl = null;
 
             manager.AddToBacklog(w);
         }
@@ -358,6 +358,8 @@ namespace CryCrawler.Host
 
                     // send it work
                     c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Work, url));
+
+                    c.AssignedUrl = url;
 
                     failedUrl = null;
                 }
@@ -411,7 +413,7 @@ namespace CryCrawler.Host
             public bool IsActive;
             public long WorkCount;
             public long CrawledCount;
-            public Work AssignedWork;
+            public string AssignedUrl;
 
             public TcpClient Client;
             public DateTime LastConnected;
