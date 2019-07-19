@@ -18,12 +18,12 @@ namespace CryCrawler.Host
     /// <summary>
     /// Picks worker based on work count.
     /// </summary>
-    public class WorkWeightedPicker : IWorkerPicker
+    public class FreeWorkerPicker : IWorkerPicker
     {
         /// <summary>
         /// Picks an online worker with least amount of work
         /// </summary>
         public WorkerClient Pick(IEnumerable<WorkerClient> clients)
-            => clients.Where(x => x.Online).Aggregate((a, b) => a.WorkCount < b.WorkCount ? a : b);
+            => clients.Where(x => x.Online && x.IsActive && x.AssignedWork == null).FirstOrDefault();
     }
 }

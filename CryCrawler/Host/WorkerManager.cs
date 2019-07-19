@@ -32,7 +32,6 @@ namespace CryCrawler.Host
         CancellationTokenSource cancelSource;
         WorkerConfiguration toSendConfig = null;
         public readonly List<WorkerClient> Clients = new List<WorkerClient>();
-        public readonly ConcurrentDictionary<string, string> ClientWork = new ConcurrentDictionary<string, string>();
 
         /// <summary>
         /// Called when client gets disconnected.
@@ -309,7 +308,11 @@ namespace CryCrawler.Host
 
         void clientRemoved(WorkerClient wc, object data)
         {
-            // TODO: take work from thata client id, remove it, add back to backlog
+            // take assigned work from client, remove it, add back to backlog
+            var w = wc.AssignedWork;
+            wc.AssignedWork = null;
+
+            manager.AddToBacklog(w);
         }
 
         async void Work()
@@ -317,13 +320,15 @@ namespace CryCrawler.Host
             string failedUrl = null, url = null;
             while (!cancelSource.IsCancellationRequested)
             {
-                if (Clients == null || Clients.Count(x => x.Online) == 0)
+                // CHECK IF WORKERS ARE AVAILABLE
+                if (Clients == null || picker.Pick(Clients) == null)
                 {
-                    // no clients to give work to
+                    // no workers to give work to
                     await Task.Delay(1000);
                     continue;
                 }
 
+                // VALIDATE URL
                 // if there is a failed url, use it again
                 if (string.IsNullOrEmpty(failedUrl))
                 {
@@ -339,6 +344,7 @@ namespace CryCrawler.Host
                 }
                 else url = failedUrl;
 
+                // PICK WORKER AND ASSIGN WORK
                 try
                 {
                     if (string.IsNullOrEmpty(url)) throw new InvalidOperationException("Invalid Url!");
@@ -346,18 +352,23 @@ namespace CryCrawler.Host
                     // do something with work
                     Logger.Log($"Sending work to client... '{url}'");
 
-                    // for now pick first client (TODO: picking algorithm -- probably by how busy they are - status reporting)
+                    // pick client without work
                     var c = picker.Pick(Clients);
-                    c?.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Work, url));
+                    if (c == null) throw new NullReferenceException("No worker picked!");
+
+                    // send it work
+                    c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Work, url));
 
                     failedUrl = null;
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log("Failed to distribute work! " + ex.Message + "\n" + ex.StackTrace, Logger.LogSeverity.Warning);
+                    Logger.Log("Failed to assign work! " + ex.Message, Logger.LogSeverity.Warning);
                     failedUrl = url;
                 }
 
+                // wait a bit
+                await Task.Delay(100);
             }
         }
 
@@ -400,6 +411,7 @@ namespace CryCrawler.Host
             public bool IsActive;
             public long WorkCount;
             public long CrawledCount;
+            public Work AssignedWork;
 
             public TcpClient Client;
             public DateTime LastConnected;
