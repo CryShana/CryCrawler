@@ -202,6 +202,9 @@ namespace CryCrawler.Host
             // send configuration
             wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.ConfigUpdate, WorkerConfig));
 
+            // send client limit
+            wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.WorkLimitUpdate, config.ClientWorkLimit));
+
             ClientJoined?.Invoke(wc, ewc != null);
         }
 
