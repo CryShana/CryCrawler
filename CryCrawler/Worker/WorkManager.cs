@@ -21,6 +21,8 @@ namespace CryCrawler.Worker
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
 
+        DateTime lastWorkResultRequest = DateTime.Now;
+
         public readonly int MemoryLimitCount = 500000;
 
         #region Public Properties
@@ -145,7 +147,6 @@ namespace CryCrawler.Worker
 
             ReloadUrlSource();
         }
-
         public void AddToCrawled(Work w)
         {
             addingSemaphore.Wait();
@@ -258,13 +259,6 @@ namespace CryCrawler.Worker
             w = null;
             string url = null;
 
-            // if using Host mode, consider the defined work limit
-            if (HostMode && Backlog.Count >= wlimit)
-            {
-                // don't give crawler any more work until work is sent to the host and backlog is cleared
-                return false;
-            }
-
             addingSemaphore.Wait();
             try
             {
@@ -274,10 +268,24 @@ namespace CryCrawler.Worker
                     return false;
                 }
 
+                // if using Host mode, consider the defined work limit
+                if (HostMode && Backlog.Count >= wlimit && 
+                    DateTime.Now.Subtract(lastWorkResultRequest).TotalSeconds > 4) // send request at most once per 4 seconds
+                {
+                    lastWorkResultRequest = DateTime.Now;
+
+                    // send request to Host that work results are ready
+                    NetworkManager.MessageHandler.SendMessage(new NetworkMessage(NetworkMessageType.ResultsReady));
+
+                    // don't give crawler any more work until work is sent to the host and backlog is cleared
+                    return false;
+                }
+
+                #region Get Work
                 if (isFIFO)
                 {
                     // take from memory if available
-                    if (Backlog.Count > 0) Backlog.TryGetItem(out w);                
+                    if (Backlog.Count > 0) Backlog.TryGetItem(out w);
 
                     // take from database if available and memory is empty
                     if (w == null && CachedWorkCount > 0 && database.GetWorks(out List<Work> works, 1, true, true))
@@ -297,7 +305,8 @@ namespace CryCrawler.Worker
 
                     // take from memory if available and database is empty
                     if (w == null && Backlog.Count > 0) Backlog.TryGetItem(out w);
-                }
+                } 
+                #endregion
 
                 // if there is space to load cache to memory, do it
                 if (Backlog.Count < MemoryLimitCount && CachedWorkCount > 0) LoadCacheToMemory();
@@ -440,8 +449,15 @@ namespace CryCrawler.Worker
 
         void WorkReceived(string work)
         {
-            Logger.Log("Work received - " + work);
+            Logger.Log("New work assigned - " + work);
 
+            // clear backlog
+            Backlog.Clear();
+
+            // also clear cached work items
+            if (CachedWorkCount > 0) database.DropCollection(Collection.CachedBacklog);         
+
+            // add to backlog
             AddToBacklog(work);
         }
     }

@@ -237,6 +237,7 @@ namespace CryCrawler.Host
 
                     break;
                 case NetworkMessageType.ResultsReady:
+                    // retrieve work from worker
                     break;
             }
         }
