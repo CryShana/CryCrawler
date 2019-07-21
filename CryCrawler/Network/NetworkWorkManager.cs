@@ -104,6 +104,7 @@ namespace CryCrawler.Network
                             w =>
                             {
                                 if (w.MessageType == NetworkMessageType.ConfigUpdate ||
+                                    w.MessageType == NetworkMessageType.WorkLimitUpdate ||
                                     (!token.IsCancellationRequested && IsConnected))
                                 {
                                     // do not log status checks because they happen too frequently
@@ -119,6 +120,8 @@ namespace CryCrawler.Network
                         // if message handler throws an exception, dispose it
                         MessageHandler.ExceptionThrown += (a, b) =>
                         {
+                            Logger.Log("[MessageHandler] " + b.GetDetailedMessage(), Logger.LogSeverity.Debug);
+
                             MessageHandler.Dispose();
                             reset.Set();
                         };
