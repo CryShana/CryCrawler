@@ -16,15 +16,15 @@ namespace CryCrawler.Worker
     public class WorkManager
     {
         int wlimit = 0;
+        bool resultsReady = false;
         bool sendingResults = false;
         bool resultsReceived = false;
 
         bool isFIFO = false;
+        readonly Timer resultTimer;
         readonly Timer statusTimer;
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
-
-        DateTime lastWorkResultRequest = DateTime.Now;
 
         public readonly int MemoryLimitCount = 500000;
 
@@ -61,6 +61,10 @@ namespace CryCrawler.Worker
                 statusTimer = new Timer(TimeSpan.FromSeconds(1).TotalMilliseconds);
                 statusTimer.Elapsed += StatusSend;
                 statusTimer.Start();
+
+                resultTimer = new Timer(TimeSpan.FromSeconds(1).TotalMilliseconds);
+                resultTimer.Elapsed += ResultsCheck;
+                resultTimer.Start();
 
                 // use host
                 Logger.Log($"Using Host as Url source ({config.HostEndpoint.Hostname}:{config.HostEndpoint.Port})");
@@ -114,6 +118,7 @@ namespace CryCrawler.Worker
                 CachedCrawledWorkCount = database.GetWorkCount(Collection.CachedCrawled);
             }
         }
+
 
         /// <summary>
         /// Checks the Url source for changes and adds new items to backlog
@@ -279,14 +284,10 @@ namespace CryCrawler.Worker
                     return false;
                 }
 
-                // if using Host mode, consider the defined work limit
-                if (HostMode && Backlog.Count >= wlimit && !sendingResults &&
-                    DateTime.Now.Subtract(lastWorkResultRequest).TotalSeconds > 4) // send request at most once per 4 seconds
+                // if using Host mode - if backlog count passes defined limit, results are ready to be sent
+                if (HostMode && Backlog.Count >= wlimit)
                 {
-                    lastWorkResultRequest = DateTime.Now;
-
-                    // send request to Host that work results are ready
-                    NetworkManager.MessageHandler.SendMessage(new NetworkMessage(NetworkMessageType.ResultsReady));
+                    resultsReady = true;
 
                     // don't give crawler any more work until work is sent to the host and backlog is cleared
                     return false;
@@ -335,9 +336,16 @@ namespace CryCrawler.Worker
                 return false;
             }
 
+            // if no work is available anymore, results are ready to be sent to Host
+            if (HostMode && IsWorkAvailable == false) resultsReady = true;          
+            
             return w != null;
         }
 
+        /// <summary>
+        /// Adds work item to crawled items, except if recrawl date is defined and not yet reached. In that case it adds it to Backlog again.
+        /// </summary>
+        /// <param name="w"></param>
         public void ReportWorkResult(Work w)
         {
             if (w.RecrawlDate != null)
@@ -499,6 +507,15 @@ namespace CryCrawler.Worker
             });
 
             NetworkManager.MessageHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
+        }
+
+        void ResultsCheck(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (ConnectedToHost && !sendingResults && resultsReady)
+            {
+                // send request to Host that work results are ready
+                NetworkManager.MessageHandler.SendMessage(new NetworkMessage(NetworkMessageType.ResultsReady));
+            }
         }
 
         void WorkReceived(string work)
