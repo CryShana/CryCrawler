@@ -265,7 +265,7 @@ namespace CryCrawler.Worker
         /// <summary>
         /// Attempts to get work from backlog and removes it from work list.
         /// </summary>
-        public bool GetWork(out Work w)
+        public bool GetWork(out Work w, bool checkForCrawled = true)
         {
             w = null;
             string url = null;
@@ -328,6 +328,13 @@ namespace CryCrawler.Worker
             }
 
             url = w?.Url;
+
+            // if CheckForCrawled is true, return false if work is already crawled
+            if (checkForCrawled && url != null && IsUrlCrawled(url))
+            {
+                return false;
+            }
+
             return w != null;
         }
 
