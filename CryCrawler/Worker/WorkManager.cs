@@ -16,9 +16,9 @@ namespace CryCrawler.Worker
     public class WorkManager
     {
         int wlimit = 0;
+        string assignedw = null;
         bool resultsReady = false;
         bool sendingResults = false;
-        bool resultsReceived = false;
 
         bool isFIFO = false;
         readonly Timer resultTimer;
@@ -183,7 +183,7 @@ namespace CryCrawler.Worker
         public void AddToBacklog(string url)
         {
             var w = new Work(url);
-            AddToBacklog(w);         
+            AddToBacklog(w);
         }
         public void AddToBacklog(IEnumerable<string> urls)
         {
@@ -317,7 +317,7 @@ namespace CryCrawler.Worker
 
                     // take from memory if available and database is empty
                     if (w == null && Backlog.Count > 0) Backlog.TryGetItem(out w);
-                } 
+                }
                 #endregion
 
                 // if there is space to load cache to memory, do it
@@ -331,14 +331,8 @@ namespace CryCrawler.Worker
             url = w?.Url;
 
             // if CheckForCrawled is true, return false if work is already crawled
-            if (checkForCrawled && url != null && IsUrlCrawled(url))
-            {
-                return false;
-            }
+            if (checkForCrawled && url != null && IsUrlCrawled(url)) return false;
 
-            // if no work is available anymore, results are ready to be sent to Host
-            if (HostMode && IsWorkAvailable == false) resultsReady = true;          
-            
             return w != null;
         }
 
@@ -401,6 +395,17 @@ namespace CryCrawler.Worker
             return true;
         }
 
+        /// <summary>
+        /// Signals work manager that all services using it are finished processing work
+        /// </summary>
+        public void WorkDone()
+        {
+            if (WorkCount == 0 && CachedCrawledWorkCount > 0)
+            {
+                resultsReady = true;
+            }
+        }
+
         public void Dispose()
         {
             // dump all work if working locally - if working via Host, delete cache
@@ -446,8 +451,8 @@ namespace CryCrawler.Worker
                     // this needs to be handled outside this class
                     break;
                 case NetworkMessageType.WorkLimitUpdate:
-                    wlimit = (int)w.Data;
-                    break;              
+                    wlimit = w.Data.AsInteger();
+                    break;
                 case NetworkMessageType.Disconnect:
                     break;
                 case NetworkMessageType.StatusCheck:
@@ -458,25 +463,27 @@ namespace CryCrawler.Worker
                     {
                         sendingResults = true;
 
-                        try
-                        {
-                            SendResults();
-                        }
-                        finally
-                        {
-                            sendingResults = false;
-                        }
+                        SendResults();
                     }
+                    break;
+                case NetworkMessageType.ResultsReceived:
+                    PrepareForNewWork();
+
+                    sendingResults = false;
+                    resultsReady = false;
                     break;
             }
 
             // pass it on
             HostMessageReceived?.Invoke(w, msgHandler);
+
         }
 
         void SendResults()
         {
-            var itemsToSend = Backlog.ToList();
+            if (ConnectedToHost == false) return;
+
+            var itemsToSend = Backlog.ToList().Select(x => x.Url).ToList();
 
             // check cached items?
 
@@ -484,15 +491,6 @@ namespace CryCrawler.Worker
 
             NetworkManager.MessageHandler.SendMessage(
                 new NetworkMessage(NetworkMessageType.Work, itemsToSend));
-
-            // wait until host reports that results have been received successfully
-            SpinWait.SpinUntil(() => resultsReceived || 
-                database.Disposing || NetworkManager.IsConnected == false);
-
-            if (resultsReceived == false)
-                Logger.Log("Failed to send results to host.", Logger.LogSeverity.Warning);    
-            
-            resultsReceived = false;
         }
 
         void StatusSend(object sender, System.Timers.ElapsedEventArgs e)
@@ -511,6 +509,11 @@ namespace CryCrawler.Worker
 
         void ResultsCheck(object sender, System.Timers.ElapsedEventArgs e)
         {
+            // if no work assigned, ignore it
+            if (assignedw == null) return;
+
+            // if we are connected and are not yet sending results but results are ready 
+            // keep sending ResultsReady request on every timer tick until server is ready to receieve them
             if (ConnectedToHost && !sendingResults && resultsReady)
             {
                 // send request to Host that work results are ready
@@ -522,14 +525,27 @@ namespace CryCrawler.Worker
         {
             Logger.Log("New work assigned - " + work);
 
+            PrepareForNewWork();
+
+            // add to backlog
+            AddToBacklog(work);
+
+            assignedw = work;
+            resultsReady = false;
+        }
+
+        /// <summary>
+        /// Clears backlog and cache and prepares worker to be assigned new work from Host.
+        /// </summary>
+        void PrepareForNewWork()
+        {
+            assignedw = null;
+
             // clear backlog
             Backlog.Clear();
 
             // also clear cached work items
-            if (CachedWorkCount > 0) database.DropCollection(Collection.CachedBacklog);         
-
-            // add to backlog
-            AddToBacklog(work);
+            if (CachedWorkCount > 0) database.DropCollection(Collection.CachedBacklog);
         }
     }
 }

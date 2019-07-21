@@ -2,11 +2,14 @@
 using System.IO;
 using MessagePack;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace CryCrawler.Network
 {
     public class NetworkMessageHandler<T>
     {
+        readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
+
         public Stream UnderlyingStream { get; }
         public event EventHandler<T> MessageReceived;
         public event EventHandler<Exception> ExceptionThrown;
@@ -31,13 +34,22 @@ namespace CryCrawler.Network
 
         public void SendMessage(T message)
         {
-            if (Disposed) throw new ObjectDisposedException("Object disposed!");
+            semaphore.Wait();
 
-            // use any serializer you want
-            var buffer = MessagePackSerializer.Serialize(message);
-            var lenBuffer = BitConverter.GetBytes(buffer.LongLength);
-            UnderlyingStream.Write(lenBuffer);
-            UnderlyingStream.Write(buffer);
+            try
+            {
+                if (Disposed) throw new ObjectDisposedException("Object disposed!");
+
+                // use any serializer you want
+                var buffer = MessagePackSerializer.Serialize(message);
+                var lenBuffer = BitConverter.GetBytes(buffer.LongLength);
+                UnderlyingStream.Write(lenBuffer);
+                UnderlyingStream.Write(buffer);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
         }
 
         public async Task<T> WaitForResponse(int timeout = 3000)
