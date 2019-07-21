@@ -19,7 +19,7 @@ namespace CryCrawler
     {
         public HostListeningEndPoint ListenerConfiguration { get; set; } = new HostListeningEndPoint();
         public long MaxClientAgeMinutes { get; set; } = (long)TimeSpan.FromDays(1).TotalMinutes;
-        public int ClientWorkLimit { get; set; } = 500;
+        public int ClientWorkLimit { get; set; } = 5000;
     }
 
     [MessagePackObject(keyAsPropertyName: true)]
