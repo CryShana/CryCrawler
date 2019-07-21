@@ -29,7 +29,9 @@ namespace CryCrawler.Network
         Disconnect,     // for reporting imminent client/Host disconnect
         Work,           // for giving new work to clients
         ConfigUpdate,   // for giving results to Host
-        WorkLimitUpdate // for updating client work limits
+        WorkLimitUpdate,// for updating client work limits
+        SendResults,    // worker should send results
+        ResultsReceived,// host received client results
 
         // add more later
     }

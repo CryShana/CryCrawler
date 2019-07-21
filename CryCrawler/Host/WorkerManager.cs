@@ -237,7 +237,22 @@ namespace CryCrawler.Host
 
                     break;
                 case NetworkMessageType.ResultsReady:
-                    // retrieve work from worker
+                    // worker has results ready. Send request to retrieve results.
+                    client.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.SendResults));
+                    break;
+                case NetworkMessageType.Work:
+                    // retrieve results from worker
+                    var work = (List<Work>)message.Data;
+                    Logger.Log($"Retrieved {work.Count} results from client '{client.Id}'");
+                    
+                    // only add to backlog if not yet crawled
+                    foreach (var w in work)
+                        if (manager.IsUrlCrawled(w.Url) == false)
+                            manager.AddToBacklog(w);
+
+                    // confirm that all results have been received
+                    client.MesssageHandler.SendMessage(
+                        new NetworkMessage(NetworkMessageType.ResultsReceived));
                     break;
             }
         }
