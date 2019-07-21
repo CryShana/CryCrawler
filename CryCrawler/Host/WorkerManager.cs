@@ -79,6 +79,7 @@ namespace CryCrawler.Host
 
             // subscribe to events
             this.ClientRemoved += clientRemoved;
+            this.ClientLeft += clientDisconnected;
         }
 
         public void Start()
@@ -203,7 +204,8 @@ namespace CryCrawler.Host
             wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.ConfigUpdate, WorkerConfig));
 
             // send client limit
-            wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.WorkLimitUpdate, config.ClientWorkLimit));
+            wc.MesssageHandler.SendMessage(new NetworkMessage(
+                NetworkMessageType.WorkLimitUpdate, config.ClientWorkLimit));
 
             ClientJoined?.Invoke(wc, ewc != null);
         }
@@ -242,13 +244,19 @@ namespace CryCrawler.Host
                     break;
                 case NetworkMessageType.Work:
                     // retrieve results from worker
-                    var work = (List<Work>)message.Data;
-                    Logger.Log($"Retrieved {work.Count} results from client '{client.Id}'");
+                    var works = (object[])message.Data;
+                    Logger.Log($"Retrieved {works.Length} results from client '{client.Id}'");
                     
                     // only add to backlog if not yet crawled
-                    foreach (var w in work)
-                        if (manager.IsUrlCrawled(w.Url) == false)
-                            manager.AddToBacklog(w);
+                    foreach (var url in works)
+                    {
+                        var u = (string)url;
+
+                        if (manager.IsUrlCrawled(u) == false) manager.AddToBacklog(u);
+                    }
+
+                    // unassign work
+                    client.AssignedUrl = null;
 
                     // confirm that all results have been received
                     client.MesssageHandler.SendMessage(
@@ -325,13 +333,15 @@ namespace CryCrawler.Host
             }
         }
 
-        void clientRemoved(WorkerClient wc, object data)
-        {
+        void clientRemoved(WorkerClient wc, object data) => unassignWorkFromClient(wc);
+        void clientDisconnected(WorkerClient wc, object data) => unassignWorkFromClient(wc);
+        void unassignWorkFromClient(WorkerClient wc)
+        {            
             // take assigned work from client, remove it, add back to backlog
             var w = wc.AssignedUrl;
             wc.AssignedUrl = null;
 
-            manager.AddToBacklog(w);
+            if (w != null) manager.AddToBacklog(w);
         }
 
         async void Work()

@@ -120,7 +120,7 @@ namespace CryCrawler.Network
                         // if message handler throws an exception, dispose it
                         MessageHandler.ExceptionThrown += (a, b) =>
                         {
-                            Logger.Log("[MessageHandler] " + b.GetDetailedMessage(), Logger.LogSeverity.Debug);
+                            Logger.Log("[MessageHandler] " + b.Message, Logger.LogSeverity.Debug);
 
                             MessageHandler.Dispose();
                             reset.Set();

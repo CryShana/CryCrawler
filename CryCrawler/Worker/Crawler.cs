@@ -90,7 +90,15 @@ namespace CryCrawler.Worker
                     // unable to get work, wait a bit and try again
                     CurrentTasks[taskNumber] = null;
 
-                    await Task.Delay(100);
+                    // check if all crawlers are offline
+                    bool alloff = CurrentTasks.Count(x => x.Value == null) == CurrentTasks.Count;
+                    if (alloff)
+                    {
+                        // notify work manager of this change
+                        Manager.WorkDone();
+                    }
+
+                    await Task.Delay(200);
                     continue;
                 }
 

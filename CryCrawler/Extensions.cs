@@ -115,5 +115,14 @@ namespace CryCrawler
 
             return instance;
         }
+
+        public static int AsInteger(this object obj)
+        {
+            var type = obj.GetType();
+
+            if (type.Name == "UInt16") return (ushort)obj;
+            else if (type.Name == "Int16") return (short)obj;
+            else throw new InvalidCastException("Invalid integer type!");
+        }
     }
 }
