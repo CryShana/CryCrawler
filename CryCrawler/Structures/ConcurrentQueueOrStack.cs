@@ -79,6 +79,9 @@ namespace CryCrawler.Structures
             }
         }
 
+        /// <summary>
+        /// Clear collection. This does not clear the cached items!
+        /// </summary>
         public void Clear()
         {
             addedItems.Clear();
