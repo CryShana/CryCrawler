@@ -5,8 +5,8 @@ using System.Threading;
 using CryCrawler.Network;
 using CryCrawler.Structures;
 using System.Collections.Generic;
-using static CryCrawler.CacheDatabase;
 using Timer = System.Timers.Timer;
+using static CryCrawler.CacheDatabase;
 
 namespace CryCrawler.Worker
 {
@@ -15,11 +15,11 @@ namespace CryCrawler.Worker
     /// </summary>
     public class WorkManager
     {
+        int wlimit = 0;
         bool isFIFO = false;
         readonly Timer statusTimer;
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
-        List<string> lastLoadedSeedUrls = new List<string>();
 
         public readonly int MemoryLimitCount = 500000;
 
@@ -129,9 +129,6 @@ namespace CryCrawler.Worker
                     else Logger.Log($"Skipping specified URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
                 }
             }
-
-            // save Urls
-            lastLoadedSeedUrls = config.Urls;
         }
 
         /// <summary>
@@ -253,10 +250,20 @@ namespace CryCrawler.Worker
             }
         }
 
+        /// <summary>
+        /// Attempts to get work from backlog and removes it from work list.
+        /// </summary>
         public bool GetWork(out Work w)
         {
             w = null;
             string url = null;
+
+            // if using Host mode, consider the defined work limit
+            if (HostMode && Backlog.Count >= wlimit)
+            {
+                // don't give crawler any more work until work is sent to the host and backlog is cleared
+                return false;
+            }
 
             addingSemaphore.Wait();
             try
@@ -402,6 +409,9 @@ namespace CryCrawler.Worker
                     break;
                 case NetworkMessageType.ConfigUpdate:
                     // this needs to be handled outside this class
+                    break;
+                case NetworkMessageType.WorkLimitUpdate:
+                    wlimit = (int)w.Data;
                     break;
                 case NetworkMessageType.Disconnect:
                     break;
