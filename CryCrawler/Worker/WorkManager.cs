@@ -1,12 +1,12 @@
-using System;
-using System.Linq;
-using Newtonsoft.Json;
-using System.Threading;
 using CryCrawler.Network;
 using CryCrawler.Structures;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
-using Timer = System.Timers.Timer;
+using System.Linq;
+using System.Threading;
 using static CryCrawler.CacheDatabase;
+using Timer = System.Timers.Timer;
 
 namespace CryCrawler.Worker
 {
@@ -16,6 +16,9 @@ namespace CryCrawler.Worker
     public class WorkManager
     {
         int wlimit = 0;
+        bool sendingResults = false;
+        bool resultsReceived = false;
+
         bool isFIFO = false;
         readonly Timer statusTimer;
         readonly CacheDatabase database;
@@ -182,6 +185,10 @@ namespace CryCrawler.Worker
             var works = new List<Work>();
             foreach (var i in urls) works.Add(new Work(i));
 
+            AddToBacklog(works);
+        }
+        public void AddToBacklog(List<Work> works)
+        {
             addingSemaphore.Wait();
             try
             {
@@ -250,6 +257,10 @@ namespace CryCrawler.Worker
                 addingSemaphore.Release();
             }
         }
+        public bool IsUrlCrawled(string url)
+        {
+            return database.GetWork(out _, url, Collection.CachedCrawled);
+        }
 
         /// <summary>
         /// Attempts to get work from backlog and removes it from work list.
@@ -269,7 +280,7 @@ namespace CryCrawler.Worker
                 }
 
                 // if using Host mode, consider the defined work limit
-                if (HostMode && Backlog.Count >= wlimit && 
+                if (HostMode && Backlog.Count >= wlimit && !sendingResults &&
                     DateTime.Now.Subtract(lastWorkResultRequest).TotalSeconds > 4) // send request at most once per 4 seconds
                 {
                     lastWorkResultRequest = DateTime.Now;
@@ -421,16 +432,52 @@ namespace CryCrawler.Worker
                     break;
                 case NetworkMessageType.WorkLimitUpdate:
                     wlimit = (int)w.Data;
-                    break;
+                    break;              
                 case NetworkMessageType.Disconnect:
                     break;
                 case NetworkMessageType.StatusCheck:
                     // ignore it (status timer will send feedback handle it)
                     break;
+                case NetworkMessageType.SendResults:
+                    if (sendingResults == false)
+                    {
+                        sendingResults = true;
+
+                        try
+                        {
+                            SendResults();
+                        }
+                        finally
+                        {
+                            sendingResults = false;
+                        }
+                    }
+                    break;
             }
 
             // pass it on
             HostMessageReceived?.Invoke(w, msgHandler);
+        }
+
+        void SendResults()
+        {
+            var itemsToSend = Backlog.ToList();
+
+            // check cached items?
+
+            Logger.Log($"Sending {itemsToSend.Count} results to host...");
+
+            NetworkManager.MessageHandler.SendMessage(
+                new NetworkMessage(NetworkMessageType.Work, itemsToSend));
+
+            // wait until host reports that results have been received successfully
+            SpinWait.SpinUntil(() => resultsReceived || 
+                database.Disposing || NetworkManager.IsConnected == false);
+
+            if (resultsReceived == false)
+                Logger.Log("Failed to send results to host.", Logger.LogSeverity.Warning);    
+            
+            resultsReceived = false;
         }
 
         void StatusSend(object sender, System.Timers.ElapsedEventArgs e)

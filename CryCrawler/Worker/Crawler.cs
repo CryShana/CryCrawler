@@ -84,6 +84,7 @@ namespace CryCrawler.Worker
 
             while (!cancelSource.IsCancellationRequested)
             {
+                #region Get valid work
                 if (!Manager.IsWorkAvailable || Manager.GetWork(out Work w) == false)
                 {
                     // unable to get work, wait a bit and try again
@@ -104,10 +105,9 @@ namespace CryCrawler.Worker
                 }
 
                 // check if url is whitelisted
-                if (IsUrlWhitelisted(url) == false) continue;
+                if (IsUrlWhitelisted(url) == false) continue; 
+                #endregion
 
-                bool success = false;
-                string downloadPath = null;
                 DateTime? recrawlDate = null;
                 w.LastCrawled = DateTime.Now;
 
@@ -120,6 +120,7 @@ namespace CryCrawler.Worker
 
                     if (!response.IsSuccessStatusCode || cancelSource.IsCancellationRequested)
                     {
+                        #region Failed to crawl
                         // TODO: treat differently based on status code (for ex. if page doesn't exist at all, or if 500, 404,...)
                         switch (response.StatusCode)
                         {
@@ -147,7 +148,8 @@ namespace CryCrawler.Worker
                         }
 
                         // Logger.Log($"Failed to crawl '{url}' ({response.StatusCode})", Logger.LogSeverity.Information);
-                        continue;
+                        continue; 
+                        #endregion
                     }
 
                     var mediaType = response.Content?.Headers?.ContentType?.MediaType;
@@ -156,6 +158,7 @@ namespace CryCrawler.Worker
                     // Check if media type is set as a scanning target, if yes, scan it for new URLs
                     if (Config.ScanTargetsMediaTypes.Count(x => x == mediaType) > 0)
                     {
+                        #region Scan for new Urls
                         // scan the content for more urls
                         var content = await response.Content.ReadAsStringAsync();
 
@@ -169,20 +172,25 @@ namespace CryCrawler.Worker
                             if (Manager.IsUrlEligibleForCrawl(u) == false) continue;
 
                             cnt++;
-                            Manager.AddToBacklog(u);
+                            if (Manager.IsUrlCrawled(url))
+                            {
+                                // ignore already-crawled urls
+                            }
+                            else Manager.AddToBacklog(u);
                         }
 
-                        // Logger.Log($"Found {cnt} new URLs from '{url}'");
-                        success = true;
+                        // Logger.Log($"Found {cnt} new URLs from '{url}'"); 
+                        #endregion
                     }
 
                     // Check if media type is set as an accepted file to download
 
+                    #region Download resource if valid
                     // attempt to get filename
                     var filename = GetFilename(url, mediaType);
 
                     // don't download file if not acceptable
-                    if (IsAcceptable(filename, mediaType) == false || 
+                    if (IsAcceptable(filename, mediaType) == false ||
                         cancelSource.IsCancellationRequested) continue;
 
                     // check file size limits
@@ -232,7 +240,8 @@ namespace CryCrawler.Worker
 
                     // Logger.Log($"Downloaded '{url}' to '{path}'");
                     w.DownloadLocation = path;
-                    w.Success = true;
+                    w.Success = true; 
+                    #endregion
                 }
                 catch (OperationCanceledException) { }
                 catch (NullReferenceException nex)
