@@ -1,11 +1,10 @@
 using Xunit;
+using System;
 using CryCrawler;
 using CryCrawler.Worker;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System;
-using Xunit.Abstractions;
 
 namespace CryCrawlerTests
 {
@@ -311,6 +310,98 @@ namespace CryCrawlerTests
             Assert.False(isCrawled);
         });
 
+        [Fact]
+        public void DatabaseTest()
+            => MakeEnvironment("testing_wm_databasetest",
+                (database, config, wm, memLimit) =>
+                {
+                    var w1 = new Work("http://google0.com/");
+                    var w2 = new Work("http://google1.com/");
+                    var w3 = new Work("http://google2.com/");
+                    var w4 = new Work("http://google3.com/");
+
+                    var count = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(0, count);
+
+                    // insert into backlog cache
+                    database.Insert(w1, CacheDatabase.Collection.CachedBacklog);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(1, count);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.CachedCrawled);
+                    Assert.Equal(0, count);
+
+                    // insert into crawled cache
+                    database.Insert(w1, CacheDatabase.Collection.CachedCrawled);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(1, count);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.CachedCrawled);
+                    Assert.Equal(1, count);
+
+                    // insert new one into backlog
+                    database.Insert(w2, CacheDatabase.Collection.CachedBacklog);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(2, count);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.CachedCrawled);
+                    Assert.Equal(1, count);
+
+                    // get all works from backlog
+                    database.GetWorks(out List<Work> ws, -1, true, false, CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(2, ws.Count);
+                    Assert.Equal(w1.Url, ws[0].Url);
+                    Assert.Equal(w2.Url, ws[1].Url);
+                    count = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(2, count);
+
+                    // get all works but autoremove them
+                    database.GetWorks(out ws, -1, false, true, CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(2, ws.Count);
+                    Assert.Equal(w2.Url, ws[0].Url);
+                    Assert.Equal(w1.Url, ws[1].Url);
+                    count = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(0, count);
+
+                    // insert both works in again - this time using Upsert
+                    database.Upsert(w1, out bool wasIns1, CacheDatabase.Collection.CachedBacklog);
+                    database.Upsert(w2, out bool wasIns2, CacheDatabase.Collection.CachedBacklog);
+                    count = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(2, count);
+                    Assert.True(wasIns1);
+                    Assert.True(wasIns2);
+
+                    // get W1 from backlog
+                    database.GetWork(out Work w11, w1.Url, CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(w1.Url, w11.Url);
+                    Assert.False(w11.IsDownloaded);
+
+                    // change "IsDownloaded" and Upsert it
+                    w1.IsDownloaded = true;
+                    database.Upsert(w1, out bool wasIns, CacheDatabase.Collection.CachedBacklog);
+                    Assert.False(wasIns);
+
+                    // get W1 from backlog again and check again
+                    database.GetWork(out w11, w1.Url, CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(w1.Url, w11.Url);
+                    Assert.True(w11.IsDownloaded);
+
+                    // delete only works with IsDownloaded = true
+                    database.DeleteWorks(out int dcount, w => w.IsDownloaded, CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(1, dcount);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(1, count);
+
+                    // try get W1 again
+                    bool success = database.GetWork(out w11, w1.Url, CacheDatabase.Collection.CachedBacklog);
+                    Assert.False(success);
+                    Assert.True(ReferenceEquals(w11, null));
+                });
+           
 
         void MakeEnvironment(string dbName,
             Action<CacheDatabase, WorkerConfiguration, WorkManager, int> action,
