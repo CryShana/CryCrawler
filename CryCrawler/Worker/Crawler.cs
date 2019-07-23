@@ -258,12 +258,12 @@ namespace CryCrawler.Worker
                 }
                 finally
                 {
-                    if (Manager.HostMode)
+                    if (Manager.HostMode && Manager.IsWorkAvailable == false)
                     {
                         // after some time, check if crawlers offline
                         Task.Run(() =>
                         {
-                            Task.Delay(2000).Wait();
+                            Task.Delay(200).Wait();
 
                             // check if all crawlers are offline
                             bool alloff = CurrentTasks.Count(x => x.Value == null) == CurrentTasks.Count;
