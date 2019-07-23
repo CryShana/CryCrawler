@@ -93,11 +93,15 @@ namespace CryCrawler.Host
             // handle it
             if (req.IsActive == false)
             {
+                Logger.Log("Stopping worker manager...");
+
                 // stop it if started
                 if (workerManager.IsListening) workerManager.Stop();
             }
             else
             {
+                Logger.Log("Starting worker manager...");
+
                 // start it if stopped
                 if (!workerManager.IsListening) workerManager.Start();
             }
@@ -106,6 +110,8 @@ namespace CryCrawler.Host
             {
                 if (config.WorkerConfig.HostEndpoint.UseHost)
                     throw new InvalidOperationException("Can not clear cache when using Host as Url source!");
+
+                Logger.Log("Clearing cache...");
 
                 if (workerManager.IsListening)
                 {

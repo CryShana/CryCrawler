@@ -1,16 +1,15 @@
-﻿using System;
-using System.IO;
-using System.Web;
-using System.Net;
-using System.Linq;
-using System.Net.Http;
-using System.Threading;
-using System.Collections;
-using CryCrawler.Structures;
-using System.Threading.Tasks;
-using System.Collections.Generic;
+﻿using CryCrawler.Structures;
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Web;
 
 namespace CryCrawler.Worker
 {
@@ -89,15 +88,6 @@ namespace CryCrawler.Worker
                 {
                     // unable to get work, wait a bit and try again
                     CurrentTasks[taskNumber] = null;
-
-                    // check if all crawlers are offline
-                    bool alloff = CurrentTasks.Count(x => x.Value == null) == CurrentTasks.Count;
-                    if (alloff)
-                    {
-                        // notify work manager of this change
-                        Manager.WorkDone();
-                    }
-
                     await Task.Delay(200);
                     continue;
                 }
@@ -113,7 +103,7 @@ namespace CryCrawler.Worker
                 }
 
                 // check if url is whitelisted
-                if (IsUrlWhitelisted(url) == false) continue; 
+                if (IsUrlWhitelisted(url) == false) continue;
                 #endregion
 
                 DateTime? recrawlDate = null;
@@ -156,7 +146,7 @@ namespace CryCrawler.Worker
                         }
 
                         // Logger.Log($"Failed to crawl '{url}' ({response.StatusCode})", Logger.LogSeverity.Information);
-                        continue; 
+                        continue;
                         #endregion
                     }
 
@@ -247,9 +237,9 @@ namespace CryCrawler.Worker
                     RecentDownloads.Add(new DownloadedWork(path, response.Content.Headers.ContentLength.Value));
 
                     // Logger.Log($"Downloaded '{url}' to '{path}'");
-                    w.DownloadLocation = path;
+                    w.DownloadLocation = GetRelativeFilePath(path);
                     w.IsDownloaded = true;
-                    w.Success = true; 
+                    w.Success = true;
                     #endregion
                 }
                 catch (OperationCanceledException) { }
@@ -268,6 +258,25 @@ namespace CryCrawler.Worker
                 }
                 finally
                 {
+                    if (Manager.HostMode)
+                    {
+                        // after some time, check if crawlers offline
+                        Task.Run(() =>
+                        {
+                            Task.Delay(2000).Wait();
+
+                            // check if all crawlers are offline
+                            bool alloff = CurrentTasks.Count(x => x.Value == null) == CurrentTasks.Count;
+                            if (alloff && Manager.IsWorkAvailable == false)
+                            {
+                                Logger.Log("Crawlers done with currently assigned work.", Logger.LogSeverity.Debug);
+                                // notify work manager that we are done
+                                Manager.WorkDone();
+                            }
+
+                        });
+                    }
+
                     Manager.ReportWorkResult(w);
                 }
             }
@@ -360,6 +369,21 @@ namespace CryCrawler.Worker
         }
 
         /// <summary>
+        /// Get's the relative path to file
+        /// </summary>
+        /// <param name="absolutePath">Absolute path of file</param>
+        /// <param name="ignoreDownloadsFolder">Ignore downloads folder</param>
+        /// <returns>Relative path</returns>
+        public string GetRelativeFilePath(string absolutePath, bool ignoreDownloadsFolder = true)
+        {
+            var relative = Path.GetRelativePath(Directory.GetCurrentDirectory(), absolutePath);
+            if (relative.StartsWith(Config.DownloadsPath))
+                relative = relative.Substring(Config.DownloadsPath.Length + 1);
+
+            return relative;
+        }
+
+        /// <summary>
         /// Removes any invalid path characters from given path
         /// </summary>
         /// <param name="path">Original path</param>
@@ -395,7 +419,7 @@ namespace CryCrawler.Worker
 
             int cindex = 0;
             while (cindex < content.Length && cindex != -1)
-            {   
+            {
                 cindex = content.IndexOf("http", cindex, StringComparison.OrdinalIgnoreCase);
                 if (cindex >= 0)
                 {
@@ -478,7 +502,7 @@ namespace CryCrawler.Worker
             var domain = GetDomainName(url, out _);
 
             // reject url if domain is empty
-            if (string.IsNullOrEmpty(domain)) return false;         
+            if (string.IsNullOrEmpty(domain)) return false;
 
             // check whitelist first
             if (Config.DomainWhitelist.Count > 0)
@@ -495,7 +519,7 @@ namespace CryCrawler.Worker
 
             // check blacklist second
             foreach (var w in Config.DomainBlacklist)
-            { 
+            {
                 // if domain contains any of the blacklisted words, automatically reject it
                 if (domain.Contains(w.ToLower())) return false;
             }

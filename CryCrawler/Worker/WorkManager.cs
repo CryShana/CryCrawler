@@ -279,10 +279,7 @@ namespace CryCrawler.Worker
                 addingSemaphore.Release();
             }
         }
-        public bool IsUrlCrawled(string url)
-        {
-            return database.GetWork(out _, url, Collection.CachedCrawled);
-        }
+        public bool IsUrlCrawled(string url) => database.GetWork(out _, url, Collection.CachedCrawled);    
 
         /// <summary>
         /// Attempts to get work from backlog and removes it from work list.
@@ -417,10 +414,7 @@ namespace CryCrawler.Worker
         /// </summary>
         public void WorkDone()
         {
-            if (WorkCount == 0 && CachedCrawledWorkCount > 0)
-            {
-                resultsReady = true;
-            }
+            resultsReady = true;
         }
 
         public void Dispose()
@@ -465,8 +459,8 @@ namespace CryCrawler.Worker
                     WorkReceived((string)w.Data);
                     break;
                 case NetworkMessageType.ConfigUpdate:
-                    var config = ((IDictionary<object, object>)w.Data).Deserialize<WorkerConfiguration>();
-                    hostMaxFileChunkSize = config.MaxFileChunkSizekB;
+                    var cfg = ((IDictionary<object, object>)w.Data).Deserialize<WorkerConfiguration>();
+                    hostMaxFileChunkSize = cfg.MaxFileChunkSizekB;
 
                     // the rest needs to be handled outside this class
                     break;
@@ -494,11 +488,21 @@ namespace CryCrawler.Worker
                     break;
                 case NetworkMessageType.FileCheck:
                     // host checks if file is available for transfer
-                    if (FileAvailableForTransfer(out Work availableWork))
+
+                    if (FileAvailableForTransfer(out Work availableWork, out string path))
                     {
+                        if (transferringFile)
+                        {
+                            Logger.Log("Cancelling existing file transfer. Starting new one...");
+
+                            // if new file is requested, stop existing file transfer
+                            StopFileTransfer();
+                        }
+
                         // prepare file for transfer
-                        transferringFileSize = new FileInfo(availableWork.DownloadLocation).Length;
-                        transferringFilePath = availableWork.DownloadLocation;
+                        transferWork = availableWork;
+                        transferringFileSize = new FileInfo(path).Length;
+                        transferringFilePath = path;
                         transferringFileSizeCompleted = 0;
                         transferringFileStream = null;
 
@@ -507,7 +511,7 @@ namespace CryCrawler.Worker
                             new FileTransferInfo
                             {
                                 Size = transferringFileSize,
-                                Location = transferringFilePath
+                                Location = availableWork.DownloadLocation
                             }));
                     }
                     break;
@@ -517,6 +521,12 @@ namespace CryCrawler.Worker
                     break;
                 case NetworkMessageType.FileAccept:
                     // host accepted file transfer
+
+                    // check if already transferring
+                    if (transferringFile)
+                    {
+                        throw new InvalidOperationException("File is already being transferred!");
+                    }
 
                     // start transferring
                     transferringFile = true;
@@ -531,20 +541,21 @@ namespace CryCrawler.Worker
                     if (transferringFile && SendNextFileChunk(msgHandler))
                     {
                         // file transferred, mark as completed
+                        var fpath = transferringFilePath;
+
                         transferWork.Transferred = true;
                         database.Upsert(transferWork, out bool ins, Collection.CachedCrawled);
 
-                        // delete file
-                        File.Delete(transferringFilePath);
-
                         StopFileTransfer();
+
+                        // delete file
+                        File.Delete(fpath);
                     }
                     break;
             }
 
             // pass it on
             HostMessageReceived?.Invoke(w, msgHandler);
-
         }
 
         void SendResults()
@@ -552,14 +563,14 @@ namespace CryCrawler.Worker
             if (ConnectedToHost == false) return;
 
             // send crawled data (only transferred works and already downloaded works)
-
             database.FindWorks(out IEnumerable<Work> crawledWorks, Query.Or(
                 Query.EQ("IsDownloaded", new BsonValue(false)),
                 Query.EQ("Transferred", new BsonValue(true))));
 
-            Logger.Log($"Sending {crawledWorks.Count()} crawled urls to host...");
+            var crawled = crawledWorks.Select(x => x.Url).ToList();
+            Logger.Log($"Sending {crawled.Count} crawled urls to host...");
             NetworkManager.MessageHandler.SendMessage(
-                new NetworkMessage(NetworkMessageType.CrawledWorks, crawledWorks.Select(x => x.Url)));
+                new NetworkMessage(NetworkMessageType.CrawledWorks, crawled));
 
             // send work results
 
@@ -659,19 +670,20 @@ namespace CryCrawler.Worker
         /// </summary>
         /// <param name="work"></param>
         /// <returns></returns>
-        bool FileAvailableForTransfer(out Work work)
+        bool FileAvailableForTransfer(out Work work, out string path)
         {
-            work = null;
+            path = null;
 
             // always check if file exists, if not - remove it
             while (true)
             {
                 // get work that has untransferred files
-                if (database.FindWork(out work, Query.Or(
+                if (database.FindWork(out work, Query.And(
                     Query.EQ("Transferred", new BsonValue(false)),
                     Query.EQ("IsDownloaded", new BsonValue(true)))) == false) return false;
 
-                if (File.Exists(work.DownloadLocation) == false)
+                path = Path.Combine(config.DownloadsPath, work.DownloadLocation);
+                if (File.Exists(path) == false)
                 {
                     Logger.Log("Work has missing file. Updating work...", Logger.LogSeverity.Debug);
 
@@ -683,10 +695,8 @@ namespace CryCrawler.Worker
                     continue;
                 }
 
-                break;
+                return true;
             }
-
-            return true;
         }
 
         /// <summary>
@@ -723,7 +733,7 @@ namespace CryCrawler.Worker
             var chunk = new FileChunk
             {
                 Size = chunkSize,
-                Location = transferringFilePath,
+                Location = transferWork.DownloadLocation,
                 Data = chunkData
             };
 

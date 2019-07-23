@@ -87,11 +87,15 @@ namespace CryCrawler.Worker
                 // handle it
                 if (req.IsActive == false)
                 {
+                    Logger.Log("Stopping crawler...");
+
                     // stop it if started
                     if (crawler.IsActive) crawler.Stop();
                 }
                 else
                 {
+                    Logger.Log("Starting crawler...");
+
                     // start it if stopped
                     if (!crawler.IsActive) crawler.Start();
                 }
@@ -100,6 +104,8 @@ namespace CryCrawler.Worker
                 {
                     if (config.WorkerConfig.HostEndpoint.UseHost)
                         throw new InvalidOperationException("Can not clear cache when using Host as Url source!");
+
+                    Logger.Log("Clearing cache...");
 
                     if (crawler.IsActive)
                     {

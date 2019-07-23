@@ -243,6 +243,7 @@ namespace CryCrawler.Host
                     // worker has results ready. Send request to retrieve results.
                     client.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.SendResults));
                     break;
+
                 case NetworkMessageType.Work:
                     // retrieve results from worker
                     var works = (object[])message.Data;
@@ -265,11 +266,12 @@ namespace CryCrawler.Host
                         new NetworkMessage(NetworkMessageType.ResultsReceived));
 
                     break;
+
                 case NetworkMessageType.CrawledWorks:
                     // retrieve crawled items from worker
                     works = (object[])message.Data;
                     Logger.Log($"Retrieved {works.Length} cached items from client '{client.Id}'");
-                    
+
                     // only add to crawled if it doesn't exist yet
                     foreach (var url in works)
                     {
@@ -279,10 +281,12 @@ namespace CryCrawler.Host
                             manager.AddToCrawled(u);
                     }
                     break;
+
                 case NetworkMessageType.FileTransfer:
                     // client wants to initiate file transfer
 
-                    var transferInfo = (FileTransferInfo)message.Data;
+                    var transferInfo = ((Dictionary<object,object>)message.Data)
+                        .Deserialize<FileTransferInfo>();
 
                     if (client.TransferringFile)
                     {
@@ -295,19 +299,28 @@ namespace CryCrawler.Host
 
                     try
                     {
+                        // Logger.Log("Starting transfer...");
+
                         // start transferring file
                         client.TransferringFile = true;
                         client.TransferringFileSizeCompleted = 0;
                         client.TransferringFileSize = transferInfo.Size;
                         client.TransferringFileLocation = transferInfo.Location;
-                        client.TransferringFileStream = new FileStream(transferInfo.Location, FileMode.Create, FileAccess.ReadWrite);
+                        client.TransferringFileLocationHost = TranslateWorkerFilePathToHost(client.TransferringFileLocation);
+
+                        // create necessary directories and use proper location
+                        Directory.CreateDirectory(Path.GetDirectoryName(client.TransferringFileLocationHost));
+
+                        client.TransferringFileStream = new FileStream(client.TransferringFileLocationHost, 
+                            FileMode.Create, FileAccess.ReadWrite);
 
                         // accept file transfer
                         client.MesssageHandler.SendMessage(
                             new NetworkMessage(NetworkMessageType.FileAccept));
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        Logger.Log("Failed to accept file! " + ex.GetDetailedMessage(), Logger.LogSeverity.Warning);
                         client.TransferringFile = false;
                     }
 
@@ -317,6 +330,7 @@ namespace CryCrawler.Host
 
                     if (client.TransferringFile == false)
                     {
+                        // Logger.Log("Client is NOT transferring anything...");
                         // reject file transfer until previous file finishes transferring
                         client.MesssageHandler.SendMessage(
                             new NetworkMessage(NetworkMessageType.FileReject));
@@ -325,8 +339,9 @@ namespace CryCrawler.Host
                     {
                         try
                         {
-                            var chunk = (FileChunk)message.Data;
-
+                            var chunk = ((Dictionary<object, object>)message.Data)
+                                .Deserialize<FileChunk>();
+                           
                             // if location doesn't matches, reject it
                             if (client.TransferringFileLocation != chunk.Location)
                             {
@@ -344,7 +359,9 @@ namespace CryCrawler.Host
                             if (client.TransferringFileSize <= client.TransferringFileSizeCompleted)
                             {
                                 // transfer completed
-                                Logger.Log($"File transferred ({client.TransferringFileLocation}).");
+                                Logger.Log($"File transferred ({Path.GetFileName(client.TransferringFileLocation)}).");
+
+                                // UPDATE WORK INFO (work.IsDownloaded and work.Transfered = false)                             
 
                                 client.StopTransfer();
                             }
@@ -353,8 +370,9 @@ namespace CryCrawler.Host
                             client.MesssageHandler.SendMessage(
                                  new NetworkMessage(NetworkMessageType.FileChunkAccept));
                         }
-                        catch
+                        catch (Exception ex)
                         {
+                            Logger.Log("Failed to transfer chunk! " + ex.GetDetailedMessage() + ex.StackTrace, Logger.LogSeverity.Debug);
                             client.StopTransfer();
                         }
                     }
@@ -437,7 +455,18 @@ namespace CryCrawler.Host
             var w = wc.AssignedUrl;
             wc.AssignedUrl = null;
 
+            // stop any transfer that might be going on
+            wc.StopTransfer();
+
             if (w != null) manager.AddToBacklog(w);
+        }
+
+        public string TranslateWorkerFilePathToHost(string workerPath)
+        {
+            // TODO: duplicate checking
+
+            // path must be relative           
+            return Path.Combine(Directory.GetCurrentDirectory(), WorkerConfig.DownloadsPath, workerPath);
         }
 
         async void Work()
@@ -553,6 +582,7 @@ namespace CryCrawler.Host
             public long TransferringFileSize;
             public string TransferringFileLocation;
             public FileStream TransferringFileStream;
+            public string TransferringFileLocationHost;
             public long TransferringFileSizeCompleted;
 
             public TcpClient Client;
