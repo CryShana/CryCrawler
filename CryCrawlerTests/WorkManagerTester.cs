@@ -5,6 +5,9 @@ using CryCrawler.Worker;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using LiteDB;
+using System.Collections;
+using System.Linq;
 
 namespace CryCrawlerTests
 {
@@ -389,8 +392,18 @@ namespace CryCrawlerTests
                     Assert.Equal(w1.Url, w11.Url);
                     Assert.True(w11.IsDownloaded);
 
+                    // find works with IsDownloaded = false
+                    database.FindWorks(out IEnumerable<Work> works, 
+                        Query.EQ("IsDownloaded", new BsonValue(false)), CacheDatabase.Collection.CachedBacklog);
+                    Assert.Single(works);
+
+                    // find all works
+                    database.FindWorks(out works, Query.All(), CacheDatabase.Collection.CachedBacklog);
+                    Assert.Equal(2, works.Count());
+
                     // delete only works with IsDownloaded = true
-                    database.DeleteWorks(out int dcount, w => w.IsDownloaded, CacheDatabase.Collection.CachedBacklog);
+                    database.DeleteWorks(out int dcount, Query.EQ("IsDownloaded", new BsonValue(true)), 
+                        CacheDatabase.Collection.CachedBacklog);
                     Assert.Equal(1, dcount);
 
                     count = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
@@ -400,6 +413,12 @@ namespace CryCrawlerTests
                     bool success = database.GetWork(out w11, w1.Url, CacheDatabase.Collection.CachedBacklog);
                     Assert.False(success);
                     Assert.True(ReferenceEquals(w11, null));
+
+                    // find works with IsDownloaded = true
+                    success = database.FindWorks(out works,
+                        Query.EQ("IsDownloaded", new BsonValue(true)), CacheDatabase.Collection.CachedBacklog);
+                    Assert.Empty(works);
+                    Assert.False(success);
                 });
            
 

@@ -294,14 +294,14 @@ namespace CryCrawler
         /// <param name="predicate">Predicate that must be matched</param>
         /// <param name="collection">Collection to search</param>
         /// <returns>Whether work was found or not</returns>
-        public bool FindWorks(out IEnumerable<Work> works, Predicate<Work> predicate, Collection collection = Collection.CachedCrawled)
+        public bool FindWorks(out IEnumerable<Work> works, Query query, Collection collection = Collection.CachedCrawled)
         {
             semaphore.Wait();
             try
             {
-                works = GetCollection(collection).Find((a) => predicate(a));
+                works = GetCollection(collection).Find(query);
 
-                return works != null;
+                return works != null && works.Count() > 0;
             }
             catch (Exception ex)
             {
@@ -324,12 +324,12 @@ namespace CryCrawler
         /// <param name="predicate">Predicate that must be matched</param>
         /// <param name="collection">Collection to search</param>
         /// <returns>Whether work was found or not</returns>
-        public bool FindWork(out Work work, Predicate<Work> predicate, Collection collection = Collection.CachedCrawled)
+        public bool FindWork(out Work work, Query query, Collection collection = Collection.CachedCrawled)
         {
             semaphore.Wait();
             try
             {
-                work = GetCollection(collection).FindOne((a) => predicate(a));
+                work = GetCollection(collection).FindOne(query);
 
                 return work != null;
             }
@@ -354,12 +354,12 @@ namespace CryCrawler
         /// <param name="predicate">Predicate that must be matched</param>
         /// <param name="collection">Collection to delete works from</param>
         /// <returns>Whether operation was successful or not</returns>
-        public bool DeleteWorks(out int deletedCount, Predicate<Work> predicate, Collection collection = Collection.CachedCrawled)
+        public bool DeleteWorks(out int deletedCount, Query query, Collection collection = Collection.CachedCrawled)
         {
             semaphore.Wait();
             try
             {
-                deletedCount = GetCollection(collection).Delete((a) => predicate(a));
+                deletedCount = GetCollection(collection).Delete(query);
 
                 return true;
             }
