@@ -669,7 +669,7 @@ namespace CryCrawler.Worker
                 // get work that has untransferred files
                 if (database.FindWork(out work, Query.Or(
                     Query.EQ("Transferred", new BsonValue(false)),
-                    Query.EQ("IsDownloaded", new BsonValue(true))))) return false;
+                    Query.EQ("IsDownloaded", new BsonValue(true)))) == false) return false;
 
                 if (File.Exists(work.DownloadLocation) == false)
                 {
@@ -677,7 +677,7 @@ namespace CryCrawler.Worker
 
                     // update this item
                     work.IsDownloaded = false;
-                    if (database.Upsert(work, out bool wasIns, Collection.CachedCrawled) == false)
+                    if (database.Upsert(work, out _, Collection.CachedCrawled) == false)
                         Logger.Log("Updating work failed.", Logger.LogSeverity.Warning);
 
                     continue;
