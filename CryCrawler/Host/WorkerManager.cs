@@ -216,10 +216,10 @@ namespace CryCrawler.Host
             if (!client.HandshakeCompleted) return;
 
             // do not log status checks because they happen too frequently
+            /*
             if (message.MessageType != NetworkMessageType.StatusCheck)
                 Logger.Log($"Received message from '{client.Id}' -> {message.MessageType}", Logger.LogSeverity.Debug);
-
-            // TODO: improve message handling
+            */
 
             switch (message.MessageType)
             {
@@ -361,7 +361,7 @@ namespace CryCrawler.Host
                                 // transfer completed
                                 Logger.Log($"File transferred ({Path.GetFileName(client.TransferringFileLocation)}).");
 
-                                // UPDATE WORK INFO (work.IsDownloaded and work.Transfered = false)                             
+                                // UPDATE WORK INFO (work.IsDownloaded and work.Transfered = false) 
 
                                 client.StopTransfer();
                             }
