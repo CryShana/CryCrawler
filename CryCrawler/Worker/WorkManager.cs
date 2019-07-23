@@ -1,5 +1,6 @@
 using CryCrawler.Network;
 using CryCrawler.Structures;
+using LiteDB;
 using MessagePack.Formatters;
 using Newtonsoft.Json;
 using System;
@@ -193,7 +194,7 @@ namespace CryCrawler.Worker
             }
         }
         public void AddToCrawled(string url) => AddToCrawled(new Work(url));
-        
+
 
         SemaphoreSlim addingSemaphore = new SemaphoreSlim(1);
         public void AddToBacklog(string url)
@@ -519,7 +520,7 @@ namespace CryCrawler.Worker
 
                     // start transferring
                     transferringFile = true;
-                    transferringFileStream = new FileStream(transferringFilePath, FileMode.Open, FileAccess.ReadWrite);
+                    transferringFileStream = new FileStream(transferringFilePath, System.IO.FileMode.Open, FileAccess.ReadWrite);
 
                     // send chunk
                     SendNextFileChunk(msgHandler);
@@ -552,7 +553,9 @@ namespace CryCrawler.Worker
 
             // send crawled data (only transferred works and already downloaded works)
 
-            database.FindWorks(out IEnumerable<Work> crawledWorks, w => !w.IsDownloaded || w.Transferred);
+            database.FindWorks(out IEnumerable<Work> crawledWorks, Query.Or(
+                Query.EQ("IsDownloaded", new BsonValue(false)),
+                Query.EQ("Transferred", new BsonValue(true))));
 
             Logger.Log($"Sending {crawledWorks.Count()} crawled urls to host...");
             NetworkManager.MessageHandler.SendMessage(
@@ -664,7 +667,9 @@ namespace CryCrawler.Worker
             while (true)
             {
                 // get work that has untransferred files
-                if (database.FindWork(out work, w => !w.Transferred && w.IsDownloaded) == false) return false;
+                if (database.FindWork(out work, Query.Or(
+                    Query.EQ("Transferred", new BsonValue(false)),
+                    Query.EQ("IsDownloaded", new BsonValue(true))))) return false;
 
                 if (File.Exists(work.DownloadLocation) == false)
                 {
@@ -674,7 +679,7 @@ namespace CryCrawler.Worker
                     work.IsDownloaded = false;
                     if (database.Upsert(work, out bool wasIns, Collection.CachedCrawled) == false)
                         Logger.Log("Updating work failed.", Logger.LogSeverity.Warning);
-                    
+
                     continue;
                 }
 
@@ -690,7 +695,9 @@ namespace CryCrawler.Worker
         void CleanCrawledFiles()
         {
             // delete works that don't have files or have already transferred files
-            if (database.DeleteWorks(out int deleted, w => w.Transferred || !w.IsDownloaded))
+            if (database.DeleteWorks(out int deleted, Query.Or(
+                Query.EQ("IsDownloaded", new BsonValue(false)),
+                Query.EQ("Transferred", new BsonValue(true)))))
             {
                 Logger.Log($"Deleted {deleted} crawled works. (Already transferred files or not downloaded)", Logger.LogSeverity.Debug);
             }
