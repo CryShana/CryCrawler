@@ -258,12 +258,16 @@ namespace CryCrawler.Worker
                 }
                 finally
                 {
+                    Manager.ReportWorkResult(w);
+
                     if (Manager.HostMode && Manager.IsWorkAvailable == false)
                     {
                         // after some time, check if crawlers offline
                         Task.Run(() =>
                         {
-                            Task.Delay(200).Wait();
+                            var token = cancelSource.Token;
+                            Task.Delay(500).Wait();
+                            if (token.IsCancellationRequested) return;
 
                             // check if all crawlers are offline
                             bool alloff = CurrentTasks.Count(x => x.Value == null) == CurrentTasks.Count;
@@ -273,11 +277,8 @@ namespace CryCrawler.Worker
                                 // notify work manager that we are done
                                 Manager.WorkDone();
                             }
-
                         });
                     }
-
-                    Manager.ReportWorkResult(w);
                 }
             }
         }

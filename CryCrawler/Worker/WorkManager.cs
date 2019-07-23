@@ -510,6 +510,7 @@ namespace CryCrawler.Worker
                         msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileTransfer,
                             new FileTransferInfo
                             {
+                                Url = transferWork.Url,
                                 Size = transferringFileSize,
                                 Location = availableWork.DownloadLocation
                             }));

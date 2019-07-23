@@ -304,6 +304,7 @@ namespace CryCrawler.Host
                         // start transferring file
                         client.TransferringFile = true;
                         client.TransferringFileSizeCompleted = 0;
+                        client.TransferringUrl = transferInfo.Url;
                         client.TransferringFileSize = transferInfo.Size;
                         client.TransferringFileLocation = transferInfo.Location;
                         client.TransferringFileLocationHost = TranslateWorkerFilePathToHost(client.TransferringFileLocation);
@@ -361,7 +362,15 @@ namespace CryCrawler.Host
                                 // transfer completed
                                 Logger.Log($"File transferred ({Path.GetFileName(client.TransferringFileLocation)}).");
 
-                                // UPDATE WORK INFO (work.IsDownloaded and work.Transfered = false) 
+                                // create work and upsert it to Crawled
+                                var w = new Work(client.TransferringUrl)
+                                {
+                                    Transferred = false,
+                                    IsDownloaded = true,
+                                    DownloadLocation = GetRelativeFilePath(client.TransferringFileLocationHost)
+                                };
+
+                                manager.AddToCrawled(w);
 
                                 client.StopTransfer();
                             }
@@ -568,8 +577,24 @@ namespace CryCrawler.Host
             }
         }
 
+        /// <summary>
+        /// Get's the relative path to file
+        /// </summary>
+        /// <param name="absolutePath">Absolute path of file</param>
+        /// <param name="ignoreDownloadsFolder">Ignore downloads folder</param>
+        /// <returns>Relative path</returns>
+        public string GetRelativeFilePath(string absolutePath, bool ignoreDownloadsFolder = true)
+        {
+            var relative = Path.GetRelativePath(Directory.GetCurrentDirectory(), absolutePath);
+            if (relative.StartsWith(WorkerConfig.DownloadsPath))
+                relative = relative.Substring(WorkerConfig.DownloadsPath.Length + 1);
+
+            return relative;
+        }
+
         public class WorkerClient
         {
+            // worker status and information
             public string Id;
             public bool IsHost;
             public bool Online;
@@ -578,13 +603,16 @@ namespace CryCrawler.Host
             public long CrawledCount;
             public string AssignedUrl;
 
+            // file transfer variables
             public bool TransferringFile;
+            public string TransferringUrl;
             public long TransferringFileSize;
             public string TransferringFileLocation;
             public FileStream TransferringFileStream;
-            public string TransferringFileLocationHost;
             public long TransferringFileSizeCompleted;
+            public string TransferringFileLocationHost;
 
+            // client technical variables
             public TcpClient Client;
             public DateTime LastConnected;
             public EndPoint RemoteEndpoint;
@@ -601,6 +629,7 @@ namespace CryCrawler.Host
             {
                 try
                 {
+                    TransferringUrl = null;
                     TransferringFile = false;
                     TransferringFileLocation = null;
                     TransferringFileSize = 0;

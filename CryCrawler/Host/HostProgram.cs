@@ -33,6 +33,7 @@ namespace CryCrawler.Host
         {
             // start listening for connections
             workermanager.Start();
+
             webgui.Start();
         }
 
@@ -40,7 +41,10 @@ namespace CryCrawler.Host
         {
             // cleanup
             workermanager.Stop();
+
             webgui.Stop();
+
+            workmanager.Dispose();
         }
 
         void Workmanager_HostMessageReceived(NetworkMessage w, NetworkMessageHandler<NetworkMessage> msgHandler)
