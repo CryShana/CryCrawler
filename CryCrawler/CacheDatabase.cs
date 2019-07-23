@@ -187,8 +187,7 @@ namespace CryCrawler
         {
             if (count == -1)
             {
-                works = GetCollection(collection).FindAll().ToList();
-                return true;
+                count = int.MaxValue;
             }
 
             if (count <= 0 )
