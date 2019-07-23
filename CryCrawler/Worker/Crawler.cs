@@ -248,6 +248,7 @@ namespace CryCrawler.Worker
 
                     // Logger.Log($"Downloaded '{url}' to '{path}'");
                     w.DownloadLocation = path;
+                    w.IsDownloaded = true;
                     w.Success = true; 
                     #endregion
                 }

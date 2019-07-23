@@ -14,6 +14,8 @@ namespace CryCrawler.Worker
 
         // Information
         public bool Success { get; set; }
+        public bool Transferred { get; set; }
+        public bool IsDownloaded { get; set; }
         public string DownloadLocation { get; set; }
         public DateTime? RecrawlDate { get; set; } // this should be set if we want delayed recrawling
 
@@ -27,6 +29,8 @@ namespace CryCrawler.Worker
             AddedTime = DateTime.Now;
 
             Success = false;
+            Transferred = false;
+            IsDownloaded = false;
             DownloadLocation = null;
         }
         public Work() { }
@@ -78,5 +82,18 @@ namespace CryCrawler.Worker
             else if (sizeInBytes < 1024 * 1024 * 1024) return $"{Math.Round((sizeInBytes / 1024.0) / 1024.0, 2)} MB";
             else return $"{Math.Round(((sizeInBytes / 1024.0) / 1024.0) / 1024.0, 2)} GB";
         }
+    }
+
+    public class FileTransferInfo
+    {
+        public long Size { get; set; }
+        public string Location { get; set; }
+    }
+
+    public class FileChunk
+    {
+        public int Size { get; set; }
+        public byte[] Data { get; set; }
+        public string Location { get; set; }
     }
 }

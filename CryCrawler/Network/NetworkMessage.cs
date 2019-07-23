@@ -32,6 +32,13 @@ namespace CryCrawler.Network
         WorkLimitUpdate,// for updating client work limits
         SendResults,    // worker should send results
         ResultsReceived,// host received client results
+        FileCheck,      // host checks if client has files to transfer
+        FileTransfer,   // client wants to initiate file transfer
+        FileAccept,     // host accepted file transfer
+        FileChunk,      // client started sending file chunks
+        FileReject,     // host rejects a file transfer
+        FileChunkAccept,// host accepted file chunk
+        CrawledWorks    // client sends it's crawled list to host
 
         // add more later
     }
