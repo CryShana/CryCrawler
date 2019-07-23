@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Timer = System.Timers.Timer;
 using System.Collections.Concurrent;
+using System.IO;
 
 namespace CryCrawler.Host
 {
@@ -246,13 +247,14 @@ namespace CryCrawler.Host
                     // retrieve results from worker
                     var works = (object[])message.Data;
                     Logger.Log($"Retrieved {works.Length} results from client '{client.Id}'");
-                    
+
                     // only add to backlog if not yet crawled
                     foreach (var url in works)
                     {
                         var u = (string)url;
 
-                        if (manager.IsUrlCrawled(u) == false) manager.AddToBacklog(u);
+                        if (manager.IsUrlCrawled(u) == false)
+                            manager.AddToBacklog(u);
                     }
 
                     // unassign work
@@ -261,6 +263,101 @@ namespace CryCrawler.Host
                     // confirm that all results have been received
                     client.MesssageHandler.SendMessage(
                         new NetworkMessage(NetworkMessageType.ResultsReceived));
+
+                    break;
+                case NetworkMessageType.CrawledWorks:
+                    // retrieve crawled items from worker
+                    works = (object[])message.Data;
+                    Logger.Log($"Retrieved {works.Length} cached items from client '{client.Id}'");
+                    
+                    // only add to crawled if it doesn't exist yet
+                    foreach (var url in works)
+                    {
+                        var u = (string)url;
+
+                        if (manager.IsUrlCrawled(u) == false)
+                            manager.AddToCrawled(u);
+                    }
+                    break;
+                case NetworkMessageType.FileTransfer:
+                    // client wants to initiate file transfer
+
+                    var transferInfo = (FileTransferInfo)message.Data;
+
+                    if (client.TransferringFile)
+                    {
+                        // new file transfer is initiated, old one is cancelled
+                        Logger.Log($"New file transfer ({transferInfo.Location}) cancelled old one. " +
+                            $"({client.TransferringFileLocation})", Logger.LogSeverity.Debug);
+
+                        client.StopTransfer();
+                    }
+
+                    try
+                    {
+                        // start transferring file
+                        client.TransferringFile = true;
+                        client.TransferringFileSizeCompleted = 0;
+                        client.TransferringFileSize = transferInfo.Size;
+                        client.TransferringFileLocation = transferInfo.Location;
+                        client.TransferringFileStream = new FileStream(transferInfo.Location, FileMode.Create, FileAccess.ReadWrite);
+
+                        // accept file transfer
+                        client.MesssageHandler.SendMessage(
+                            new NetworkMessage(NetworkMessageType.FileAccept));
+                    }
+                    catch
+                    {
+                        client.TransferringFile = false;
+                    }
+
+                    break;
+                case NetworkMessageType.FileChunk:
+                    // client sent a chunk of file
+
+                    if (client.TransferringFile == false)
+                    {
+                        // reject file transfer until previous file finishes transferring
+                        client.MesssageHandler.SendMessage(
+                            new NetworkMessage(NetworkMessageType.FileReject));
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var chunk = (FileChunk)message.Data;
+
+                            // if location doesn't matches, reject it
+                            if (client.TransferringFileLocation != chunk.Location)
+                            {
+                                client.MesssageHandler.SendMessage(
+                                    new NetworkMessage(NetworkMessageType.FileReject));
+
+                                throw new InvalidOperationException("Invalid file chunk received!");
+                            }
+
+                            // write to stream
+                            client.TransferringFileStream.Write(chunk.Data, 0, chunk.Size);
+                            client.TransferringFileSizeCompleted += chunk.Size;
+
+                            // check if all chunks transferred
+                            if (client.TransferringFileSize <= client.TransferringFileSizeCompleted)
+                            {
+                                // transfer completed
+                                Logger.Log($"File transferred ({client.TransferringFileLocation}).");
+
+                                client.StopTransfer();
+                            }
+
+                            // host accepted file chunk
+                            client.MesssageHandler.SendMessage(
+                                 new NetworkMessage(NetworkMessageType.FileChunkAccept));
+                        }
+                        catch
+                        {
+                            client.StopTransfer();
+                        }
+                    }
                     break;
             }
         }
@@ -323,7 +420,6 @@ namespace CryCrawler.Host
             {
                 try
                 {
-
                     c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.ConfigUpdate, toSendConfig));
                 }
                 catch
@@ -336,7 +432,7 @@ namespace CryCrawler.Host
         void clientRemoved(WorkerClient wc, object data) => unassignWorkFromClient(wc);
         void clientDisconnected(WorkerClient wc, object data) => unassignWorkFromClient(wc);
         void unassignWorkFromClient(WorkerClient wc)
-        {            
+        {
             // take assigned work from client, remove it, add back to backlog
             var w = wc.AssignedUrl;
             wc.AssignedUrl = null;
@@ -406,7 +502,16 @@ namespace CryCrawler.Host
         void WorkerStatusCheck(object sender, ElapsedEventArgs e)
         {
             foreach (var c in Clients.Where(x => x.Online))
-                Task.Run(() => c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck)));
+            {
+                // send status check request
+                Task.Run(() =>
+                    c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck)));
+
+                // send file check request
+                if (c.TransferringFile == false)
+                    Task.Run(() =>
+                        c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileCheck)));
+            }
         }
 
         void OldClientCheck(object sender, ElapsedEventArgs e)
@@ -444,6 +549,12 @@ namespace CryCrawler.Host
             public long CrawledCount;
             public string AssignedUrl;
 
+            public bool TransferringFile;
+            public long TransferringFileSize;
+            public string TransferringFileLocation;
+            public FileStream TransferringFileStream;
+            public long TransferringFileSizeCompleted;
+
             public TcpClient Client;
             public DateTime LastConnected;
             public EndPoint RemoteEndpoint;
@@ -454,6 +565,24 @@ namespace CryCrawler.Host
             {
                 Client = client;
                 RemoteEndpoint = client.Client.RemoteEndPoint;
+            }
+
+            public void StopTransfer()
+            {
+                try
+                {
+                    TransferringFile = false;
+                    TransferringFileLocation = null;
+                    TransferringFileSize = 0;
+                    TransferringFileSizeCompleted = 0;
+
+                    TransferringFileStream?.Close();
+                    TransferringFileStream?.Dispose();
+                }
+                catch
+                {
+
+                }
             }
         }
     }

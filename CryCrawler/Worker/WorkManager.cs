@@ -1,8 +1,11 @@
 using CryCrawler.Network;
 using CryCrawler.Structures;
+using MessagePack.Formatters;
 using Newtonsoft.Json;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using static CryCrawler.CacheDatabase;
@@ -15,11 +18,22 @@ namespace CryCrawler.Worker
     /// </summary>
     public class WorkManager
     {
+        // HOST RELATED VARIABLES
         int wlimit = 0;
         string assignedw = null;
         bool resultsReady = false;
         bool sendingResults = false;
+        int? hostMaxFileChunkSize = null;
 
+        // file transfer variables
+        Work transferWork = null;
+        bool transferringFile = false;
+        string transferringFilePath = null;
+        long transferringFileSize = 0;
+        long transferringFileSizeCompleted = 0;
+        FileStream transferringFileStream = null;
+
+        // MAIN VARIABLES
         bool isFIFO = false;
         readonly Timer resultTimer;
         readonly Timer statusTimer;
@@ -178,6 +192,8 @@ namespace CryCrawler.Worker
                 addingSemaphore.Release();
             }
         }
+        public void AddToCrawled(string url) => AddToCrawled(new Work(url));
+        
 
         SemaphoreSlim addingSemaphore = new SemaphoreSlim(1);
         public void AddToBacklog(string url)
@@ -448,7 +464,10 @@ namespace CryCrawler.Worker
                     WorkReceived((string)w.Data);
                     break;
                 case NetworkMessageType.ConfigUpdate:
-                    // this needs to be handled outside this class
+                    var config = ((IDictionary<object, object>)w.Data).Deserialize<WorkerConfiguration>();
+                    hostMaxFileChunkSize = config.MaxFileChunkSizekB;
+
+                    // the rest needs to be handled outside this class
                     break;
                 case NetworkMessageType.WorkLimitUpdate:
                     wlimit = w.Data.AsInteger();
@@ -467,10 +486,58 @@ namespace CryCrawler.Worker
                     }
                     break;
                 case NetworkMessageType.ResultsReceived:
-                    PrepareForNewWork();
+                    PrepareForNewWork(true);
 
                     sendingResults = false;
                     resultsReady = false;
+                    break;
+                case NetworkMessageType.FileCheck:
+                    // host checks if file is available for transfer
+                    if (FileAvailableForTransfer(out Work availableWork))
+                    {
+                        // prepare file for transfer
+                        transferringFileSize = new FileInfo(availableWork.DownloadLocation).Length;
+                        transferringFilePath = availableWork.DownloadLocation;
+                        transferringFileSizeCompleted = 0;
+                        transferringFileStream = null;
+
+                        // send file transfer request for this file
+                        msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileTransfer,
+                            new FileTransferInfo
+                            {
+                                Size = transferringFileSize,
+                                Location = transferringFilePath
+                            }));
+                    }
+                    break;
+                case NetworkMessageType.FileReject:
+                    // host rejected file transfer
+                    StopFileTransfer();
+                    break;
+                case NetworkMessageType.FileAccept:
+                    // host accepted file transfer
+
+                    // start transferring
+                    transferringFile = true;
+                    transferringFileStream = new FileStream(transferringFilePath, FileMode.Open, FileAccess.ReadWrite);
+
+                    // send chunk
+                    SendNextFileChunk(msgHandler);
+                    break;
+                case NetworkMessageType.FileChunkAccept:
+                    // host accepted file chunk, send the next one if not finished
+
+                    if (transferringFile && SendNextFileChunk(msgHandler))
+                    {
+                        // file transferred, mark as completed
+                        transferWork.Transferred = true;
+                        database.Upsert(transferWork, out bool ins, Collection.CachedCrawled);
+
+                        // delete file
+                        File.Delete(transferringFilePath);
+
+                        StopFileTransfer();
+                    }
                     break;
             }
 
@@ -483,12 +550,19 @@ namespace CryCrawler.Worker
         {
             if (ConnectedToHost == false) return;
 
-            var itemsToSend = Backlog.ToList().Select(x => x.Url).ToList();
+            // send crawled data (only transferred works and already downloaded works)
 
-            // check cached items?
+            database.FindWorks(out IEnumerable<Work> crawledWorks, w => !w.IsDownloaded || w.Transferred);
+
+            Logger.Log($"Sending {crawledWorks.Count()} crawled urls to host...");
+            NetworkManager.MessageHandler.SendMessage(
+                new NetworkMessage(NetworkMessageType.CrawledWorks, crawledWorks.Select(x => x.Url)));
+
+            // send work results
+
+            var itemsToSend = Backlog.ToList().Select(x => x.Url).ToList(); // cached items??
 
             Logger.Log($"Sending {itemsToSend.Count} results to host...");
-
             NetworkManager.MessageHandler.SendMessage(
                 new NetworkMessage(NetworkMessageType.Work, itemsToSend));
         }
@@ -537,7 +611,7 @@ namespace CryCrawler.Worker
         /// <summary>
         /// Clears backlog and cache and prepares worker to be assigned new work from Host.
         /// </summary>
-        void PrepareForNewWork()
+        void PrepareForNewWork(bool cleanCrawled = false)
         {
             assignedw = null;
 
@@ -546,6 +620,115 @@ namespace CryCrawler.Worker
 
             // also clear cached work items
             if (CachedWorkCount > 0) database.DropCollection(Collection.CachedBacklog);
+
+            if (cleanCrawled)
+            {
+                // clean crawled items
+                CleanCrawledFiles();
+            }
         }
+
+        #region File Transferring
+        /// <summary>
+        /// Stops transferring current file
+        /// </summary>
+        void StopFileTransfer()
+        {
+            try
+            {
+                transferWork = null;
+                transferringFile = false;
+                transferringFilePath = null;
+                transferringFileSize = 0;
+                transferringFileSizeCompleted = 0;
+
+                transferringFileStream?.Close();
+                transferringFileStream?.Dispose();
+            }
+            catch
+            {
+
+            }
+        }
+
+        /// <summary>
+        /// Checks if any file is ready to be transfered
+        /// </summary>
+        /// <param name="work"></param>
+        /// <returns></returns>
+        bool FileAvailableForTransfer(out Work work)
+        {
+            work = null;
+
+            // always check if file exists, if not - remove it
+            while (true)
+            {
+                // get work that has untransferred files
+                if (database.FindWork(out work, w => !w.Transferred && w.IsDownloaded) == false) return false;
+
+                if (File.Exists(work.DownloadLocation) == false)
+                {
+                    Logger.Log("Work has missing file. Updating work...", Logger.LogSeverity.Debug);
+
+                    // update this item
+                    work.IsDownloaded = false;
+                    if (database.Upsert(work, out bool wasIns, Collection.CachedCrawled) == false)
+                        Logger.Log("Updating work failed.", Logger.LogSeverity.Warning);
+                    
+                    continue;
+                }
+
+                break;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Delete crawled works that already got files transferred or don't have any files downloaded.
+        /// </summary>
+        void CleanCrawledFiles()
+        {
+            // delete works that don't have files or have already transferred files
+            if (database.DeleteWorks(out int deleted, w => w.Transferred || !w.IsDownloaded))
+            {
+                Logger.Log($"Deleted {deleted} crawled works. (Already transferred files or not downloaded)", Logger.LogSeverity.Debug);
+            }
+        }
+
+        /// <summary>
+        /// Send next file chunk, returns true if chunk was last.
+        /// </summary>
+        bool SendNextFileChunk(NetworkMessageHandler<NetworkMessage> msghandler)
+        {
+            // completed check
+            if (transferringFileSizeCompleted >= transferringFileSize) return true;
+
+            // determine chunk size
+            long toTransfer = transferringFileSize - transferringFileSizeCompleted;
+            int chunkSizeLimit = (hostMaxFileChunkSize ?? config.MaxFileChunkSizekB) * 1024;
+            int chunkSize = toTransfer > chunkSizeLimit ? chunkSizeLimit : (int)toTransfer;
+
+            // read data from stream
+            byte[] chunkData = new byte[chunkSize];
+            transferringFileStream.Read(chunkData, 0, chunkSize);
+
+            var chunk = new FileChunk
+            {
+                Size = chunkSize,
+                Location = transferringFilePath,
+                Data = chunkData
+            };
+
+            // send chunk
+            msghandler.SendMessage(new NetworkMessage(NetworkMessageType.FileChunk, chunk));
+            transferringFileSizeCompleted += chunkSize;
+
+            // completed check
+            if (transferringFileSizeCompleted >= transferringFileSize) return true;
+
+            return false;
+        }
+        #endregion
     }
 }

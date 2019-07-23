@@ -289,6 +289,96 @@ namespace CryCrawler
         }
 
         /// <summary>
+        /// Find all works that satisfy the given predicate
+        /// </summary>
+        /// <param name="work">Found work</param>
+        /// <param name="predicate">Predicate that must be matched</param>
+        /// <param name="collection">Collection to search</param>
+        /// <returns>Whether work was found or not</returns>
+        public bool FindWorks(out IEnumerable<Work> works, Predicate<Work> predicate, Collection collection = Collection.CachedCrawled)
+        {
+            semaphore.Wait();
+            try
+            {
+                works = GetCollection(collection).Find((a) => predicate(a));
+
+                return works != null;
+            }
+            catch (Exception ex)
+            {
+                works = null;
+
+                if (Disposing) return false;
+                Logger.Log("Failed to find work in database! " + ex.Message, Logger.LogSeverity.Error);
+                return false;
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        /// <summary>
+        /// Find first work that satisfies the given predicate
+        /// </summary>
+        /// <param name="work">Found work</param>
+        /// <param name="predicate">Predicate that must be matched</param>
+        /// <param name="collection">Collection to search</param>
+        /// <returns>Whether work was found or not</returns>
+        public bool FindWork(out Work work, Predicate<Work> predicate, Collection collection = Collection.CachedCrawled)
+        {
+            semaphore.Wait();
+            try
+            {
+                work = GetCollection(collection).FindOne((a) => predicate(a));
+
+                return work != null;
+            }
+            catch (Exception ex)
+            {
+                work = null;
+
+                if (Disposing) return false;
+                Logger.Log("Failed to find work in database! " + ex.Message, Logger.LogSeverity.Error);
+                return false;
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        /// <summary>
+        /// Delete all works that match the given predicate
+        /// </summary>
+        /// <param name="deletedCount">Number of items that were deleted</param>
+        /// <param name="predicate">Predicate that must be matched</param>
+        /// <param name="collection">Collection to delete works from</param>
+        /// <returns>Whether operation was successful or not</returns>
+        public bool DeleteWorks(out int deletedCount, Predicate<Work> predicate, Collection collection = Collection.CachedCrawled)
+        {
+            semaphore.Wait();
+            try
+            {
+                deletedCount = GetCollection(collection).Delete((a) => predicate(a));
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                deletedCount = 0;
+
+                if (Disposing) return false;
+                Logger.Log("Failed to delete works from database! " + ex.Message, Logger.LogSeverity.Error);
+                return false;
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        /// <summary>
         /// Deletes old database and creates new one
         /// </summary>
         public void EnsureNew()
