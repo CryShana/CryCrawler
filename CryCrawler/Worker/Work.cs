@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MessagePack;
+using System;
 using System.IO;
 using System.Text;
 
@@ -84,16 +85,23 @@ namespace CryCrawler.Worker
         }
     }
 
+    [MessagePackObject]
     public class FileTransferInfo
     {
+        [Key("Size")]
         public long Size { get; set; }
+        [Key("Location")]
         public string Location { get; set; }
     }
 
+    [MessagePackObject]
     public class FileChunk
     {
+        [Key("Size")]
         public int Size { get; set; }
+        [Key("Data")]
         public byte[] Data { get; set; }
+        [Key("Location")]
         public string Location { get; set; }
     }
 }

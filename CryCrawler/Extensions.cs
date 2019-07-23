@@ -88,11 +88,16 @@ namespace CryCrawler
                                     p.SetValue(instance, val);
                                     continue;
                                 }
+                                else if (ptype.Name == "Int32")
+                                {
+                                    p.SetValue(instance, val.AsInteger());
+                                    continue;
+                                }
 
                                 throw;
                             }
                         }
-                        catch
+                        catch (Exception ex)
                         {
                             if (valtype.FullName.StartsWith("System.Collections.Generic.Dictionary") &&
                                 valtype.GenericTypeArguments.Count(x => x.Name == "Object") == 2)
@@ -104,7 +109,7 @@ namespace CryCrawler
                                 MethodInfo typed = m.MakeGenericMethod(ptype);
                                 val = typed.Invoke(dic, new object[] { dic });
                             }
-                            else throw new InvalidOperationException($"Invalid value for property '{name}' (expected {ptype.Name}, got {valtype.Name})");
+                            else throw new InvalidOperationException($"Invalid value for property '{name}' (expected {ptype.Name}, got {valtype.Name}) [Inner exception: {ex.Message}]");
                         }
                     }
 
@@ -122,6 +127,7 @@ namespace CryCrawler
 
             if (type.Name == "UInt16") return (ushort)obj;
             else if (type.Name == "Int16") return (short)obj;
+            else if (type.Name == "UInt32") return (int)((uint)obj);
             else throw new InvalidCastException("Invalid integer type!");
         }
     }
