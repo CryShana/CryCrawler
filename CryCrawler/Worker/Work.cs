@@ -88,8 +88,12 @@ namespace CryCrawler.Worker
     [MessagePackObject]
     public class FileTransferInfo
     {
+        [Key("Url")]
+        public string Url { get; set; }
+
         [Key("Size")]
         public long Size { get; set; }
+
         [Key("Location")]
         public string Location { get; set; }
     }
@@ -99,8 +103,10 @@ namespace CryCrawler.Worker
     {
         [Key("Size")]
         public int Size { get; set; }
+
         [Key("Data")]
         public byte[] Data { get; set; }
+
         [Key("Location")]
         public string Location { get; set; }
     }
