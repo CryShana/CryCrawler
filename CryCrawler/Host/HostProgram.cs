@@ -69,7 +69,7 @@ namespace CryCrawler.Host
                     {
                         IsHost = true,
                         IsActive = workermanager.IsListening,
-                        IsBusy = workmanager.ConsecutiveInvalidWorks > 100
+                        IsBusy = workmanager.ConsecutiveInvalidWorks > 10
                     });
 
                     msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
