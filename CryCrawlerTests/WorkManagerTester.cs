@@ -419,6 +419,47 @@ namespace CryCrawlerTests
                         Query.EQ("IsDownloaded", new BsonValue(true)), CacheDatabase.Collection.CachedBacklog);
                     Assert.Empty(works);
                     Assert.False(success);
+
+                    // DUPLICATE TEST
+                    var works_bulk = new List<Work>();
+                    for (int i = 0; i < 200; i++) works_bulk.Add(new Work("http://google.com"));
+
+                    // insert 200 works with same Urls
+                    database.InsertBulk(works_bulk, works_bulk.Count, out int inserted, CacheDatabase.Collection.DumpedBacklog);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklog);
+                    Assert.Equal(works_bulk.Count, count);
+                    Assert.Equal(count, inserted);
+
+                    // drop collection
+                    database.DropCollection(CacheDatabase.Collection.DumpedBacklog);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklog);
+                    Assert.Equal(0, count);
+
+                    // DUPLICATE TEST with IDs
+                    works_bulk = new List<Work>();
+                    for (int i = 0; i < 200; i++) works_bulk.Add(new Work("http://google.com") { Id = i + 1000 });
+
+                    // insert 200 works with same Urls and different Ids
+                    database.InsertBulk(works_bulk, works_bulk.Count, out inserted, CacheDatabase.Collection.DumpedBacklog);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklog);
+                    Assert.Equal(works_bulk.Count, count);
+                    Assert.Equal(count, inserted);
+
+                    database.DropCollection(CacheDatabase.Collection.DumpedBacklog);
+
+                    // DUPLICATE TEST with duplicate IDs
+                    works_bulk = new List<Work>();
+                    for (int i = 0; i < 200; i++) works_bulk.Add(new Work("http://google.com") { Id = ((i + 1) % 5) + 100 });
+
+                    // insert 200 works with same Urls and duplicate Ids (should fail)
+                    database.InsertBulk(works_bulk, works_bulk.Count, out inserted, CacheDatabase.Collection.DumpedBacklog);
+
+                    count = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklog);
+                    Assert.Equal(0, count);
+                    Assert.Equal(count, inserted);
                 });
            
 
