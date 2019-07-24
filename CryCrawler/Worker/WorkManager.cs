@@ -12,6 +12,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 using static CryCrawler.CacheDatabase;
 using Timer = System.Timers.Timer;
 
@@ -105,8 +106,10 @@ namespace CryCrawler.Worker
                 NetworkManager.MessageReceived += NetworkManager_MessageReceived;
                 NetworkManager.Disconnected += id =>
                 {
-                    StopFileTransfer();
-                    sendingResults = false;
+                    // reset whatever we were doing
+                    ResetWorkStatus();
+
+                    // set status
                     ConnectedToHost = false;
                 };
                 NetworkManager.Connected += id =>
@@ -114,6 +117,10 @@ namespace CryCrawler.Worker
                     config.HostEndpoint.ClientId = id;
                     ConfigManager.SaveConfiguration(ConfigManager.LastLoaded);
 
+                    // reset whatever we were doing
+                    ResetWorkStatus();
+
+                    // set status
                     ConnectedToHost = true;
                 };
 
@@ -148,6 +155,20 @@ namespace CryCrawler.Worker
             }
         }
 
+        /// <summary>
+        /// Resets anything that might be going on between Host and us
+        /// </summary>
+        void ResetWorkStatus()
+        {
+            if (HostMode == false) throw new InvalidOperationException("Not in host mode!");
+
+            StopFileTransfer();
+            workCancelSource?.Cancel();
+            sendingResults = false;
+            resultsReady = false;
+
+            PrepareForNewWork();
+        }
 
         /// <summary>
         /// Checks the Url source for changes and adds new items to backlog
@@ -861,11 +882,6 @@ namespace CryCrawler.Worker
             {
                 while (!tsource.IsCancellationRequested)
                 {
-                    Logger.Log($"Checker (Active: {areWorkersActive?.Invoke()}" +
-                            $", Sending: {sendingResults}, Ready: {resultsReady}, " +
-                            $"WorkCount: {Backlog.Count}, CrawlCount: {CachedCrawledWorkCount})", 
-                            Logger.LogSeverity.Debug);
-
                     Task.Delay(2000).Wait();
                     if (tsource.IsCancellationRequested) break;
 
@@ -878,7 +894,6 @@ namespace CryCrawler.Worker
                         resultsReady = true;
                     }
                 }
-                Logger.Log("Checker cancelled!!!!!", Logger.LogSeverity.Debug);
 
             }, tsource.Token);
         }
