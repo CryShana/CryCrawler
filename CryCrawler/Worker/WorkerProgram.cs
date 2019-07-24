@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Linq;
 using Newtonsoft.Json;
 using CryCrawler.Network;
 using System.Collections.Generic;
@@ -19,7 +20,10 @@ namespace CryCrawler.Worker
 
             database = new CacheDatabase(config.CacheFilename);
 
-            workmanager = new WorkManager(config.WorkerConfig, database);
+            workmanager = new WorkManager(config.WorkerConfig, database, () =>
+            {
+                return crawler.CurrentTasks.Count(x => x.Value == null) < crawler.CurrentTasks.Count;
+            });
 
             crawler = new Crawler(workmanager, config.WorkerConfig);
 

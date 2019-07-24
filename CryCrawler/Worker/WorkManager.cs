@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using static CryCrawler.CacheDatabase;
 using Timer = System.Timers.Timer;
 
@@ -40,6 +41,7 @@ namespace CryCrawler.Worker
         readonly Timer statusTimer;
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
+        readonly Func<bool> areWorkersActive;
 
         public readonly int MemoryLimitCount = 500000;
 
@@ -56,12 +58,14 @@ namespace CryCrawler.Worker
         public event NetworkWorkManager.MessageReceivedHandler HostMessageReceived;
         #endregion
 
-        public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount) : this(config, database) => MemoryLimitCount = newMemoryLimitCount;
+        public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount, Func<bool> areWorkersActive = null) 
+            : this(config, database, areWorkersActive) => MemoryLimitCount = newMemoryLimitCount;
 
-        public WorkManager(WorkerConfiguration config, CacheDatabase database)
+        public WorkManager(WorkerConfiguration config, CacheDatabase database, Func<bool> areWorkersActive = null)
         {
             this.config = config;
             this.database = database;
+            this.areWorkersActive = areWorkersActive;
 
             // depth-search = Stack (LIFO), breadth-search = Queue (FIFO)
             isFIFO = !config.DepthSearch;
@@ -351,7 +355,8 @@ namespace CryCrawler.Worker
         }
 
         /// <summary>
-        /// Adds work item to crawled items, except if recrawl date is defined and not yet reached. In that case it adds it to Backlog again.
+        /// Adds work item to crawled items, except if recrawl date is defined and not yet reached. 
+        /// In that case it adds it to Backlog again. This method checks if results are ready to be sent to host when is hostmode.
         /// </summary>
         /// <param name="w"></param>
         public void ReportWorkResult(Work w)
@@ -368,11 +373,26 @@ namespace CryCrawler.Worker
                 {
                     // add to crawled as a failed crawl
                     AddToCrawled(w);
+                    CheckIfResultsReady();
                 }
             }
             else
             {
                 AddToCrawled(w);
+                CheckIfResultsReady();
+            }
+        }
+
+        void CheckIfResultsReady()
+        {
+            if (HostMode == false) return;
+
+            if (areWorkersActive == null) return;
+
+            if (!areWorkersActive() && Backlog.Count == 0)
+            {
+                Logger.Log("Crawlers inactive. Results ready.", Logger.LogSeverity.Debug);
+                resultsReady = true;
             }
         }
 
@@ -407,14 +427,6 @@ namespace CryCrawler.Worker
             if (database.GetWork(out _, url, Collection.CachedCrawled)) return false;
 
             return true;
-        }
-
-        /// <summary>
-        /// Signals work manager that all services using it are finished processing work
-        /// </summary>
-        public void WorkDone()
-        {
-            resultsReady = true;
         }
 
         public void Dispose()
@@ -564,6 +576,9 @@ namespace CryCrawler.Worker
             HostMessageReceived?.Invoke(w, msgHandler);
         }
 
+        /// <summary>
+        /// Send crawled and backlog items to host
+        /// </summary>
         void SendResults()
         {
             if (ConnectedToHost == false) return;
@@ -587,11 +602,13 @@ namespace CryCrawler.Worker
                 new NetworkMessage(NetworkMessageType.Work, itemsToSend));
         }
 
+        /// <summary>
+        /// Send worker status to host
+        /// </summary>
         void StatusSend(object sender, System.Timers.ElapsedEventArgs e)
         {
             if (ConnectedToHost == false) return;
 
-            // TODO: refactor this - optimize the whole process
             var msg = JsonConvert.SerializeObject(new
             {
                 WorkCount = WorkCount,
@@ -601,6 +618,9 @@ namespace CryCrawler.Worker
             NetworkManager.MessageHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
         }
 
+        /// <summary>
+        /// Keep checking if results are ready to be sent
+        /// </summary>
         void ResultsCheck(object sender, System.Timers.ElapsedEventArgs e)
         {
             // if no work assigned, ignore it
@@ -615,11 +635,15 @@ namespace CryCrawler.Worker
             }
         }
 
+        long newWorkCCount = 0;
         void WorkReceived(string work)
         {
             Logger.Log("New work assigned - " + work);
 
             PrepareForNewWork();
+
+            // save current crawled count
+            newWorkCCount = CachedCrawledWorkCount;
 
             // add to backlog
             AddToBacklog(work);
