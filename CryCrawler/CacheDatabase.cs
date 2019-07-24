@@ -102,7 +102,7 @@ namespace CryCrawler
                     var cnt = maxItems < space ? maxItems : space;
                     var split_works = works.GetRange(offset, cnt); // FIX: stack overflow error?
 
-                    if (InsertBulk(split_works, count, out int ins))
+                    if (InsertBulk(split_works, cnt, out int ins))
                     {
                         inserted += ins;
                         offset += ins;
