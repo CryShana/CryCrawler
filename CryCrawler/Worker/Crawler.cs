@@ -204,8 +204,7 @@ namespace CryCrawler.Worker
 
                     // don't download file if not acceptable
                     if (IsAcceptable(filename, mediaType) == false ||
-                        cancelSource.IsCancellationRequested) continue;
-                    
+                        cancelSource.IsCancellationRequested) continue;                    
 
                     // check file size limits
                     var size = response.Content.Headers.ContentLength;
@@ -408,6 +407,9 @@ namespace CryCrawler.Worker
                     var nextindex = content.IndexOfAny(endings, cindex + 1);
                     var url = content.Substring(cindex, nextindex - cindex);
                     cindex = nextindex;
+
+                    // unencoded URL should not contain semicolons
+                    if (url.Contains(';')) continue;
 
                     // url decode it
                     url = HttpUtility.UrlDecode(url);
