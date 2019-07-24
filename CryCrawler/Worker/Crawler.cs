@@ -408,13 +408,14 @@ namespace CryCrawler.Worker
                     var url = content.Substring(cindex, nextindex - cindex);
                     cindex = nextindex;
 
-                    // unencoded URL should not contain semicolons
-                    if (url.Contains(';')) continue;
-
                     // url decode it
                     url = HttpUtility.UrlDecode(url);
 
                     // quick check if valid url
+
+                    // if URL contains too many ; and ?, it is most likely invalid
+                    if (url.Count(x => x == ';') > 3) continue;
+                    if (url.Count(x => x == '?') > 3) continue;
 
                     // absolute url must contain ':' - (http: or https:) and must be more than 8 in length
                     if (url.Length <= 8 || (!url.Contains("http:/") && !url.Contains("https:/"))) continue;
