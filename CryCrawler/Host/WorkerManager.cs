@@ -521,6 +521,7 @@ namespace CryCrawler.Host
                     continue;
                 }
 
+                #region Get valid work
                 // VALIDATE URL
                 // if there is a failed url, use it again
                 if (string.IsNullOrEmpty(failedUrl))
@@ -536,6 +537,10 @@ namespace CryCrawler.Host
                     else manager.AddToBacklog(w);
                 }
                 else url = failedUrl;
+
+                // check if url is whitelisted
+                if (Extensions.IsUrlWhitelisted(url, WorkerConfig) == false) continue; 
+                #endregion
 
                 // PICK WORKER AND ASSIGN WORK
                 try
