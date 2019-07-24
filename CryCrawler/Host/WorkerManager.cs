@@ -226,6 +226,7 @@ namespace CryCrawler.Host
             {
                 case NetworkMessageType.StatusCheck:
 
+                    #region Handle new Cient Status
                     var status = JsonConvert.DeserializeObject<JObject>((string)message.Data);
 
                     var hostMode = (bool?)status["IsHost"];
@@ -237,16 +238,20 @@ namespace CryCrawler.Host
                     client.IsHost = hostMode ?? client.IsHost;
                     client.IsActive = isActive ?? client.IsActive;
                     client.WorkCount = workCount ?? client.WorkCount;
-                    client.CrawledCount = crawledCount ?? client.CrawledCount;
+                    client.CrawledCount = crawledCount ?? client.CrawledCount; 
+                    #endregion
 
                     break;
                 case NetworkMessageType.ResultsReady:
                     // worker has results ready. Send request to retrieve results.
                     client.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.SendResults));
+
                     break;
 
                 case NetworkMessageType.Work:
                     // retrieve results from worker
+
+                    #region Handle Received Works
                     var works = (object[])message.Data;
                     Logger.Log($"Retrieved {works.Length} results from client '{client.Id}'");
 
@@ -264,12 +269,15 @@ namespace CryCrawler.Host
 
                     // confirm that all results have been received
                     client.MesssageHandler.SendMessage(
-                        new NetworkMessage(NetworkMessageType.ResultsReceived));
+                        new NetworkMessage(NetworkMessageType.ResultsReceived)); 
+                    #endregion
 
                     break;
 
                 case NetworkMessageType.CrawledWorks:
                     // retrieve crawled items from worker
+
+                    #region Handle Receieved Crawled Works
                     works = (object[])message.Data;
                     Logger.Log($"Retrieved {works.Length} cached items from client '{client.Id}'");
 
@@ -280,14 +288,17 @@ namespace CryCrawler.Host
 
                         if (manager.IsUrlCrawled(u) == false)
                             manager.AddToCrawled(u);
-                    }
+                    } 
+                    #endregion
+
                     break;
 
                 case NetworkMessageType.FileTransfer:
                     // client wants to initiate file transfer
 
+                    #region Initiate File Transfer
                     var transferInfo = ((Dictionary<object, object>)message.Data)
-                        .Deserialize<FileTransferInfo>();
+                                    .Deserialize<FileTransferInfo>();
 
                     if (client.TransferringFile)
                     {
@@ -330,12 +341,15 @@ namespace CryCrawler.Host
                     finally
                     {
                         transferSemaphore.Release();
-                    }
+                    } 
+                    #endregion
 
                     break;
+
                 case NetworkMessageType.FileChunk:
                     // client sent a chunk of file
 
+                    #region Accept File Chunk
                     if (client.TransferringFile == false)
                     {
                         // Logger.Log("Client is NOT transferring anything...");
@@ -367,7 +381,7 @@ namespace CryCrawler.Host
                             if (client.TransferringFileSize <= client.TransferringFileSizeCompleted)
                             {
                                 // transfer completed
-                                Logger.Log($"({client.Id}) - File transferred ({Path.GetFileName(client.TransferringFileLocation)}).", 
+                                Logger.Log($"({client.Id}) - File transferred ({Path.GetFileName(client.TransferringFileLocation)}).",
                                     Logger.LogSeverity.Debug);
 
                                 // create work and upsert it to Crawled
@@ -393,7 +407,9 @@ namespace CryCrawler.Host
                             Logger.Log("Failed to transfer chunk! " + ex.GetDetailedMessage() + ex.StackTrace, Logger.LogSeverity.Debug);
                             client.StopTransfer();
                         }
-                    }
+                    } 
+                    #endregion
+
                     break;
             }
         }
