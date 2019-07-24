@@ -463,6 +463,10 @@ namespace CryCrawler.Worker
                         url = domain + url;
                     }
 
+                    // if URL contains too many ; and ?, it is most likely invalid
+                    if (url.Count(x => x == ';') > 3) continue;
+                    if (url.Count(x => x == '?') > 3) continue;
+
                     // url can't be longer than 2000 characters
                     if (url.Length > 2000) continue;
 

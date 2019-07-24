@@ -395,25 +395,41 @@ namespace CryCrawler.Host
                             // check if all chunks transferred
                             if (client.TransferringFileSize <= client.TransferringFileSizeCompleted)
                             {
-                                // transfer completed
-                                Logger.Log($"({client.Id}) - File transferred ({Path.GetFileName(client.TransferringFileLocation)}).",
-                                    Logger.LogSeverity.Debug);
-
-                                // create work and upsert it to Crawled
-                                var w = new Work(client.TransferringUrl)
+                                try
                                 {
-                                    Transferred = false,
-                                    IsDownloaded = true,
-                                    DownloadLocation = Extensions.GetRelativeFilePath(
-                                        client.TransferringFileLocationHost, WorkerConfig)
-                                };
+                                    // transfer completed
+                                    Logger.Log($"({client.Id}) - File transferred ({Path.GetFileName(client.TransferringFileLocation)}).",
+                                        Logger.LogSeverity.Debug);
 
-                                manager.AddToCrawled(w);
-                                RecentDownloads.Add(new DownloadedWork(
-                                    Path.Combine(WorkerConfig.DownloadsPath, w.DownloadLocation), 
-                                    client.TransferringFileSize));
+                                    // create work and upsert it to Crawled
+                                    var w = new Work(client.TransferringUrl)
+                                    {
+                                        Transferred = false,
+                                        IsDownloaded = true,
+                                        DownloadLocation = Extensions.GetRelativeFilePath(
+                                            client.TransferringFileLocationHost, WorkerConfig)
+                                    };
 
-                                client.StopTransfer();
+                                    manager.AddToCrawled(w);
+                                    RecentDownloads.Add(new DownloadedWork(
+                                        Path.Combine(WorkerConfig.DownloadsPath, w.DownloadLocation),
+                                        client.TransferringFileSize));
+
+                                    client.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileTransfer, new FileTransferInfo
+                                    {
+                                        Url = w.Url,
+                                        Size = -1,
+                                        Location = ""
+                                    }));
+                                }
+                                catch
+                                {
+                                    // client.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileReject));
+                                }
+                                finally
+                                {
+                                    client.StopTransfer();
+                                }
                             }
 
                             // host accepted file chunk

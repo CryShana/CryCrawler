@@ -57,7 +57,7 @@ namespace CryCrawler.Host
             switch (w.MessageType)
             {
                 case NetworkMessageType.ConfigUpdate:
-                    Logger.Log("Host configuration receieved!");
+                    Logger.Log("Host configuration received!");
                     var config = ((IDictionary<object, object>)w.Data).Deserialize<WorkerConfiguration>();
 
                     // override config in worker manager (this also disconnects it from local configuration)
