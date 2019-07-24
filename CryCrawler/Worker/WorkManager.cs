@@ -547,7 +547,10 @@ namespace CryCrawler.Worker
                         var fpath = transferringFilePath;
 
                         transferWork.Transferred = true;
-                        database.Upsert(transferWork, out bool ins, Collection.CachedCrawled);
+                       
+                        // database.Upsert(transferWork, out bool ins, Collection.CachedCrawled);
+                        database.DeleteWorks(out int dcount, Query.EQ("Url", new BsonValue(transferWork.Url)));
+                        CachedCrawledWorkCount -= dcount;
 
                         StopFileTransfer();
 
@@ -712,6 +715,7 @@ namespace CryCrawler.Worker
                 Query.EQ("IsDownloaded", new BsonValue(false)),
                 Query.EQ("Transferred", new BsonValue(true)))))
             {
+                CachedCrawledWorkCount -= deleted;
                 Logger.Log($"Deleted {deleted} crawled works. (Already transferred files or not downloaded)", Logger.LogSeverity.Debug);
             }
         }
