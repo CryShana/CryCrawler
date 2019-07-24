@@ -562,7 +562,8 @@ namespace CryCrawler.Worker
 
                     if (transferringFile && SendNextFileChunk(msgHandler))
                     {
-                        Logger.Log($"File transferred ({Path.GetFileName(transferringFilePath)}).");
+                        Logger.Log($"File transferred ({Path.GetFileName(transferringFilePath)}).",
+                            Logger.LogSeverity.Debug);
 
                         // file transferred, mark as completed
                         var fpath = transferringFilePath;

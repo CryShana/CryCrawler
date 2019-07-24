@@ -367,14 +367,16 @@ namespace CryCrawler.Host
                             if (client.TransferringFileSize <= client.TransferringFileSizeCompleted)
                             {
                                 // transfer completed
-                                Logger.Log($"File transferred ({Path.GetFileName(client.TransferringFileLocation)}).");
+                                Logger.Log($"({client.Id}) - File transferred ({Path.GetFileName(client.TransferringFileLocation)}).", 
+                                    Logger.LogSeverity.Debug);
 
                                 // create work and upsert it to Crawled
                                 var w = new Work(client.TransferringUrl)
                                 {
                                     Transferred = false,
                                     IsDownloaded = true,
-                                    DownloadLocation = GetRelativeFilePath(client.TransferringFileLocationHost)
+                                    DownloadLocation = Extensions.GetRelativeFilePath(
+                                        client.TransferringFileLocationHost, WorkerConfig)
                                 };
 
                                 manager.AddToCrawled(w);
@@ -603,21 +605,6 @@ namespace CryCrawler.Host
                     }
                 }
             }
-        }
-
-        /// <summary>
-        /// Get's the relative path to file
-        /// </summary>
-        /// <param name="absolutePath">Absolute path of file</param>
-        /// <param name="ignoreDownloadsFolder">Ignore downloads folder</param>
-        /// <returns>Relative path</returns>
-        public string GetRelativeFilePath(string absolutePath, bool ignoreDownloadsFolder = true)
-        {
-            var relative = Path.GetRelativePath(Directory.GetCurrentDirectory(), absolutePath);
-            if (relative.StartsWith(WorkerConfig.DownloadsPath))
-                relative = relative.Substring(WorkerConfig.DownloadsPath.Length + 1);
-
-            return relative;
         }
 
         public class WorkerClient

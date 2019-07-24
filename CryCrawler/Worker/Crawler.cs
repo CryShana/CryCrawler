@@ -103,7 +103,7 @@ namespace CryCrawler.Worker
                 }
 
                 // check if url is whitelisted
-                if (IsUrlWhitelisted(url) == false) continue;
+                if (Extensions.IsUrlWhitelisted(url, Config) == false) continue;
                 #endregion
 
                 DateTime? recrawlDate = null;
@@ -237,7 +237,7 @@ namespace CryCrawler.Worker
                     RecentDownloads.Add(new DownloadedWork(path, response.Content.Headers.ContentLength.Value));
 
                     // Logger.Log($"Downloaded '{url}' to '{path}'");
-                    w.DownloadLocation = GetRelativeFilePath(path);
+                    w.DownloadLocation = Extensions.GetRelativeFilePath(path, Config);
                     w.IsDownloaded = true;
                     w.Success = true;
                     #endregion
@@ -340,47 +340,12 @@ namespace CryCrawler.Worker
                 {
                     if (i > 2 && i == urlParts.Length - 1) continue;
 
-                    var fixedPath = FixPath(urlParts[i]);
+                    var fixedPath = Extensions.FixPath(urlParts[i]);
                     path = Path.Combine(path, fixedPath);
                 }
             }
 
             if (createDirectory) Directory.CreateDirectory(path);
-
-            return path;
-        }
-
-        /// <summary>
-        /// Get's the relative path to file
-        /// </summary>
-        /// <param name="absolutePath">Absolute path of file</param>
-        /// <param name="ignoreDownloadsFolder">Ignore downloads folder</param>
-        /// <returns>Relative path</returns>
-        public string GetRelativeFilePath(string absolutePath, bool ignoreDownloadsFolder = true)
-        {
-            var relative = Path.GetRelativePath(Directory.GetCurrentDirectory(), absolutePath);
-            if (relative.StartsWith(Config.DownloadsPath))
-                relative = relative.Substring(Config.DownloadsPath.Length + 1);
-
-            return relative;
-        }
-
-        /// <summary>
-        /// Removes any invalid path characters from given path
-        /// </summary>
-        /// <param name="path">Original path</param>
-        /// <returns>Modified paths without any invalid path characters</returns>
-        public string FixPath(string path)
-        {
-            if (path == null) return "";
-
-            var chars = Path.GetInvalidPathChars();
-            int index = path.IndexOfAny(chars);
-            while (index >= 0)
-            {
-                path = path.Remove(index, 1);
-                index = path.IndexOfAny(chars);
-            }
 
             return path;
         }
@@ -392,7 +357,7 @@ namespace CryCrawler.Worker
         /// <returns>A collection of found URLs</returns>
         public IEnumerable<string> FindUrls(string currentUrl, string content)
         {
-            var domain = GetDomainName(currentUrl, out string protocol, true);
+            var domain = Extensions.GetDomainName(currentUrl, out string protocol, true);
 
             var foundUrls = new HashSet<string>();
 
@@ -423,7 +388,7 @@ namespace CryCrawler.Worker
 
                     //var valid = Regex.IsMatch(url, @"^(ht|f)tp(s?)\:\/\/[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&%\$#_]*)?$");
 
-                    if (IsUrlWhitelisted(url) == false) continue;
+                    if (Extensions.IsUrlWhitelisted(url, Config) == false) continue;
 
                     if (foundUrls.Contains(url)) continue;
                     foundUrls.Add(url);
@@ -464,7 +429,7 @@ namespace CryCrawler.Worker
                     // url can't be longer than 2000 characters
                     if (url.Length > 2000) continue;
 
-                    if (IsUrlWhitelisted(url) == false) continue;
+                    if (Extensions.IsUrlWhitelisted(url, Config) == false) continue;
 
                     if (foundUrls.Contains(url)) continue;
                     foundUrls.Add(url);
@@ -472,63 +437,6 @@ namespace CryCrawler.Worker
                 }
                 else if (cindex == -1) break;
                 else cindex++;
-            }
-        }
-
-        /// <summary>
-        /// Based on domain whitelist and blacklist, decides if URL is allowed to be added to backlog
-        /// </summary>
-        public bool IsUrlWhitelisted(string url)
-        {
-            // check if url ends with a slash, otherwise add it
-            var domain = GetDomainName(url, out _);
-
-            // reject url if domain is empty
-            if (string.IsNullOrEmpty(domain)) return false;
-
-            // check whitelist first
-            if (Config.DomainWhitelist.Count > 0)
-            {
-                foreach (var w in Config.DomainWhitelist)
-                {
-                    // if domain contains any of the words, automatically accept it
-                    if (domain.Contains(w.ToLower())) return true;
-                }
-
-                // if whitelist is not empty, any non-matching domains are rejected!
-                return false;
-            }
-
-            // check blacklist second
-            foreach (var w in Config.DomainBlacklist)
-            {
-                // if domain contains any of the blacklisted words, automatically reject it
-                if (domain.Contains(w.ToLower())) return false;
-            }
-
-            // accept url if it doesn't contain any blacklisted word
-            return true;
-        }
-
-        public string GetDomainName(string url, out string protocol, bool withProtocol = false)
-        {
-            // check if url ends with a slash, otherwise add it
-            if (url.Count(x => x == '/') == 2) url += '/';
-
-            try
-            {
-                // should be case insensitive!
-                var match = Regex.Match(url, @"(http[s]?):\/\/(.*?)\/");
-                protocol = match.Groups[1].Value;
-                var domain = match.Groups[2].Value;
-
-                if (withProtocol == false) return domain;
-                else return $"{protocol}://{domain}";
-            }
-            catch
-            {
-                protocol = null;
-                return null;
             }
         }
     }

@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace CryCrawler
 {
@@ -129,6 +131,101 @@ namespace CryCrawler
             else if (type.Name == "Int16") return (short)obj;
             else if (type.Name == "UInt32") return (int)((uint)obj);
             else throw new InvalidCastException("Invalid integer type!");
+        }
+
+
+        // HELPER METHODS
+
+        /// <summary>
+        /// Based on domain whitelist and blacklist, decides if URL is allowed to be added to backlog
+        /// </summary>
+        public static bool IsUrlWhitelisted(string url, WorkerConfiguration config)
+        {
+            // check if url ends with a slash, otherwise add it
+            var domain = GetDomainName(url, out _);
+
+            // reject url if domain is empty
+            if (string.IsNullOrEmpty(domain)) return false;
+
+            // check whitelist first
+            if (config.DomainWhitelist.Count > 0)
+            {
+                foreach (var w in config.DomainWhitelist)
+                {
+                    // if domain contains any of the words, automatically accept it
+                    if (domain.Contains(w.ToLower())) return true;
+                }
+
+                // if whitelist is not empty, any non-matching domains are rejected!
+                return false;
+            }
+
+            // check blacklist second
+            foreach (var w in config.DomainBlacklist)
+            {
+                // if domain contains any of the blacklisted words, automatically reject it
+                if (domain.Contains(w.ToLower())) return false;
+            }
+
+            // accept url if it doesn't contain any blacklisted word
+            return true;
+        }
+
+        public static string GetDomainName(string url, out string protocol, bool withProtocol = false)
+        {
+            // check if url ends with a slash, otherwise add it
+            if (url.Count(x => x == '/') == 2) url += '/';
+
+            try
+            {
+                // should be case insensitive!
+                var match = Regex.Match(url, @"(http[s]?):\/\/(.*?)\/");
+                protocol = match.Groups[1].Value;
+                var domain = match.Groups[2].Value;
+
+                if (withProtocol == false) return domain;
+                else return $"{protocol}://{domain}";
+            }
+            catch
+            {
+                protocol = null;
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get's the relative path to file
+        /// </summary>
+        /// <param name="absolutePath">Absolute path of file</param>
+        /// <param name="ignoreDownloadsFolder">Ignore downloads folder</param>
+        /// <returns>Relative path</returns>
+        public static string GetRelativeFilePath(string absolutePath, WorkerConfiguration config, bool ignoreDownloadsFolder = true)
+        {
+            var relative = Path.GetRelativePath(Directory.GetCurrentDirectory(), absolutePath);
+            if (relative.StartsWith(config.DownloadsPath))
+                relative = relative.Substring(config.DownloadsPath.Length + 1);
+
+            return relative;
+        }
+
+        /// <summary>
+        /// Removes any invalid path characters from given path
+        /// </summary>
+        /// <param name="path">Original path</param>
+        /// <returns>Modified paths without any invalid path characters</returns>
+        public static string FixPath(string path)
+        {
+            if (path == null) return "";
+
+            var chars = Path.GetInvalidPathChars();
+            int index = path.IndexOfAny(chars);
+            while (index >= 0)
+            {
+                path = path.Remove(index, 1);
+                index = path.IndexOfAny(chars);
+            }
+
+            return path;
         }
     }
 }
