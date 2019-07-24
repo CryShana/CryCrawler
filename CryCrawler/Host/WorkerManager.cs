@@ -32,6 +32,7 @@ namespace CryCrawler.Host
         readonly HostConfiguration config;
         CancellationTokenSource cancelSource;
         WorkerConfiguration toSendConfig = null;
+        readonly SemaphoreSlim transferSemaphore = new SemaphoreSlim(1);
         public readonly List<WorkerClient> Clients = new List<WorkerClient>();
 
         /// <summary>
@@ -297,6 +298,8 @@ namespace CryCrawler.Host
                         client.StopTransfer();
                     }
 
+                    // use semaphore for starting file transfer - we don't want multiple threads creating same file and accessing it
+                    transferSemaphore.Wait();
                     try
                     {
                         // Logger.Log("Starting transfer...");
@@ -323,6 +326,10 @@ namespace CryCrawler.Host
                     {
                         Logger.Log("Failed to accept file! " + ex.GetDetailedMessage(), Logger.LogSeverity.Warning);
                         client.TransferringFile = false;
+                    }
+                    finally
+                    {
+                        transferSemaphore.Release();
                     }
 
                     break;
@@ -472,10 +479,31 @@ namespace CryCrawler.Host
 
         public string TranslateWorkerFilePathToHost(string workerPath)
         {
-            // TODO: duplicate checking
+            // WorkerPath must be relative without the "Downloads" folder
 
-            // path must be relative           
-            return Path.Combine(Directory.GetCurrentDirectory(), WorkerConfig.DownloadsPath, workerPath);
+            // find unique path that doesn't exist yet
+            int count = 0;
+            string path;
+            do
+            {             
+                if (count == 0)
+                {
+                    // generate original path
+                    path = Path.Combine(Directory.GetCurrentDirectory(), WorkerConfig.DownloadsPath, workerPath);                  
+                }
+                else
+                {
+                    // generate path with counter
+                    var fname = Path.GetFileNameWithoutExtension(workerPath);
+                    var ext = Path.GetExtension(workerPath);
+                    path = Path.Combine(Directory.GetCurrentDirectory(), WorkerConfig.DownloadsPath, fname + $" ({count})" + ext);
+                }
+
+                count++;
+
+            } while (File.Exists(path));
+      
+            return path;
         }
 
         async void Work()
