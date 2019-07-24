@@ -312,22 +312,22 @@ namespace CryCrawler.Host
                     // client wants to initiate file transfer
 
                     #region Initiate File Transfer
-                    var transferInfo = ((Dictionary<object, object>)message.Data)
-                                    .Deserialize<FileTransferInfo>();
-
-                    if (client.TransferringFile)
-                    {
-                        // new file transfer is initiated, old one is cancelled
-                        Logger.Log($"New file transfer ({transferInfo.Location}) cancelled old one. " +
-                            $"({client.TransferringFileLocation})", Logger.LogSeverity.Debug);
-
-                        client.StopTransfer();
-                    }
-
                     // use semaphore for starting file transfer - we don't want multiple threads creating same file and accessing it
-                    transferSemaphore.Wait();
                     try
                     {
+                        var transferInfo = ((Dictionary<object, object>)message.Data)
+                            .Deserialize<FileTransferInfo>();
+
+                        if (client.TransferringFile)
+                        {
+                            // new file transfer is initiated, old one is cancelled
+                            Logger.Log($"New file transfer ({transferInfo.Location}) cancelled old one. " +
+                                $"({client.TransferringFileLocation})", Logger.LogSeverity.Debug);
+
+                            client.StopTransfer();
+                        }
+
+                        transferSemaphore.Wait();
                         // Logger.Log("Starting transfer...");
 
                         // start transferring file
@@ -350,8 +350,8 @@ namespace CryCrawler.Host
                     }
                     catch (Exception ex)
                     {
+                        client.StopTransfer();
                         Logger.Log("Failed to accept file! " + ex.GetDetailedMessage(), Logger.LogSeverity.Warning);
-                        client.TransferringFile = false;
                     }
                     finally
                     {
@@ -422,8 +422,8 @@ namespace CryCrawler.Host
                         }
                         catch (Exception ex)
                         {
-                            Logger.Log("Failed to transfer chunk! " + ex.GetDetailedMessage() + ex.StackTrace, Logger.LogSeverity.Debug);
                             client.StopTransfer();
+                            Logger.Log("Failed to transfer chunk! " + ex.GetDetailedMessage() + ex.StackTrace, Logger.LogSeverity.Debug);
                         }
                     } 
                     #endregion
