@@ -589,8 +589,16 @@ namespace CryCrawler.Worker
         /// </summary>
         void DumpMemoryToCache()
         {
-            database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
-            Logger.Log($"Dumped {inserted} backlog items to cache");
+            try
+            {
+                database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
+                Logger.Log($"Dumped {inserted} backlog items to cache");
+            }
+            catch(Exception ex)
+            {
+                Logger.Log("Failed to dump items! " + ex.GetDetailedMessage() + " - " + ex.StackTrace,
+                    Logger.LogSeverity.Error);
+            }
         }
 
         void NetworkManager_MessageReceived(NetworkMessage w, NetworkMessageHandler<NetworkMessage> msgHandler)
@@ -626,7 +634,14 @@ namespace CryCrawler.Worker
                     {
                         sendingResults = true;
 
-                        SendResults();
+                        try
+                        {
+                            SendResults();
+                        }
+                        catch
+                        {
+                            sendingResults = false;
+                        }
                     }
                     #endregion
 

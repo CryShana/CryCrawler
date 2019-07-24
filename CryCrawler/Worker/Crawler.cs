@@ -116,6 +116,20 @@ namespace CryCrawler.Worker
                         // TODO: treat differently based on status code (for ex. if page doesn't exist at all, or if 500, 404,...)
                         switch (response.StatusCode)
                         {
+                            case HttpStatusCode.Redirect:
+                                // Add the redirected location to backlog
+                                var newurl = response.Headers.Location.AbsoluteUri;
+                                if (string.IsNullOrEmpty(newurl) == false)
+                                {
+                                    // check if URL is eligible for crawling
+                                    if (Manager.IsUrlEligibleForCrawl(newurl) == false) continue;
+                                    if (Manager.IsUrlCrawled(newurl))
+                                    {
+                                        // ignore already-crawled urls
+                                    }
+                                    else Manager.AddToBacklog(newurl);
+                                }
+                                break;
                             case HttpStatusCode.MethodNotAllowed:
                             case HttpStatusCode.Gone:
                             case HttpStatusCode.BadRequest:
