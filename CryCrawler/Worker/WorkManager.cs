@@ -28,6 +28,7 @@ namespace CryCrawler.Worker
         bool resultsReady = false;
         bool sendingResults = false;
         int? hostMaxFileChunkSize = null;
+        CancellationTokenSource workCancelSource;
 
         // file transfer variables
         Work transferWork = null;
@@ -141,6 +142,7 @@ namespace CryCrawler.Worker
                 CachedCrawledWorkCount = database.GetWorkCount(Collection.CachedCrawled);
             }
         }
+
 
         /// <summary>
         /// Checks the Url source for changes and adds new items to backlog
@@ -769,6 +771,9 @@ namespace CryCrawler.Worker
         {
             if (ConnectedToHost == false) return;
 
+            // status is currently being sent in 2 parts (here and in program class)
+            // TODO: optimize this
+
             var msg = JsonConvert.SerializeObject(new
             {
                 WorkCount = WorkCount,
@@ -809,6 +814,8 @@ namespace CryCrawler.Worker
                 return;
             }
 
+            workCancelSource?.Cancel();
+
             Logger.Log("New work assigned - " + url);
 
             PrepareForNewWork();
@@ -818,6 +825,25 @@ namespace CryCrawler.Worker
 
             assignedurl = url;
             resultsReady = false;
+
+            // start work checker
+            workCancelSource = new CancellationTokenSource();
+            Task.Run(() =>
+            {
+                while (!workCancelSource.IsCancellationRequested)
+                {
+                    Task.Delay(2000).Wait();
+                    if (workCancelSource.IsCancellationRequested) break;
+
+                    if (Backlog.Count == 0 && CachedCrawledWorkCount > 0 &&
+                        areWorkersActive?.Invoke() == false && !resultsReady)
+                    {
+                        Logger.Log("Checker setting results as ready!", Logger.LogSeverity.Debug);
+                        resultsReady = true;
+                    }
+                }
+
+            }, workCancelSource.Token);
         }
 
         /// <summary>
