@@ -618,7 +618,12 @@ namespace CryCrawler.Worker
         /// </summary>
         void DumpMemoryToCache()
         {
-            database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
+            var blist = Backlog.ToList();
+
+            // set all Ids to 0
+            foreach (var w in blist) w.Id = 0;    
+
+            database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklog);
             Logger.Log($"Dumped {inserted} backlog items to cache");
         }
 
