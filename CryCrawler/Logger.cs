@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using System.Net;
 
 namespace CryCrawler
 {

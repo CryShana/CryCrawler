@@ -393,7 +393,7 @@ namespace CryCrawler.Worker
 
             if (!areWorkersActive() && Backlog.Count == 0)
             {
-                Logger.Log("Crawlers inactive. Results ready.", Logger.LogSeverity.Debug);
+                // Logger.Log("Crawlers inactive. Results ready.", Logger.LogSeverity.Debug);
                 resultsReady = true;
             }
         }
@@ -627,7 +627,8 @@ namespace CryCrawler.Worker
                 Query.EQ("Transferred", new BsonValue(true))));
 
             var crawled = crawledWorks.Select(x => x.Url).ToList();
-            Logger.Log($"Sending {crawled.Count} crawled urls to host...");
+            Logger.Log($"Sending {crawled.Count} crawled urls to host...", Logger.LogSeverity.Debug);
+
             NetworkManager.MessageHandler.SendMessage(
                 new NetworkMessage(NetworkMessageType.CrawledWorks, crawled));
 
@@ -635,7 +636,8 @@ namespace CryCrawler.Worker
 
             var itemsToSend = Backlog.ToList().Select(x => x.Url).ToList(); // cached items??
 
-            Logger.Log($"Sending {itemsToSend.Count} results to host...");
+            Logger.Log($"Sending {itemsToSend.Count} results to host...", Logger.LogSeverity.Debug);
+
             NetworkManager.MessageHandler.SendMessage(
                 new NetworkMessage(NetworkMessageType.Work, itemsToSend));
         }
@@ -786,7 +788,7 @@ namespace CryCrawler.Worker
                 Query.EQ("Transferred", new BsonValue(true)))))
             {
                 CachedCrawledWorkCount -= deleted;
-                Logger.Log($"Deleted {deleted} crawled works. (Already transferred files or not downloaded)", Logger.LogSeverity.Debug);
+                Logger.Log($"Deleted {deleted} crawled works.", Logger.LogSeverity.Debug);
             }
         }
 
