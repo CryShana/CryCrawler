@@ -312,8 +312,6 @@ namespace CryCrawler.Worker
                 // if using Host mode - if backlog count passes defined limit, results are ready to be sent
                 if (HostMode && Backlog.Count >= wlimit)
                 {
-                    Logger.Log("Results are ready to be sent. Can't get work.", Logger.LogSeverity.Debug);
-
                     resultsReady = true;
 
                     // don't give crawler any more work until work is sent to the host and backlog is cleared
@@ -557,6 +555,8 @@ namespace CryCrawler.Worker
 
         public void Dispose()
         {
+            workCancelSource?.Cancel();
+
             // dump all work if working locally - if working via Host, delete cache
             if (!config.HostEndpoint.UseHost)
             {
@@ -717,7 +717,8 @@ namespace CryCrawler.Worker
 
                     // start transferring
                     transferringFile = true;
-                    transferringFileStream = new FileStream(transferringFilePath, System.IO.FileMode.Open, FileAccess.ReadWrite);
+                    transferringFileStream = new FileStream(transferringFilePath, 
+                        System.IO.FileMode.Open, FileAccess.Read, FileShare.Read);
 
                     // send chunk
                     SendNextFileChunk(msgHandler);

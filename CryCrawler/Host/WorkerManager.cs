@@ -324,7 +324,16 @@ namespace CryCrawler.Host
                             Logger.Log($"New file transfer ({transferInfo.Location}) cancelled old one. " +
                                 $"({client.TransferringFileLocation})", Logger.LogSeverity.Debug);
 
+                            var path = client.TransferringFileLocationHost;
+
                             client.StopTransfer();
+
+                            // delete old file
+                            if (File.Exists(path))
+                            {
+                                Logger.Log("Deleted cancelled file.", Logger.LogSeverity.Debug);
+                                File.Delete(path);
+                            }
                         }
 
                         transferSemaphore.Wait();
@@ -577,7 +586,7 @@ namespace CryCrawler.Host
                 if (Clients == null || picker.Pick(Clients) == null)
                 {
                     // no workers to give work to
-                    await Task.Delay(1000);
+                    await Task.Delay(200);
                     continue;
                 }
 
@@ -589,7 +598,7 @@ namespace CryCrawler.Host
                     if (!manager.IsWorkAvailable || manager.GetWork(out Work w) == false)
                     {
                         // unable to get work, wait a bit and try again
-                        await Task.Delay(100);
+                        await Task.Delay(20);
                         continue;
                     }
 

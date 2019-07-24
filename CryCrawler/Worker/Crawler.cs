@@ -87,7 +87,7 @@ namespace CryCrawler.Worker
                 {
                     // unable to get work, wait a bit and try again
                     CurrentTasks[taskNumber] = null;
-                    await Task.Delay(200);
+                    await Task.Delay(20);
                     continue;
                 }
 
@@ -245,7 +245,7 @@ namespace CryCrawler.Worker
                     if (cancelSource.IsCancellationRequested) break;
 
                     // download content to file
-                    using (var fstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
+                    using (var fstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
                         await response.Content.CopyToAsync(fstream);
 
                     // log the download
