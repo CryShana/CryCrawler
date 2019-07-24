@@ -303,6 +303,8 @@ namespace CryCrawler.Worker
             {
                 if (database.Disposing)
                 {
+                    Logger.Log("Database disposing... Can't get work.", Logger.LogSeverity.Debug);
+
                     url = null;
                     return false;
                 }
@@ -310,6 +312,8 @@ namespace CryCrawler.Worker
                 // if using Host mode - if backlog count passes defined limit, results are ready to be sent
                 if (HostMode && Backlog.Count >= wlimit)
                 {
+                    Logger.Log("Results are ready to be sent. Can't get work.", Logger.LogSeverity.Debug);
+
                     resultsReady = true;
 
                     // don't give crawler any more work until work is sent to the host and backlog is cleared
@@ -648,7 +652,10 @@ namespace CryCrawler.Worker
                 case NetworkMessageType.ResultsReceived:
 
                     #region Prepare for new Work
-                    PrepareForNewWork(true);
+
+                    // only clean crawled if above certain threshold
+                    if (CachedCrawledWorkCount > config.MaxCrawledWorksBeforeCleanHost) PrepareForNewWork(true);
+                    else PrepareForNewWork();
 
                     sendingResults = false;
                     resultsReady = false;

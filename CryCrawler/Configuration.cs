@@ -34,6 +34,7 @@ namespace CryCrawler
         public bool DepthSearch { get; set; } = false;
         public int MaxLoggedDownloads { get; set; } = 30;
         public int MaxFileChunkSizekB { get; set; } = 200;
+        public int MaxCrawledWorksBeforeCleanHost { get; set; } = 2000;
 
         /// <summary>
         /// When deciding if file is acceptable to be downloaded, extension is checked first
