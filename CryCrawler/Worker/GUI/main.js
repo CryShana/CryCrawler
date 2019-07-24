@@ -37,9 +37,9 @@ var configNeedsUpdate = true;
 var shouldClearCache = false;
 function setStatus(data) {
     // set status
-    if (data.IsActive === true && data.IsWorking) setStatusText("active");
-    else if (data.IsActive === true) setStatusText("idle");
-    else setStatusText("offline");
+    if (data.IsActive === true && data.IsWorking) setStatusText("active", data.FindingValidWorks === true);
+    else if (data.IsActive === true) setStatusText("idle", data.FindingValidWorks === true);
+    else setStatusText("offline", data.FindingValidWorks === true);
 
     // check host status
     var cclass = "red";
@@ -67,6 +67,7 @@ function setStatus(data) {
         $("#update-button").addClass("disabled");
         $("#clear-cache-button").addClass("disabled");
     }
+
 
     // set work mode
     $("#crawler-work-source").html(data.UsingHost === true ? `Host (${data.HostEndpoint}) - <span class='${cclass}'>${ctext}</span>` : "Local");
@@ -166,7 +167,7 @@ function setStatus(data) {
     }
 }
 
-function setStatusText(text) {
+function setStatusText(text, findingValidWorks) {
     if (text === "active") {
         $("#crawler-status").addClass("active");
         $("#crawler-status").removeClass("offline");
@@ -189,7 +190,13 @@ function setStatusText(text) {
         $("#crawler-status").removeClass("active");
         $("#crawler-status").removeClass("offline");
         $("#crawler-status").addClass("idle");
-        $("#crawler-status").text("Idle");
+
+        if (findingValidWorks) {
+            $("#crawler-status").text("Busy");
+        }
+        else {
+            $("#crawler-status").text("Idle");
+        }
     }
 }
 

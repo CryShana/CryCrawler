@@ -37,9 +37,9 @@ var configNeedsUpdate = true;
 var shouldClearCache = false;
 function setStatus(data) {
     // set status
-    if (data.IsListening === true && data.WorkAvailable) setStatusText("active");
-    else if (data.IsListening === true) setStatusText("idle");
-    else setStatusText("offline");
+    if (data.IsListening === true && data.WorkAvailable) setStatusText("active", data.FindingValidWorks === true);
+    else if (data.IsListening === true) setStatusText("idle", data.FindingValidWorks === true);
+    else setStatusText("offline", data.FindingValidWorks === true);
 
     // check host status
     var cclass = "red";
@@ -202,7 +202,7 @@ function setStatus(data) {
     }
 }
 
-function setStatusText(text) {
+function setStatusText(text, findingValidWorks) {
     if (text === "active") {
         $("#crawler-status").addClass("active");
         $("#crawler-status").removeClass("offline");
@@ -225,7 +225,13 @@ function setStatusText(text) {
         $("#crawler-status").removeClass("active");
         $("#crawler-status").removeClass("offline");
         $("#crawler-status").addClass("idle");
-        $("#crawler-status").text("Idle");
+
+        if (findingValidWorks) {
+            $("#crawler-status").text("Busy");
+        }
+        else {
+            $("#crawler-status").text("Idle");
+        }
     }
 }
 

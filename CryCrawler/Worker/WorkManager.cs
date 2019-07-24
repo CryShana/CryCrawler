@@ -28,7 +28,6 @@ namespace CryCrawler.Worker
         bool resultsReady = false;
         bool sendingResults = false;
         int? hostMaxFileChunkSize = null;
-        long consecutiveInvalidWorks = 0;
 
         // file transfer variables
         Work transferWork = null;
@@ -56,6 +55,7 @@ namespace CryCrawler.Worker
         public long CachedWorkCount { get; private set; } = 0;
         public long CachedCrawledWorkCount { get; private set; } = 0;
         public bool IsWorkAvailable => Backlog.Count > 0 || CachedWorkCount > 0;
+        public long ConsecutiveInvalidWorks { get; private set; } = 0;
 
         public bool HostMode { get; }
         public bool ConnectedToHost { get; private set; }
@@ -391,7 +391,7 @@ namespace CryCrawler.Worker
                 }
 
                 // reset consecutive invalid works counter on success
-                consecutiveInvalidWorks = 0;
+                ConsecutiveInvalidWorks = 0;
             }
 
 
@@ -487,9 +487,9 @@ namespace CryCrawler.Worker
         /// </summary>
         void IncrementConsecutiveFailCount()
         {
-            consecutiveInvalidWorks++;
+            ConsecutiveInvalidWorks++;
 
-            if (consecutiveInvalidWorks > Backlog.Count)
+            if (ConsecutiveInvalidWorks > Backlog.Count)
             {
                 if (HostMode)
                 {

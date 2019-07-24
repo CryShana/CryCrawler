@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -267,7 +266,7 @@ namespace CryCrawler.Worker
                 finally
                 {
                     // also log crawled that weren't downloaded and had successful response
-                    if (!w.Success)
+                    if (!w.Success && Config.LogEveryCrawl)
                     {
                         if (statusCode == null)
                         {
