@@ -76,7 +76,7 @@ namespace CryCrawler.Host
             timer.Elapsed += OldClientCheck;
 
             // prepare worker timer
-            workerTimer = new Timer(TimeSpan.FromSeconds(2).TotalMilliseconds);
+            workerTimer = new Timer(TimeSpan.FromSeconds(1).TotalMilliseconds);
             workerTimer.Elapsed += WorkerStatusCheck;
 
             // subscribe to events
@@ -541,7 +541,7 @@ namespace CryCrawler.Host
                     if (string.IsNullOrEmpty(url)) throw new InvalidOperationException("Invalid Url!");
 
                     // do something with work
-                    Logger.Log($"Sending work to client... '{url}'");
+                    Logger.Log($"Assigning work to client - '{url}'");
 
                     // pick client without work
                     var c = picker.Pick(Clients);

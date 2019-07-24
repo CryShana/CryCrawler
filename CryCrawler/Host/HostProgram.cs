@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
-using CryCrawler.Network;
-using CryCrawler.Worker;
+﻿using System.Net;
+using System.Linq;
 using Newtonsoft.Json;
-using System.Net;
+using CryCrawler.Worker;
+using CryCrawler.Network;
+using System.Collections.Generic;
 
 namespace CryCrawler.Host
 {
@@ -20,7 +21,10 @@ namespace CryCrawler.Host
 
             database = new CacheDatabase(config.CacheFilename);
 
-            workmanager = new WorkManager(config.WorkerConfig, database);
+            workmanager = new WorkManager(config.WorkerConfig, database, () =>
+            {
+                return true;
+            });
 
             workermanager = new WorkerManager(workmanager, config, new FreeWorkerPicker());
 

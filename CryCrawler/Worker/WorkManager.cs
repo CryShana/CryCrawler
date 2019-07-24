@@ -22,7 +22,7 @@ namespace CryCrawler.Worker
     {
         // HOST RELATED VARIABLES
         int wlimit = 0;
-        string assignedw = null;
+        string assignedurl = null;
         bool resultsReady = false;
         bool sendingResults = false;
         int? hostMaxFileChunkSize = null;
@@ -137,7 +137,6 @@ namespace CryCrawler.Worker
                 CachedCrawledWorkCount = database.GetWorkCount(Collection.CachedCrawled);
             }
         }
-
 
         /// <summary>
         /// Checks the Url source for changes and adds new items to backlog
@@ -383,6 +382,9 @@ namespace CryCrawler.Worker
             }
         }
 
+        /// <summary>
+        /// In hostmode, check if all workers using this work manager are inactive and mark results as ready to be sent.
+        /// </summary>
         void CheckIfResultsReady()
         {
             if (HostMode == false) return;
@@ -445,6 +447,9 @@ namespace CryCrawler.Worker
             }
         }
 
+        /// <summary>
+        /// Load cached backlog items to memory
+        /// </summary>
         void LoadCacheToMemory()
         {
             long howMuch = MemoryLimitCount - (long)Backlog.Count;
@@ -456,6 +461,10 @@ namespace CryCrawler.Worker
                 CachedWorkCount -= works.Count;
             }
         }
+
+        /// <summary>
+        /// Dump memory items to backlog cache
+        /// </summary>
         void DumpMemoryToCache()
         {
             database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
@@ -624,7 +633,7 @@ namespace CryCrawler.Worker
         void ResultsCheck(object sender, System.Timers.ElapsedEventArgs e)
         {
             // if no work assigned, ignore it
-            if (assignedw == null) return;
+            if (assignedurl == null) return;
 
             // if we are connected and are not yet sending results but results are ready 
             // keep sending ResultsReady request on every timer tick until server is ready to receieve them
@@ -635,20 +644,19 @@ namespace CryCrawler.Worker
             }
         }
 
-        long newWorkCCount = 0;
-        void WorkReceived(string work)
+        /// <summary>
+        /// Work received from host
+        /// </summary>
+        void WorkReceived(string url)
         {
-            Logger.Log("New work assigned - " + work);
+            Logger.Log("New work assigned - " + url);
 
             PrepareForNewWork();
 
-            // save current crawled count
-            newWorkCCount = CachedCrawledWorkCount;
-
             // add to backlog
-            AddToBacklog(work);
+            AddToBacklog(url);
 
-            assignedw = work;
+            assignedurl = url;
             resultsReady = false;
         }
 
@@ -657,7 +665,7 @@ namespace CryCrawler.Worker
         /// </summary>
         void PrepareForNewWork(bool cleanCrawled = false)
         {
-            assignedw = null;
+            assignedurl = null;
 
             // clear backlog
             Backlog.Clear();
