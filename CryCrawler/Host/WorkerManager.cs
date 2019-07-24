@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using Timer = System.Timers.Timer;
 using System.Collections.Concurrent;
 using System.IO;
+using CryCrawler.Structures;
 
 namespace CryCrawler.Host
 {
@@ -35,6 +36,8 @@ namespace CryCrawler.Host
         readonly SemaphoreSlim transferSemaphore = new SemaphoreSlim(1);
         public readonly List<WorkerClient> Clients = new List<WorkerClient>();
 
+        public ConcurrentSlidingBuffer<DownloadedWork> RecentDownloads { get; }
+
         /// <summary>
         /// Called when client gets disconnected.
         /// </summary>
@@ -53,7 +56,7 @@ namespace CryCrawler.Host
         /// Starts a TCP listener for clients. Uses WorkManager to get URLs to distribute among clients.
         /// </summary>
         public WorkerManager(WorkManager manager, Configuration config, IWorkerPicker workerPicker)
-        {
+        {         
             // paramaters
             this.manager = manager;
             this.picker = workerPicker;
@@ -63,6 +66,8 @@ namespace CryCrawler.Host
             var endpoint = new IPEndPoint(
                 IPAddress.Parse(this.config.ListenerConfiguration.IP),
                 this.config.ListenerConfiguration.Port);
+
+            RecentDownloads = new ConcurrentSlidingBuffer<DownloadedWork>(config.WorkerConfig.MaxLoggedDownloads);
 
             UpdateWorkerConfigurations(WorkerConfig);
 
@@ -229,12 +234,14 @@ namespace CryCrawler.Host
                     #region Handle new Cient Status
                     var status = JsonConvert.DeserializeObject<JObject>((string)message.Data);
 
+                    var isBusy = (bool?)status["IsBusy"];
                     var hostMode = (bool?)status["IsHost"];
                     var isActive = (bool?)status["IsActive"];
                     var workCount = (long?)status["WorkCount"];
                     var crawledCount = (long?)status["CrawledCount"];
 
                     // update client information
+                    client.IsBusy = isBusy ?? client.IsBusy;
                     client.IsHost = hostMode ?? client.IsHost;
                     client.IsActive = isActive ?? client.IsActive;
                     client.WorkCount = workCount ?? client.WorkCount;
@@ -402,6 +409,8 @@ namespace CryCrawler.Host
                                 };
 
                                 manager.AddToCrawled(w);
+                                RecentDownloads.Add(new DownloadedWork(client.TransferringFileLocationHost, 
+                                    client.TransferringFileSize));
 
                                 client.StopTransfer();
                             }
@@ -580,12 +589,12 @@ namespace CryCrawler.Host
                 {
                     if (string.IsNullOrEmpty(url)) throw new InvalidOperationException("Invalid Url!");
 
-                    // do something with work
-                    Logger.Log($"Assigning work to client - '{url}'");
-
                     // pick client without work
                     var c = picker.Pick(Clients);
                     if (c == null) throw new NullReferenceException("No worker picked!");
+
+                    // do something with work
+                    Logger.Log($"Assigning work to ({c.Id}) - '{url}'");
 
                     // send it work
                     c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Work, url));
@@ -649,9 +658,10 @@ namespace CryCrawler.Host
         {
             // worker status and information
             public string Id;
-            public bool IsHost;
-            public bool Online;
-            public bool IsActive;
+            public bool IsHost;     // client is a host
+            public bool Online;     // client is connected
+            public bool IsBusy;     // client trying to find valid work
+            public bool IsActive;   // client crawler is active
             public long WorkCount;
             public long CrawledCount;
             public string AssignedUrl;

@@ -1,14 +1,14 @@
-﻿using CryCrawler.Structures;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
+﻿using System;
 using System.IO;
-using System.Linq;
 using System.Net;
+using System.Web;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
+using CryCrawler.Structures;
 using System.Threading.Tasks;
-using System.Web;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace CryCrawler.Worker
 {

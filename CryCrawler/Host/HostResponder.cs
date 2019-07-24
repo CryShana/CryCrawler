@@ -70,13 +70,17 @@ namespace CryCrawler.Host
             {
                 x.Id,
                 x.IsHost,
+                x.IsBusy,
                 x.Online,
                 x.IsActive,
                 x.WorkCount,
+                x.AssignedUrl,
                 x.CrawledCount,
                 LastConnected = x.LastConnected.ToString("dd.MM.yyyy HH:mm:ss"),
                 RemoteEndpoint = x.RemoteEndpoint.ToString()
             }),
+            RecentDownloads = new List<DownloadedWork>(workerManager.RecentDownloads),
+
             // read current worker manager config (either local or host provided)
             Whitelist = workerManager.WorkerConfig.DomainWhitelist,
             Blacklist = workerManager.WorkerConfig.DomainBlacklist,

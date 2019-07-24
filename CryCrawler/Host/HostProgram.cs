@@ -68,7 +68,8 @@ namespace CryCrawler.Host
                     var msg = JsonConvert.SerializeObject(new
                     {
                         IsHost = true,
-                        IsActive = workermanager.IsListening
+                        IsActive = workermanager.IsListening,
+                        IsBusy = workmanager.ConsecutiveInvalidWorks > 100
                     });
 
                     msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));

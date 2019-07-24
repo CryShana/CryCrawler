@@ -101,6 +101,16 @@ div.flexbox {
     box-shadow: -2px 1px 6px #bbbbbb;
 }
 
+#div-downloads {
+    width: 100%;
+}
+
+div#downloadsbox {
+    height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
 
 @media only screen and (max-width: 800px) {
     .flexbox {
@@ -128,6 +138,20 @@ table#table-config td {
         color: black;
         margin-bottom: 5px;
     }
+
+table#table-downloads {
+    table-layout: fixed;
+}
+
+    table#table-downloads td {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+        table#table-downloads td.clickable:hover {
+            text-decoration: underline;
+            cursor: pointer;
+        }
 
 table#table-config textarea {
     resize: none;

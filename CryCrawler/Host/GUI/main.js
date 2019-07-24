@@ -86,11 +86,20 @@ function setStatus(data) {
     var usage = Math.round((data.UsageRAM / 1024.0) / 1024.0);
     $("#crawler-ram").text(usage + "MB");
 
+    // set logs
+    var l = data.RecentDownloads.length;
+    for (let i = 0; i < l; i++) {
+        var el = data.RecentDownloads[i];
+        if (currentLogs.indexOf(el.FilePath) === -1) addDownloadLog(el);
+    }
+
     // display clients
     var clientList = $("#list-clients");
     data.Clients.forEach(function (val, i) {
         let id = val.Id;
         let active = val.IsActive === true ? "Active" : "Inactive";
+        if (val.IsBusy === true) active = "Busy";
+
         let online = val.Online === true ? "Connected" : "Unreachable";
         let lconnected = val.LastConnected;
         let endpoint = val.RemoteEndpoint;
@@ -232,6 +241,40 @@ function setStatusText(text, findingValidWorks) {
         else {
             $("#crawler-status").text("Idle");
         }
+    }
+}
+
+currentLogs = [];
+var maxLogs = 50;
+function addDownloadLog(el) {
+    let td1 = $("<td></td>");
+    td1.css("font-weight", "bold");
+    td1.css("width", "170px");
+    td1.text(el.DownloadedTime);
+
+    let td2 = $("<td class='midcol'></td>");
+    td2.css("color", "#848484");
+    td2.css("width", "80px");
+    td2.text(el.Size);
+
+    let td3 = $("<td class='clickable'></td>");
+    td3.css("white-space", "nowrap");
+    td3.click(function () {
+        alert(el.FilePath);
+    });
+    td3.text(el.FileName);
+
+    let tr = $("<tr></tr>");
+    tr.append(td1);
+    tr.append(td2);
+    tr.append(td3);
+
+    $("table#table-downloads").prepend(tr);
+
+    currentLogs.push(el.FilePath);
+    while (currentLogs.length > maxLogs) {
+        currentLogs.splice(0, 1);
+        $("table#table-downloads tr").slice(-1).remove();
     }
 }
 
