@@ -18,6 +18,8 @@ namespace CryCrawler
         const string CrawledName = "crawled";
         readonly string filename = DefaultFilename;
         readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
+        readonly Dictionary<string, Work> cachedWorks = new Dictionary<string, Work>();
+
         public bool Disposing { get; private set; }
 
         LiteDatabase database;
@@ -98,7 +100,7 @@ namespace CryCrawler
                 {
                     var space = works.Count - offset;
                     var cnt = maxItems < space ? maxItems : space;
-                    var split_works = works.GetRange(offset, cnt);
+                    var split_works = works.GetRange(offset, cnt); // FIX: stack overflow error?
 
                     if (InsertBulk(split_works, count, out int ins))
                     {
@@ -129,7 +131,7 @@ namespace CryCrawler
                 {
                     semaphore.Release();
                 }
-            }        
+            }
         }
 
         /// <summary>
@@ -190,7 +192,7 @@ namespace CryCrawler
                 count = int.MaxValue;
             }
 
-            if (count <= 0 )
+            if (count <= 0)
             {
                 works = null;
                 return false;
@@ -361,6 +363,8 @@ namespace CryCrawler
             {
                 deletedCount = GetCollection(collection).Delete(query);
 
+                if (collection == Collection.CachedCrawled) cachedWorks.Clear();
+
                 return true;
             }
             catch (Exception ex)
@@ -404,6 +408,8 @@ namespace CryCrawler
         /// </summary>
         public void Dispose()
         {
+            cachedWorks.Clear();
+
             Disposing = true;
             database.Dispose();
         }
@@ -415,6 +421,8 @@ namespace CryCrawler
         {
             if (!File.Exists(filename)) return;
 
+            cachedWorks.Clear();
+
             database.Dispose();
 
             File.Delete(filename);
@@ -423,17 +431,32 @@ namespace CryCrawler
         /// <summary>
         /// Clear all items from collection
         /// </summary>
-        public void DropCollection(Collection collection) => database.DropCollection(GetCollection(collection).Name);          
-        
+        public void DropCollection(Collection collection)
+        {
+            if (collection == Collection.CachedCrawled) cachedWorks.Clear();
+
+            database.DropCollection(GetCollection(collection).Name);
+        }
+
         private Work getWork(string url, Collection collection)
         {
             if (string.IsNullOrEmpty(url) || Disposing) return null;
+
+            // try the cache first
+            if (collection == Collection.CachedCrawled)
+                if (cachedWorks.TryGetValue(url, out Work wrk)) return wrk;
 
             // need to search by key that is limited with 512 bytes
             var k = Work.GetKeyFromUrl(url);
 
             var works = GetCollection(collection).Find(Query.Where("Key", x => x.AsString == k));
-            return works?.Where(x => x.Url == url)?.FirstOrDefault();
+            var w = works?.Where(x => x.Url == url)?.FirstOrDefault();
+
+            // cache it
+            if (collection == Collection.CachedCrawled && w != null)
+                cachedWorks.TryAdd(url, w);
+
+            return w;
         }
 
         private void PrepareCollections()
