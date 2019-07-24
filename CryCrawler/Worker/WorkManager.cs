@@ -485,31 +485,46 @@ namespace CryCrawler.Worker
 
                     // the rest needs to be handled outside this class
                     break;
+
                 case NetworkMessageType.WorkLimitUpdate:
                     wlimit = w.Data.AsInteger();
                     break;
+
                 case NetworkMessageType.Disconnect:
                     break;
+
                 case NetworkMessageType.StatusCheck:
                     // ignore it (status timer will send feedback handle it)
                     break;
+
                 case NetworkMessageType.SendResults:
+
+                    #region Send Results
                     if (sendingResults == false)
                     {
                         sendingResults = true;
 
                         SendResults();
-                    }
+                    } 
+                    #endregion
+
                     break;
+
                 case NetworkMessageType.ResultsReceived:
+
+                    #region Prepare for new Work
                     PrepareForNewWork(true);
 
                     sendingResults = false;
-                    resultsReady = false;
+                    resultsReady = false; 
+                    #endregion
+
                     break;
+
                 case NetworkMessageType.FileCheck:
                     // host checks if file is available for transfer
 
+                    #region Check File Transfer 
                     if (FileAvailableForTransfer(out Work availableWork, out string path))
                     {
                         if (transferringFile)
@@ -536,14 +551,22 @@ namespace CryCrawler.Worker
                                 Location = availableWork.DownloadLocation
                             }));
                     }
+
+                    #endregion
+
                     break;
+
                 case NetworkMessageType.FileReject:
                     // host rejected file transfer
+
                     StopFileTransfer();
+
                     break;
+
                 case NetworkMessageType.FileAccept:
                     // host accepted file transfer
 
+                    #region Start File Transfer
                     // check if already transferring
                     if (transferringFile)
                     {
@@ -555,11 +578,14 @@ namespace CryCrawler.Worker
                     transferringFileStream = new FileStream(transferringFilePath, System.IO.FileMode.Open, FileAccess.ReadWrite);
 
                     // send chunk
-                    SendNextFileChunk(msgHandler);
+                    SendNextFileChunk(msgHandler); 
+                    #endregion
+
                     break;
                 case NetworkMessageType.FileChunkAccept:
                     // host accepted file chunk, send the next one if not finished
 
+                    #region Send next Chunk
                     if (transferringFile && SendNextFileChunk(msgHandler))
                     {
                         Logger.Log($"File transferred ({Path.GetFileName(transferringFilePath)}).",
@@ -569,7 +595,7 @@ namespace CryCrawler.Worker
                         var fpath = transferringFilePath;
 
                         transferWork.Transferred = true;
-                       
+
                         // database.Upsert(transferWork, out bool ins, Collection.CachedCrawled);
                         database.DeleteWorks(out int dcount, Query.EQ("Url", new BsonValue(transferWork.Url)));
                         CachedCrawledWorkCount -= dcount;
@@ -578,7 +604,9 @@ namespace CryCrawler.Worker
 
                         // delete file
                         File.Delete(fpath);
-                    }
+                    } 
+                    #endregion
+
                     break;
             }
 
