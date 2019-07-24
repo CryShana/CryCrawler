@@ -596,7 +596,7 @@ namespace CryCrawler.Worker
                 database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
                 Logger.Log($"Dumped {inserted} backlog items to cache");
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Logger.Log("Failed to dump items! " + ex.GetDetailedMessage() + " - " + ex.StackTrace,
                     Logger.LogSeverity.Error);
@@ -730,8 +730,21 @@ namespace CryCrawler.Worker
                     #region Send next Chunk
                     if (transferringFile && SendNextFileChunk(msgHandler))
                     {
-                        Logger.Log($"File transferred ({Path.GetFileName(transferringFilePath)}).",
-                            Logger.LogSeverity.Debug);
+                        // file should now be transferred, let's wait for the confirmarmation (FileTransfer package)
+                    }
+                    #endregion
+
+                    break;
+                case NetworkMessageType.FileTransfer:
+
+                    #region File transfer confirmation
+                    var transferInfo = ((Dictionary<object, object>)w.Data)
+                            .Deserialize<FileTransferInfo>();
+
+                    if (transferringFile && transferInfo.Url == transferWork?.Url)
+                    {
+                        // file transfer completed
+                        Logger.Log($"File transferred ({Path.GetFileName(transferringFilePath)}).", Logger.LogSeverity.Debug);
 
                         // file transferred, mark as completed
                         var fpath = transferringFilePath;
@@ -746,6 +759,11 @@ namespace CryCrawler.Worker
 
                         // delete file
                         File.Delete(fpath);
+                    }
+                    else
+                    {
+                        // invalid url
+                        Logger.Log("Invalid file transfer confirmation!", Logger.LogSeverity.Debug);
                     }
                     #endregion
 
