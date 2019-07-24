@@ -409,7 +409,8 @@ namespace CryCrawler.Host
                                 };
 
                                 manager.AddToCrawled(w);
-                                RecentDownloads.Add(new DownloadedWork(client.TransferringFileLocationHost, 
+                                RecentDownloads.Add(new DownloadedWork(
+                                    Path.Combine(WorkerConfig.DownloadsPath, w.DownloadLocation), 
                                     client.TransferringFileSize));
 
                                 client.StopTransfer();

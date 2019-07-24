@@ -80,7 +80,7 @@ namespace CryCrawler.Worker
             {
                 IsHost = false,
                 IsActive = crawler.IsActive,
-                IsBusy = workmanager.ConsecutiveInvalidWorks > 100
+                IsBusy = workmanager.ConsecutiveInvalidWorks > 10
             });
 
             msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.StatusCheck, msg));
