@@ -329,7 +329,7 @@ namespace CryCrawler.Host
                         client.TransferringUrl = transferInfo.Url;
                         client.TransferringFileSize = transferInfo.Size;
                         client.TransferringFileLocation = transferInfo.Location;
-                        client.TransferringFileLocationHost = TranslateWorkerFilePathToHost(client.TransferringFileLocation);
+                        client.TransferringFileLocationHost = TranslateWorkerFilePathToHost(client.TransferringFileLocation, client.TransferringFileSize);
 
                         // create necessary directories and use proper location
                         Directory.CreateDirectory(Path.GetDirectoryName(client.TransferringFileLocationHost));
@@ -503,7 +503,7 @@ namespace CryCrawler.Host
             if (w != null) manager.AddToBacklog(w);
         }
 
-        public string TranslateWorkerFilePathToHost(string workerPath)
+        public string TranslateWorkerFilePathToHost(string workerPath, long? fileSize = null)
         {
             // WorkerPath must be relative without the "Downloads" folder
 
@@ -526,6 +526,16 @@ namespace CryCrawler.Host
                 }
 
                 count++;
+
+                if (fileSize != null)
+                {
+                    if (File.Exists(path) && new FileInfo(path).Length == fileSize)
+                    {
+                        // files are the same
+                        Logger.Log($"Overriding file '{Path.GetFileName(path)}'", Logger.LogSeverity.Debug);
+                        break;
+                    }
+                }
 
             } while (File.Exists(path));
 

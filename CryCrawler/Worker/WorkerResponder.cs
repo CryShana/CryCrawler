@@ -52,6 +52,7 @@ namespace CryCrawler.Worker
             IsActive = crawler.IsActive,
             IsWorking = !crawler.WaitingForWork,
             ConnectedToHost = crawler.Manager.ConnectedToHost,
+            FindingValidWorks = crawler.Manager.ConsecutiveInvalidWorks > 100,
 
             // use local config for this
             UsingHost = config.WorkerConfig.HostEndpoint.UseHost,

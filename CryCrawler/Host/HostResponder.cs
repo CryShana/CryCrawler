@@ -55,6 +55,7 @@ namespace CryCrawler.Host
             IsListening = workerManager.IsListening,
             WorkAvailable = workManager.IsWorkAvailable,
             ConnectedToHost = workManager.ConnectedToHost,
+            FindingValidWorks = workManager.ConsecutiveInvalidWorks > 100,
 
             // use local config for this
             UsingHost = config.WorkerConfig.HostEndpoint.UseHost,
