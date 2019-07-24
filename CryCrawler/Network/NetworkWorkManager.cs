@@ -136,7 +136,7 @@ namespace CryCrawler.Network
 
                         IsConnected = true;
 
-                        Logger.Log("Connected to host");
+                        Logger.Log($"Connected to host. (Id: {ClientId})");
                         Connected?.Invoke(ClientId);
 
                         // wait here until exception is thrown on message handler
