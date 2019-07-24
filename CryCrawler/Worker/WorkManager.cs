@@ -396,8 +396,6 @@ namespace CryCrawler.Worker
                 ConsecutiveInvalidWorks = 0;
             }
 
-
-
             return success;
         }
 
@@ -820,15 +818,6 @@ namespace CryCrawler.Worker
         /// </summary>
         void WorkReceived(string url)
         {
-            // if url is not whitelisted, ignore it
-            if (Extensions.IsUrlWhitelisted(url, config) == false)
-            {
-                Logger.Log($"Ignoring new assigned work - not whitelisted. ({url})");
-                assignedurl = url;
-                resultsReady = true;
-                return;
-            }
-
             workCancelSource?.Cancel();
 
             Logger.Log("New work assigned - " + url);
