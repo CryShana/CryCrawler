@@ -103,7 +103,12 @@ namespace CryCrawler.Worker
                     config.HostEndpoint.ClientId);
 
                 NetworkManager.MessageReceived += NetworkManager_MessageReceived;
-                NetworkManager.Disconnected += id => ConnectedToHost = false;
+                NetworkManager.Disconnected += id =>
+                {
+                    StopFileTransfer();
+                    sendingResults = false;
+                    ConnectedToHost = false;
+                };
                 NetworkManager.Connected += id =>
                 {
                     config.HostEndpoint.ClientId = id;
@@ -190,6 +195,7 @@ namespace CryCrawler.Worker
                 {
                     if (wasIns) CachedCrawledWorkCount++;
                 }
+
                 // TODO: better handle this
                 else if (!database.Disposing) throw new DatabaseErrorException("Failed to upsert crawled work to database!");
             }
@@ -591,16 +597,8 @@ namespace CryCrawler.Worker
         /// </summary>
         void DumpMemoryToCache()
         {
-            try
-            {
-                database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
-                Logger.Log($"Dumped {inserted} backlog items to cache");
-            }
-            catch (Exception ex)
-            {
-                Logger.Log("Failed to dump items! " + ex.GetDetailedMessage() + " - " + ex.StackTrace,
-                    Logger.LogSeverity.Error);
-            }
+            database.InsertBulk(Backlog.ToList(), Backlog.Count, out int inserted, Collection.DumpedBacklog);
+            Logger.Log($"Dumped {inserted} backlog items to cache");
         }
 
         void NetworkManager_MessageReceived(NetworkMessage w, NetworkMessageHandler<NetworkMessage> msgHandler)
@@ -717,7 +715,7 @@ namespace CryCrawler.Worker
 
                     // start transferring
                     transferringFile = true;
-                    transferringFileStream = new FileStream(transferringFilePath, 
+                    transferringFileStream = new FileStream(transferringFilePath,
                         System.IO.FileMode.Open, FileAccess.Read, FileShare.Read);
 
                     // send chunk
@@ -845,6 +843,7 @@ namespace CryCrawler.Worker
         void WorkReceived(string url)
         {
             workCancelSource?.Cancel();
+            workCancelSource = new CancellationTokenSource();
 
             Logger.Log("New work assigned - " + url);
 
@@ -857,23 +856,31 @@ namespace CryCrawler.Worker
             resultsReady = false;
 
             // start work checker
-            workCancelSource = new CancellationTokenSource();
+            var tsource = workCancelSource;
             Task.Run(() =>
             {
-                while (!workCancelSource.IsCancellationRequested)
+                while (!tsource.IsCancellationRequested)
                 {
+                    Logger.Log($"Checker (Active: {areWorkersActive?.Invoke()}" +
+                            $", Sending: {sendingResults}, Ready: {resultsReady}, " +
+                            $"WorkCount: {Backlog.Count}, CrawlCount: {CachedCrawledWorkCount})", 
+                            Logger.LogSeverity.Debug);
+
                     Task.Delay(2000).Wait();
-                    if (workCancelSource.IsCancellationRequested) break;
+                    if (tsource.IsCancellationRequested) break;
 
                     if (Backlog.Count == 0 && CachedCrawledWorkCount > 0 &&
                         areWorkersActive?.Invoke() == false && !resultsReady)
                     {
-                        Logger.Log("Checker setting results as ready!", Logger.LogSeverity.Debug);
+                        Logger.Log($"Checker setting results as ready! (Active: {areWorkersActive?.Invoke()}" +
+                            $", Sending: {sendingResults})", Logger.LogSeverity.Debug);
+
                         resultsReady = true;
                     }
                 }
+                Logger.Log("Checker cancelled!!!!!", Logger.LogSeverity.Debug);
 
-            }, workCancelSource.Token);
+            }, tsource.Token);
         }
 
         /// <summary>
@@ -882,6 +889,7 @@ namespace CryCrawler.Worker
         void PrepareForNewWork(bool cleanCrawled = false)
         {
             assignedurl = null;
+            sendingResults = false;
 
             // clear backlog
             Backlog.Clear();

@@ -62,6 +62,7 @@ namespace CryCrawler.Host
             this.picker = workerPicker;
             this.config = config.HostConfig;
             this.WorkerConfig = config.WorkerConfig;
+
             var password = this.config.ListenerConfiguration.Password;
             var endpoint = new IPEndPoint(
                 IPAddress.Parse(this.config.ListenerConfiguration.IP),
