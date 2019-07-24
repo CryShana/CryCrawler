@@ -557,8 +557,7 @@ namespace CryCrawler.Host
                         continue;
                     }
 
-                    if (w.IsEligibleForCrawl()) url = w.Url;
-                    else manager.AddToBacklog(w);
+                    url = w.Url;
                 }
                 else url = failedUrl;
 

@@ -1,7 +1,7 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using MessagePack;
 using System.Collections.Generic;
-using System;
 
 namespace CryCrawler
 {
@@ -19,7 +19,7 @@ namespace CryCrawler
     {
         public HostListeningEndPoint ListenerConfiguration { get; set; } = new HostListeningEndPoint();
         public long MaxClientAgeMinutes { get; set; } = (long)TimeSpan.FromDays(1).TotalMinutes;
-        public int ClientWorkLimit { get; set; } = 5000;
+        public int ClientWorkLimit { get; set; } = 3000;
     }
 
     [MessagePackObject(keyAsPropertyName: true)]
