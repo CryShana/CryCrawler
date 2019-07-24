@@ -5,9 +5,11 @@ using MessagePack.Formatters;
 using Newtonsoft.Json;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using static CryCrawler.CacheDatabase;
@@ -26,6 +28,7 @@ namespace CryCrawler.Worker
         bool resultsReady = false;
         bool sendingResults = false;
         int? hostMaxFileChunkSize = null;
+        long consecutiveInvalidWorks = 0;
 
         // file transfer variables
         Work transferWork = null;
@@ -42,6 +45,7 @@ namespace CryCrawler.Worker
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
         readonly Func<bool> areWorkersActive;
+        readonly ConcurrentDictionary<string, DomainFailInfo> domainFails = new ConcurrentDictionary<string, DomainFailInfo>();
 
         public readonly int MemoryLimitCount = 500000;
 
@@ -58,7 +62,7 @@ namespace CryCrawler.Worker
         public event NetworkWorkManager.MessageReceivedHandler HostMessageReceived;
         #endregion
 
-        public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount, Func<bool> areWorkersActive = null) 
+        public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount, Func<bool> areWorkersActive = null)
             : this(config, database, areWorkersActive) => MemoryLimitCount = newMemoryLimitCount;
 
         public WorkManager(WorkerConfiguration config, CacheDatabase database, Func<bool> areWorkersActive = null)
@@ -282,7 +286,7 @@ namespace CryCrawler.Worker
                 addingSemaphore.Release();
             }
         }
-        public bool IsUrlCrawled(string url) => database.GetWork(out _, url, Collection.CachedCrawled);    
+        public bool IsUrlCrawled(string url) => database.GetWork(out _, url, Collection.CachedCrawled);
 
         /// <summary>
         /// Attempts to get work from backlog and removes it from work list.
@@ -345,12 +349,54 @@ namespace CryCrawler.Worker
                 addingSemaphore.Release();
             }
 
+            var success = w != null;
             url = w?.Url;
 
-            // if CheckForCrawled is true, return false if work is already crawled
-            if (checkForCrawled && url != null && IsUrlCrawled(url)) return false;
+            // VALIDATE WORK
+            if (success)
+            {
+                // if CheckForCrawled is true, return false if work is already crawled
+                if (checkForCrawled && url != null && IsUrlCrawled(url)) return false;
 
-            return w != null;
+                // check recrawl date
+                if (w?.IsEligibleForCrawl() == false)
+                {
+                    // re-add to backlog
+                    IncrementConsecutiveFailCount();
+                    AddToBacklog(w);
+                    return false;
+                }
+
+                // check domain recrawl dates
+                var domain = Extensions.GetDomainName(url, out _);
+                if (domainFails.TryGetValue(domain, out DomainFailInfo info))
+                {
+                    if (info.Blocked)
+                    {
+                        // check if recrawl date has passed
+                        if (info.RecrawlTime.Subtract(DateTime.Now).TotalMinutes <= 0)
+                        {
+                            // if yes, remove block
+                            info.Blocked = false;
+                            Logger.Log($"Domain is now no longer blocked - {domain}", Logger.LogSeverity.Debug);
+                        }
+                        else
+                        {
+                            // re-add to backlog
+                            IncrementConsecutiveFailCount();
+                            AddToBacklog(w);
+                            return false;
+                        }
+                    }
+                }
+
+                // reset consecutive invalid works counter on success
+                consecutiveInvalidWorks = 0;
+            }
+
+
+
+            return success;
         }
 
         /// <summary>
@@ -363,8 +409,11 @@ namespace CryCrawler.Worker
             if (w.RecrawlDate != null)
             {
                 // check if recrawl date is valid
-                if (w.RecrawlDate.Value.Subtract(DateTime.Now).TotalDays < 14)
+                if (w.RecrawlDate.Value.Subtract(DateTime.Now).TotalDays < MaxWorkRecrawlDays)
                 {
+                    // increment fail count for domain
+                    IncrementDomainFailCount(w.Url);
+
                     // add back to backlog with a recrawl date
                     AddToBacklog(w);
                 }
@@ -372,13 +421,84 @@ namespace CryCrawler.Worker
                 {
                     // add to crawled as a failed crawl
                     AddToCrawled(w);
+
                     CheckIfResultsReady();
                 }
             }
             else
             {
+                // ON SUCCESS, remove domain block if there is any
+                var domain = Extensions.GetDomainName(w.Url, out _);
+                if (w.Success && domainFails.TryRemove(domain, out _))
+                {
+                    Logger.Log($"Domain fail counter removed for {domain}", Logger.LogSeverity.Debug);
+                }
+
                 AddToCrawled(w);
+
                 CheckIfResultsReady();
+            }
+        }
+
+        // if work-specific recrawl date exceeds below limit, work is automatically classified as failed
+        readonly uint MaxWorkRecrawlDays = 3;
+        // if domain-specific recrawl date exceeds below limit, recrawl date will no longer keep doubling
+        readonly uint MaxDomainRecrawlMinutes = (uint)TimeSpan.FromHours(12).TotalMinutes;
+
+        /// <summary>
+        /// Increments fail count number for domain name of given Url. 
+        /// If fail count exceeds certain threshold, block domain for double the minutes of last block (Starting with 5min)
+        /// </summary>
+        void IncrementDomainFailCount(string url)
+        {
+            var domain = Extensions.GetDomainName(url, out _);
+
+            if (domainFails.ContainsKey(domain) && domainFails.TryGetValue(domain, out DomainFailInfo info))
+            {
+                info.FailCount++;
+
+                // if fail count exceeds threshold, activate block mode
+                if (info.FailCount > 5) // THRESHOLD
+                {
+                    info.FailCount = 0;
+                    info.Blocked = true;
+
+                    // if waiting time exceeds threshold, do not increase it further
+                    if (info.WaitMinutes < MaxDomainRecrawlMinutes) info.WaitMinutes = info.WaitMinutes * 2;
+
+                    info.RecrawlTime = DateTime.Now.AddMinutes(info.WaitMinutes);
+
+                    Logger.Log($"Domain '{domain}' is now being ignored for {info.WaitMinutes} minutes.");
+                }
+            }
+            else domainFails.TryAdd(domain, new DomainFailInfo
+            {
+                Domain = domain,
+                FailCount = 1,
+                WaitMinutes = 1,
+                RecrawlTime = DateTime.Now
+            });
+
+            // TODO: send to worker?
+        }
+
+        /// <summary>
+        /// Increment consencutive fail count number. If counter exceeds backlog count, client will send results to host.
+        /// </summary>
+        void IncrementConsecutiveFailCount()
+        {
+            consecutiveInvalidWorks++;
+
+            if (consecutiveInvalidWorks > Backlog.Count)
+            {
+                if (HostMode)
+                {
+                    resultsReady = true;
+                }
+                else
+                {
+                    // maybe warn user in GUI                 
+                }
             }
         }
 
@@ -393,7 +513,7 @@ namespace CryCrawler.Worker
 
             if (!areWorkersActive() && Backlog.Count == 0)
             {
-                // Logger.Log("Crawlers inactive. Results ready.", Logger.LogSeverity.Debug);
+                Logger.Log("Crawlers inactive. Results ready.", Logger.LogSeverity.Debug);
                 resultsReady = true;
             }
         }
@@ -505,7 +625,7 @@ namespace CryCrawler.Worker
                         sendingResults = true;
 
                         SendResults();
-                    } 
+                    }
                     #endregion
 
                     break;
@@ -516,7 +636,7 @@ namespace CryCrawler.Worker
                     PrepareForNewWork(true);
 
                     sendingResults = false;
-                    resultsReady = false; 
+                    resultsReady = false;
                     #endregion
 
                     break;
@@ -578,7 +698,7 @@ namespace CryCrawler.Worker
                     transferringFileStream = new FileStream(transferringFilePath, System.IO.FileMode.Open, FileAccess.ReadWrite);
 
                     // send chunk
-                    SendNextFileChunk(msgHandler); 
+                    SendNextFileChunk(msgHandler);
                     #endregion
 
                     break;
@@ -604,7 +724,7 @@ namespace CryCrawler.Worker
 
                         // delete file
                         File.Delete(fpath);
-                    } 
+                    }
                     #endregion
 
                     break;
@@ -788,7 +908,7 @@ namespace CryCrawler.Worker
                 Query.EQ("Transferred", new BsonValue(true)))))
             {
                 CachedCrawledWorkCount -= deleted;
-                Logger.Log($"Deleted {deleted} crawled works.", Logger.LogSeverity.Debug);
+                if (deleted > 0) Logger.Log($"Deleted {deleted} crawled works.", Logger.LogSeverity.Debug);
             }
         }
 
@@ -826,5 +946,14 @@ namespace CryCrawler.Worker
             return false;
         }
         #endregion
+
+        public class DomainFailInfo
+        {
+            public bool Blocked { get; set; }
+            public string Domain { get; set; }
+            public uint FailCount { get; set; }
+            public uint WaitMinutes { get; set; } = 5;
+            public DateTime RecrawlTime { get; set; }
+        }
     }
 }

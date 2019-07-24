@@ -94,64 +94,66 @@ namespace CryCrawler.Worker
 
                 var url = w.Url;
 
-                if (w.IsEligibleForCrawl() == false)
-                {
-                    Manager.AddToBacklog(w);
-
-                    await Task.Delay(100);
-                    continue;
-                }
-
                 // check if url is whitelisted
                 if (Extensions.IsUrlWhitelisted(url, Config) == false) continue;
                 #endregion
 
                 DateTime? recrawlDate = null;
+                var lastCrawl = w.LastCrawled;
                 w.LastCrawled = DateTime.Now;
 
                 CurrentTasks[taskNumber] = url;
+                HttpStatusCode? statusCode = null;
                 try
                 {
                     // Get response headers - DO NOT READ CONTENT yet (performance reasons)
                     var response = await httpClient
                         .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancelSource.Token);
 
+                    statusCode = response.StatusCode;
                     if (!response.IsSuccessStatusCode || cancelSource.IsCancellationRequested)
                     {
                         #region Failed to crawl
                         // TODO: treat differently based on status code (for ex. if page doesn't exist at all, or if 500, 404,...)
                         switch (response.StatusCode)
                         {
-                            case HttpStatusCode.TooManyRequests:
-                                if (w.RecrawlDate == null && w.LastCrawled != null) recrawlDate = DateTime.Now.AddMinutes(10);
-                                else
-                                {
-                                    var duration = w.RecrawlDate.Value.Subtract(w.LastCrawled.Value);
-                                    recrawlDate = DateTime.Now.Add(duration.Multiply(2));
-                                }
-
-                                break;
+                            case HttpStatusCode.MethodNotAllowed:
+                            case HttpStatusCode.Gone:
+                            case HttpStatusCode.BadRequest:
+                            case HttpStatusCode.NoContent:
+                            case HttpStatusCode.Unauthorized:
                             case HttpStatusCode.NotFound:
-                                break;
                             case HttpStatusCode.Forbidden:
+                                // ignore it - mark as failed
                                 break;
-                            default:
-                                if (w.RecrawlDate == null && w.LastCrawled != null) recrawlDate = DateTime.Now.AddMinutes(1);
+                            case HttpStatusCode.BadGateway:
+                            case HttpStatusCode.TooManyRequests:
+                            case HttpStatusCode.InternalServerError:
+                                // if no recrawl date set yet, set it into the future
+                                if (w.RecrawlDate == null && w.LastCrawled != null) recrawlDate = DateTime.Now.AddMinutes(5);                  
+                                // if recrawl was already set, double it since last time
                                 else
                                 {
-                                    var duration = w.RecrawlDate.Value.Subtract(w.LastCrawled.Value);
+                                    var duration = w.RecrawlDate.Value.Subtract(lastCrawl.Value);
                                     recrawlDate = DateTime.Now.Add(duration.Multiply(2));
                                 }
+                                break;
+
+                            default:
                                 break;
                         }
 
-                        Logger.Log($"Failed to crawl ({response.StatusCode}) {url}");
+                        // if recrawl date was set
+                        if (recrawlDate != null) w.RecrawlDate = recrawlDate;                       
+
+                        w.Success = false;
+
                         continue;
                         #endregion
                     }
 
                     var mediaType = response.Content?.Headers?.ContentType?.MediaType;
-                    if (mediaType == null) continue;
+                    if (mediaType == null) continue;                 
 
                     // Check if media type is set as a scanning target, if yes, scan it for new URLs
                     if (Config.ScanTargetsMediaTypes.Count(x => x == mediaType) > 0)
@@ -167,7 +169,7 @@ namespace CryCrawler.Worker
                             if (cancelSource.IsCancellationRequested) break;
 
                             // check if URL is eligible for crawling
-                            if (Manager.IsUrlEligibleForCrawl(u) == false) continue;
+                            if (Manager.IsUrlEligibleForCrawl(u) == false) continue;                         
 
                             cnt++;
                             if (Manager.IsUrlCrawled(url))
@@ -190,6 +192,7 @@ namespace CryCrawler.Worker
                     // don't download file if not acceptable
                     if (IsAcceptable(filename, mediaType) == false ||
                         cancelSource.IsCancellationRequested) continue;
+                    
 
                     // check file size limits
                     var size = response.Content.Headers.ContentLength;
@@ -241,30 +244,46 @@ namespace CryCrawler.Worker
                     w.IsDownloaded = true;
                     w.Success = true;
 
-                    Logger.Log($"Crawled ({response.StatusCode}) {url}");
+                    Logger.Log($"Downloaded ({response.StatusCode}) {url}");
                     #endregion
                 }
                 catch (OperationCanceledException) { }
                 catch (NullReferenceException nex)
                 {
-                    Logger.Log($"Failed to crawl '{url}' - {nex.Message} -- {nex.StackTrace}", Logger.LogSeverity.Error);
+                    Logger.Log($"NullReferenceException while crawling - {url} - {nex.Message} -- {nex.StackTrace}", 
+                        Logger.LogSeverity.Error);
                 }
                 catch (IOException iex)
                 {
                     // usually happens when trying to download file with same name
-                    Logger.Log($"{iex.Message}", Logger.LogSeverity.Debug);
+                    Logger.Log($"IOException while crawling - {iex.Message}", 
+                        Logger.LogSeverity.Debug);
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log($"Failed to crawl - {url} - ({ex.GetType().Name}) {ex.Message}");
+                    Logger.Log($"Exception while crawling - {url} - ({ex.GetType().Name}) {ex.Message}", 
+                        Logger.LogSeverity.Debug);
                 }
                 finally
                 {
+                    // also log crawled that weren't downloaded and had successful response
+                    if (!w.Success)
+                    {
+                        if (statusCode == null)
+                        {
+                            Logger.Log($"Canceled {url}");
+
+                            // TODO: re-add it to backlog maybe?
+                        }
+                        else Logger.Log($"Crawled ({statusCode}) {url}");
+                    }        
+
                     CurrentTasks[taskNumber] = null;
                     Manager.ReportWorkResult(w);
                 }
             }
         }
+
 
         /// <summary>
         /// Based on the configuration, is the file acceptable based on extension and media type.
