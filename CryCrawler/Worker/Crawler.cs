@@ -145,7 +145,7 @@ namespace CryCrawler.Worker
                                 break;
                         }
 
-                        // Logger.Log($"Failed to crawl '{url}' ({response.StatusCode})", Logger.LogSeverity.Information);
+                        Logger.Log($"Failed to crawl ({response.StatusCode}) {url}");
                         continue;
                         #endregion
                     }
@@ -240,6 +240,8 @@ namespace CryCrawler.Worker
                     w.DownloadLocation = Extensions.GetRelativeFilePath(path, Config);
                     w.IsDownloaded = true;
                     w.Success = true;
+
+                    Logger.Log($"Crawled ({response.StatusCode}) {url}");
                     #endregion
                 }
                 catch (OperationCanceledException) { }
@@ -254,7 +256,7 @@ namespace CryCrawler.Worker
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log($"Failed to crawl '{url}' - ({ex.GetType().Name}) {ex.Message}", Logger.LogSeverity.Debug);
+                    Logger.Log($"Failed to crawl - {url} - ({ex.GetType().Name}) {ex.Message}");
                 }
                 finally
                 {

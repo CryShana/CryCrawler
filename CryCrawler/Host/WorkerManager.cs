@@ -252,24 +252,28 @@ namespace CryCrawler.Host
                     // retrieve results from worker
 
                     #region Handle Received Works
-                    var works = (object[])message.Data;
-                    Logger.Log($"Retrieved {works.Length} results from client '{client.Id}'");
-
-                    // only add to backlog if not yet crawled
-                    foreach (var url in works)
+                    // do not retrieve if work not assigned
+                    if (client.AssignedUrl != null)
                     {
-                        var u = (string)url;
+                        var works = (object[])message.Data;
+                        Logger.Log($"Retrieved {works.Length} results from client '{client.Id}'", Logger.LogSeverity.Debug);
 
-                        if (manager.IsUrlCrawled(u) == false)
-                            manager.AddToBacklog(u);
+                        // only add to backlog if not yet crawled
+                        foreach (var url in works)
+                        {
+                            var u = (string)url;
+
+                            if (manager.IsUrlCrawled(u) == false)
+                                manager.AddToBacklog(u);
+                        }
+
+                        // unassign work
+                        client.AssignedUrl = null;
+
+                        // confirm that all results have been received
+                        client.MesssageHandler.SendMessage(
+                            new NetworkMessage(NetworkMessageType.ResultsReceived));
                     }
-
-                    // unassign work
-                    client.AssignedUrl = null;
-
-                    // confirm that all results have been received
-                    client.MesssageHandler.SendMessage(
-                        new NetworkMessage(NetworkMessageType.ResultsReceived)); 
                     #endregion
 
                     break;
@@ -278,17 +282,21 @@ namespace CryCrawler.Host
                     // retrieve crawled items from worker
 
                     #region Handle Receieved Crawled Works
-                    works = (object[])message.Data;
-                    Logger.Log($"Retrieved {works.Length} cached items from client '{client.Id}'");
-
-                    // only add to crawled if it doesn't exist yet
-                    foreach (var url in works)
+                    // do not retrieve if work not assigned
+                    if (client.AssignedUrl != null)
                     {
-                        var u = (string)url;
+                        var works = (object[])message.Data;
+                        Logger.Log($"Retrieved {works.Length} cached items from client '{client.Id}'", Logger.LogSeverity.Debug);
 
-                        if (manager.IsUrlCrawled(u) == false)
-                            manager.AddToCrawled(u);
-                    } 
+                        // only add to crawled if it doesn't exist yet
+                        foreach (var url in works)
+                        {
+                            var u = (string)url;
+
+                            if (manager.IsUrlCrawled(u) == false)
+                                manager.AddToCrawled(u);
+                        }
+                    }
                     #endregion
 
                     break;
