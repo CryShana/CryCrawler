@@ -113,9 +113,16 @@ div#downloadsbox {
 
 table#table-config td {
     padding: 3px 15px;
+    color: #adadad;
     /* width: 100%; */
     /* min-width: 100px; */
 }
+
+    table#table-config td b {
+        display: block;
+        color: black;
+        margin-bottom: 5px;
+    }
 
 table#table-config textarea {
     resize: none;
