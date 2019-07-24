@@ -650,6 +650,15 @@ namespace CryCrawler.Worker
         /// </summary>
         void WorkReceived(string url)
         {
+            // if url is not whitelisted, ignore it
+            if (Extensions.IsUrlWhitelisted(url, config) == false)
+            {
+                Logger.Log($"Ignoring new assigned work - not whitelisted. ({url})");
+                assignedurl = url;
+                resultsReady = true;
+                return;
+            }
+
             Logger.Log("New work assigned - " + url);
 
             PrepareForNewWork();
