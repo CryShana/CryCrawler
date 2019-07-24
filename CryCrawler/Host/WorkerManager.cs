@@ -286,7 +286,7 @@ namespace CryCrawler.Host
                 case NetworkMessageType.FileTransfer:
                     // client wants to initiate file transfer
 
-                    var transferInfo = ((Dictionary<object,object>)message.Data)
+                    var transferInfo = ((Dictionary<object, object>)message.Data)
                         .Deserialize<FileTransferInfo>();
 
                     if (client.TransferringFile)
@@ -315,7 +315,7 @@ namespace CryCrawler.Host
                         // create necessary directories and use proper location
                         Directory.CreateDirectory(Path.GetDirectoryName(client.TransferringFileLocationHost));
 
-                        client.TransferringFileStream = new FileStream(client.TransferringFileLocationHost, 
+                        client.TransferringFileStream = new FileStream(client.TransferringFileLocationHost,
                             FileMode.Create, FileAccess.ReadWrite);
 
                         // accept file transfer
@@ -349,7 +349,7 @@ namespace CryCrawler.Host
                         {
                             var chunk = ((Dictionary<object, object>)message.Data)
                                 .Deserialize<FileChunk>();
-                           
+
                             // if location doesn't matches, reject it
                             if (client.TransferringFileLocation != chunk.Location)
                             {
@@ -485,11 +485,11 @@ namespace CryCrawler.Host
             int count = 0;
             string path;
             do
-            {             
+            {
                 if (count == 0)
                 {
                     // generate original path
-                    path = Path.Combine(Directory.GetCurrentDirectory(), WorkerConfig.DownloadsPath, workerPath);                  
+                    path = Path.Combine(Directory.GetCurrentDirectory(), WorkerConfig.DownloadsPath, workerPath);
                 }
                 else
                 {
@@ -502,7 +502,7 @@ namespace CryCrawler.Host
                 count++;
 
             } while (File.Exists(path));
-      
+
             return path;
         }
 

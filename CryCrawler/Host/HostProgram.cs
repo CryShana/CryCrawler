@@ -23,7 +23,8 @@ namespace CryCrawler.Host
 
             workmanager = new WorkManager(config.WorkerConfig, database, () =>
             {
-                return true;
+                return workermanager.Clients.Count(x => x.Online && string.IsNullOrEmpty(x.AssignedUrl))
+                     < workermanager.Clients.Count(x => x.Online);
             });
 
             workermanager = new WorkerManager(workmanager, config, new FreeWorkerPicker());
