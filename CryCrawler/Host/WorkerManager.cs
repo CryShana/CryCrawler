@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Net;
 using System.Linq;
 using System.Timers;
@@ -9,12 +10,10 @@ using System.Net.Sockets;
 using CryCrawler.Network;
 using CryCrawler.Security;
 using Newtonsoft.Json.Linq;
+using CryCrawler.Structures;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Timer = System.Timers.Timer;
-using System.Collections.Concurrent;
-using System.IO;
-using CryCrawler.Structures;
 
 namespace CryCrawler.Host
 {
@@ -56,7 +55,7 @@ namespace CryCrawler.Host
         /// Starts a TCP listener for clients. Uses WorkManager to get URLs to distribute among clients.
         /// </summary>
         public WorkerManager(WorkManager manager, Configuration config, IWorkerPicker workerPicker)
-        {         
+        {
             // paramaters
             this.manager = manager;
             this.picker = workerPicker;
@@ -246,7 +245,7 @@ namespace CryCrawler.Host
                     client.IsHost = hostMode ?? client.IsHost;
                     client.IsActive = isActive ?? client.IsActive;
                     client.WorkCount = workCount ?? client.WorkCount;
-                    client.CrawledCount = crawledCount ?? client.CrawledCount; 
+                    client.CrawledCount = crawledCount ?? client.CrawledCount;
                     #endregion
 
                     break;
@@ -314,25 +313,36 @@ namespace CryCrawler.Host
 
                     #region Initiate File Transfer
                     // use semaphore for starting file transfer - we don't want multiple threads creating same file and accessing it
+                    string path = null;
+
                     try
                     {
                         var transferInfo = ((Dictionary<object, object>)message.Data)
                             .Deserialize<FileTransferInfo>();
 
+                        path = TranslateWorkerFilePathToHost(transferInfo.Location, transferInfo.Size);
+
                         if (client.TransferringFile)
                         {
-                            // new file transfer is initiated, old one is cancelled
-                            Logger.Log($"New file transfer ({transferInfo.Location}) cancelled old one. " +
-                                $"({client.TransferringFileLocation})", Logger.LogSeverity.Debug);
+                            if (transferInfo.Url == client.TransferringUrl &&
+                                transferInfo.Size == client.TransferringFileSize &&
+                                transferInfo.Location == client.TransferringFileLocation)
+                            {
+                                // same file requested, ignore it
+                                Logger.Log($"({client.Id}) - New file transfer same as existing one. Ignoring request. ({transferInfo.Location})", Logger.LogSeverity.Debug);
+                                break;
+                            }
 
-                            var path = client.TransferringFileLocationHost;
+                            // new file transfer is initiated, old one is canceled
+                            Logger.Log($"({client.Id}) New file transfer ({transferInfo.Location}) canceled old one. " +
+                                $"({client.TransferringFileLocation})", Logger.LogSeverity.Debug);
 
                             client.StopTransfer();
 
-                            // delete old file
+                            // delete old file (old code - empty files already handled by StopTransfer())
                             if (File.Exists(path))
                             {
-                                Logger.Log("Deleted cancelled file.", Logger.LogSeverity.Debug);
+                                Logger.Log($"({client.Id}) Deleted canceled file.", Logger.LogSeverity.Debug);
                                 File.Delete(path);
                             }
                         }
@@ -346,12 +356,12 @@ namespace CryCrawler.Host
                         client.TransferringUrl = transferInfo.Url;
                         client.TransferringFileSize = transferInfo.Size;
                         client.TransferringFileLocation = transferInfo.Location;
-                        client.TransferringFileLocationHost = TranslateWorkerFilePathToHost(client.TransferringFileLocation, client.TransferringFileSize);
+                        client.TransferringFileLocationHost = path;
 
                         // create necessary directories and use proper location
-                        Directory.CreateDirectory(Path.GetDirectoryName(client.TransferringFileLocationHost));
+                        Directory.CreateDirectory(Path.GetDirectoryName(path));
 
-                        client.TransferringFileStream = new FileStream(client.TransferringFileLocationHost,
+                        client.TransferringFileStream = new FileStream(path,
                             FileMode.Create, FileAccess.ReadWrite);
 
                         // accept file transfer
@@ -361,12 +371,20 @@ namespace CryCrawler.Host
                     catch (Exception ex)
                     {
                         client.StopTransfer();
-                        Logger.Log("Failed to accept file! " + ex.GetDetailedMessage(), Logger.LogSeverity.Warning);
+
+                        // make sure file is deleted
+                        if (path != null && File.Exists(path))
+                        {
+                            Logger.Log($"({client.Id}) Deleted canceled file due to file transfer exception.", Logger.LogSeverity.Debug);
+                            File.Delete(path);
+                        }
+
+                        Logger.Log($"({client.Id}) Failed to accept file! " + ex.GetDetailedMessage(), Logger.LogSeverity.Warning);
                     }
                     finally
                     {
                         transferSemaphore.Release();
-                    } 
+                    }
                     #endregion
 
                     break;
@@ -435,6 +453,14 @@ namespace CryCrawler.Host
                                 catch
                                 {
                                     // client.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileReject));
+
+                                    // make sure file is deleted if it exists!
+                                    if (client.TransferringFileLocationHost != null &&
+                                        File.Exists(client.TransferringFileLocationHost))
+                                    {
+                                        Logger.Log($"({client.Id}) Deleted canceled file due to chunk transfer completion exception.", Logger.LogSeverity.Debug);
+                                        File.Delete(client.TransferringFileLocationHost);
+                                    }
                                 }
                                 finally
                                 {
@@ -449,9 +475,18 @@ namespace CryCrawler.Host
                         catch (Exception ex)
                         {
                             client.StopTransfer();
-                            Logger.Log("Failed to transfer chunk! " + ex.GetDetailedMessage() + ex.StackTrace, Logger.LogSeverity.Debug);
+
+                            // make sure file is deleted if it exists!
+                            if (client.TransferringFileLocationHost != null && 
+                                File.Exists(client.TransferringFileLocationHost))
+                            {
+                                Logger.Log($"({client.Id}) - Deleted canceled file due to chunk transfer exception.", Logger.LogSeverity.Debug);
+                                File.Delete(client.TransferringFileLocationHost);
+                            }
+
+                            Logger.Log($"({client.Id}) - Failed to transfer chunk! " + ex.GetDetailedMessage() + ex.StackTrace, Logger.LogSeverity.Debug);
                         }
-                    } 
+                    }
                     #endregion
 
                     break;
@@ -608,7 +643,7 @@ namespace CryCrawler.Host
                 else url = failedUrl;
 
                 // check if url is whitelisted
-                if (Extensions.IsUrlWhitelisted(url, WorkerConfig) == false) continue; 
+                if (Extensions.IsUrlWhitelisted(url, WorkerConfig) == false) continue;
                 #endregion
 
                 // PICK WORKER AND ASSIGN WORK
@@ -717,6 +752,11 @@ namespace CryCrawler.Host
 
             public void StopTransfer()
             {
+                var trf = TransferringFile;
+                var size = TransferringFileSize;
+                var sizec = TransferringFileSizeCompleted;
+                var path = TransferringFileLocationHost;
+
                 try
                 {
                     TransferringUrl = null;
@@ -727,6 +767,17 @@ namespace CryCrawler.Host
 
                     TransferringFileStream?.Close();
                     TransferringFileStream?.Dispose();
+
+                    // check if file was interrupted and not deleted
+                    if (size > 0 &&
+                        sizec < size &&
+                        File.Exists(path) &&
+                        (new FileInfo(path).Length == 0 || trf))
+                    {
+                        // delete file
+                        File.Delete(path);
+                        Logger.Log("Interrupted file deleted.", Logger.LogSeverity.Debug);
+                    }
                 }
                 catch
                 {

@@ -743,7 +743,7 @@ namespace CryCrawler.Worker
                     {
                         if (transferringFile)
                         {
-                            Logger.Log("Cancelling existing file transfer. Starting new one...");
+                            Logger.Log("Canceling existing file transfer. Starting new one...");
 
                             // if new file is requested, stop existing file transfer
                             StopFileTransfer();
