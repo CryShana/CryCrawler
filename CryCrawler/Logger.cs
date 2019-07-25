@@ -22,7 +22,7 @@ namespace CryCrawler
             timer.Start();
         }
 
-        public static async Task Log(string message, LogSeverity severity = LogSeverity.Information)
+        public static void Log(string message, LogSeverity severity = LogSeverity.Information)
         {
             // get caller name
             var stack = new StackTrace();
