@@ -155,7 +155,9 @@ namespace CryCrawler.Worker
                 {
                     // add to backlog
                     Backlog.AddItems(dumped);
-                    database.DropCollection(Collection.DumpedBacklogBackup);
+
+                    // Don't drop backlog backup, it will be replaced by autodump anyway
+                    // database.DropCollection(Collection.DumpedBacklogBackup);
 
                     Logger.Log($"Loaded {dumped.Count} backlog items from backup cache.");
                 }
@@ -163,7 +165,10 @@ namespace CryCrawler.Worker
                 {
                     // add to backlog
                     Backlog.AddItems(dumped);
-                    database.DropCollection(Collection.DumpedBacklogBackupTemp);
+
+                    // do not drop it - instead transfer it
+                    // database.DropCollection(Collection.DumpedBacklogBackupTemp);
+                    database.TransferTemporaryDumpedFilesToBackup();
 
                     Logger.Log($"Loaded {dumped.Count} backlog items from temporary cache.");
                 }
