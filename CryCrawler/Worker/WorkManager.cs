@@ -755,7 +755,7 @@ namespace CryCrawler.Worker
                             DateTime.Now.Subtract(transferReqSent).TotalSeconds < 6)
                         {
                             // ignore
-                            Logger.Log("File check ignored because of existing file transfer request.", Logger.LogSeverity.Debug);
+                            // Logger.Log("File check ignored because of existing file transfer request.", Logger.LogSeverity.Debug);
                             break;
                         }
 
