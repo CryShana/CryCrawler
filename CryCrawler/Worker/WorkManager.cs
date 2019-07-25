@@ -37,6 +37,7 @@ namespace CryCrawler.Worker
         string transferringFilePath = null;
         long transferringFileSize = 0;
         long transferringFileSizeCompleted = 0;
+        DateTime transferReqSent = DateTime.Now;
         FileStream transferringFileStream = null;
 
         // MAIN VARIABLES
@@ -749,21 +750,45 @@ namespace CryCrawler.Worker
                             StopFileTransfer();
                         }
 
-                        // prepare file for transfer
-                        transferWork = availableWork;
-                        transferringFileSize = new FileInfo(path).Length;
-                        transferringFilePath = path;
-                        transferringFileSizeCompleted = 0;
-                        transferringFileStream = null;
+                        // check if request has already been sent for this work and is not older than 6 seconds
+                        if (transferWork != null && availableWork.Url == transferWork.Url &&
+                            DateTime.Now.Subtract(transferReqSent).TotalSeconds < 6)
+                        {
+                            // ignore
+                            Logger.Log("File check ignored because of existing file transfer request.", Logger.LogSeverity.Debug);
+                            break;
+                        }
 
-                        // send file transfer request for this file
-                        msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileTransfer,
-                            new FileTransferInfo
-                            {
-                                Url = transferWork.Url,
-                                Size = transferringFileSize,
-                                Location = availableWork.DownloadLocation
-                            }));
+                        try
+                        {
+                            // prepare file for transfer
+                            transferWork = availableWork;
+                            transferringFileSize = new FileInfo(path).Length;
+                            transferringFilePath = path;
+                            transferringFileSizeCompleted = 0;
+                            transferringFileStream = null;
+                            transferReqSent = DateTime.Now;
+
+                            // send file transfer request for this file
+                            msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileTransfer,
+                                new FileTransferInfo
+                                {
+                                    Url = transferWork.Url,
+                                    Size = transferringFileSize,
+                                    Location = availableWork.DownloadLocation
+                                }));
+
+                            if (availableWork.DownloadLocation.Contains('/') || availableWork.DownloadLocation.Contains('\\'))
+                                Logger.Log($"FT Chosen location: {availableWork.DownloadLocation} (Url: {availableWork.Url})",
+                                    Logger.LogSeverity.Warning);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log("Failed to send file transfer request! " + ex.GetDetailedMessage(),
+                                Logger.LogSeverity.Debug);
+
+                            StopFileTransfer();
+                        }
                     }
 
                     #endregion

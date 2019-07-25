@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net;
 using System.Linq;
@@ -686,8 +686,7 @@ namespace CryCrawler.Host
 
                 // send file check request
                 if (c.TransferringFile == false)
-                    Task.Run(() =>
-                        c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileCheck)));
+                    Task.Run(() => c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileCheck)));
             }
         }
 
