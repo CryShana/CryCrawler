@@ -46,6 +46,15 @@ namespace CryCrawler.Network
                 UnderlyingStream.Write(lenBuffer);
                 UnderlyingStream.Write(buffer);
             }
+            catch (Exception ex)
+            {
+                ExceptionThrown?.Invoke(this, ex);
+
+                // attempt to dispose
+                Dispose();
+
+                throw;
+            }
             finally
             {
                 semaphore.Release();

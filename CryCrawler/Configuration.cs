@@ -35,7 +35,7 @@ namespace CryCrawler
         public int MaxLoggedDownloads { get; set; } = 30;
         public int MaxFileChunkSizekB { get; set; } = 200;
         public int MaxCrawledWorksBeforeCleanHost { get; set; } = 2000;
-        public int AutoSaveIntervalSeconds { get; set; } = 30;
+        public int AutoSaveIntervalSeconds { get; set; } = 40;
 
         /// <summary>
         /// When deciding if file is acceptable to be downloaded, extension is checked first
