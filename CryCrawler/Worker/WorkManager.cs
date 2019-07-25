@@ -48,6 +48,8 @@ namespace CryCrawler.Worker
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
         readonly Func<bool> areWorkersActive;
+        readonly SemaphoreSlim addingSemaphore = new SemaphoreSlim(1);
+        readonly SemaphoreSlim dumpingSemaphore = new SemaphoreSlim(1);
         readonly ConcurrentDictionary<string, DomainFailInfo> domainFails = new ConcurrentDictionary<string, DomainFailInfo>();
 
         public readonly int MemoryLimitCount = 500000;
@@ -267,8 +269,6 @@ namespace CryCrawler.Worker
         }
         public void AddToCrawled(string url) => AddToCrawled(new Work(url));
 
-
-        SemaphoreSlim addingSemaphore = new SemaphoreSlim(1);
         public void AddToBacklog(string url)
         {
             var w = new Work(url);
@@ -658,27 +658,40 @@ namespace CryCrawler.Worker
         /// </summary>
         void DumpMemoryToCache(bool useTemporaryCollection = false)
         {
-            var blist = Backlog.ToList();
+            dumpingSemaphore.Wait();
 
-            // set all Ids to 0
-            foreach (var w in blist) w.Id = 0;
-
-            if (useTemporaryCollection)
+            try
             {
-                Logger.Log("Starting dump to temporary cache...", Logger.LogSeverity.Warning);
-                if (database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklogBackupTemp))
-                {
-                    Logger.Log($"Dumped {inserted} backlog items to temporary cache", Logger.LogSeverity.Debug);
+                var blist = Backlog.ToList();
 
-                    // transfer to backup
-                    database.TransferTemporaryDumpedFilesToBackup();
-                    Logger.Log($"Copied over to backup cache.", Logger.LogSeverity.Debug);
+                // set all Ids to 0
+                foreach (var w in blist) w.Id = 0;
+
+                if (useTemporaryCollection)
+                {
+                    Logger.Log("------- Starting dump to temporary cache... -------", Logger.LogSeverity.Warning);
+                    if (database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklogBackupTemp))
+                    {
+                        Logger.Log($"Dumped {inserted} backlog items to temporary cache", Logger.LogSeverity.Debug);
+
+                        // transfer to backup
+                        database.TransferTemporaryDumpedFilesToBackup();
+                        Logger.Log($"Copied over to backup cache.", Logger.LogSeverity.Debug);
+                    }
+                }
+                else
+                {
+                    database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklog);
+                    Logger.Log($"Dumped {inserted} backlog items to cache");
                 }
             }
-            else
+            catch
             {
-                database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklog);
-                Logger.Log($"Dumped {inserted} backlog items to cache");
+                throw;
+            }
+            finally
+            {
+                dumpingSemaphore.Release();
             }
         }
 
@@ -1122,6 +1135,7 @@ namespace CryCrawler.Worker
             while (!disposing)
             {
                 Thread.Sleep(waitTime);
+                if (disposing) break;
 
                 if (dumping) continue;
                 dumping = true;
