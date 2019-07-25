@@ -157,7 +157,8 @@ namespace CryCrawler.Host
 
                         // ignore certain common errors
                         if (!b.Message.Contains("Cannot access a disposed object") &&
-                            !b.Message.Contains("interrupted by a call to WSACancelBlockingCall"))
+                            !b.Message.Contains("interrupted by a call to WSACancelBlockingCall") &&
+                            !b.Message.Contains("An existing connection was forcibly closed by the remote host"))
                         {
                             Logger.Log(b.GetDetailedMessage(), Logger.LogSeverity.Debug);
                         }                      
