@@ -34,8 +34,6 @@ namespace CryCrawler
                 { Collection.DumpedBacklogBackupTemp, new SemaphoreSlim(1) }
             };
 
-        readonly Dictionary<string, Work> cachedWorks = new Dictionary<string, Work>();
-
         public bool Disposing { get; private set; }
 
         LiteDatabase database;
@@ -381,8 +379,6 @@ namespace CryCrawler
             {
                 deletedCount = GetCollection(collection).Delete(query);
 
-                if (collection == Collection.CachedCrawled) cachedWorks.Clear();
-
                 return true;
             }
             catch (Exception ex)
@@ -426,8 +422,6 @@ namespace CryCrawler
         /// </summary>
         public void Dispose()
         {
-            cachedWorks.Clear();
-
             Disposing = true;
             database.Dispose();
         }
@@ -438,8 +432,6 @@ namespace CryCrawler
         public void Delete()
         {
             if (!File.Exists(filename)) return;
-
-            cachedWorks.Clear();
 
             database.Dispose();
 
@@ -454,8 +446,6 @@ namespace CryCrawler
             semaphores[collection].Wait();
             try
             {
-                if (collection == Collection.CachedCrawled) cachedWorks.Clear();
-
                 database.DropCollection(GetCollection(collection).Name);
             }
             finally
@@ -468,19 +458,11 @@ namespace CryCrawler
         {
             if (string.IsNullOrEmpty(url) || Disposing) return null;
 
-            // try the cache first
-            if (collection == Collection.CachedCrawled)
-                if (cachedWorks.TryGetValue(url, out Work wrk)) return wrk;
-
             // need to search by key that is limited with 512 bytes
             var k = Work.GetKeyFromUrl(url);
 
             var works = GetCollection(collection).Find(Query.Where("Key", x => x.AsString == k));
             var w = works?.Where(x => x.Url == url)?.FirstOrDefault();
-
-            // cache it
-            if (collection == Collection.CachedCrawled && w != null)
-                cachedWorks.TryAdd(url, w);
 
             return w;
         }
