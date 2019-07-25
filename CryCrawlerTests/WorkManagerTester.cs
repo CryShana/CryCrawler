@@ -544,6 +544,64 @@ namespace CryCrawlerTests
                     // check performance
                     var max = Math.Max(time1, Math.Max(time2, time3));
                     Assert.True(totaltime < time1 + time2);
+
+                    // test backup dumps
+                    works_bulk = new List<Work>();
+                    for (int i = 0; i < 110000; i++) works_bulk.Add(new Work("http://google.com/"));
+
+                    var dumpcount = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklogBackup);
+                    var dumptempcount = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklogBackupTemp);
+                    Assert.Equal(0, dumpcount);
+                    Assert.Equal(0, dumptempcount);
+
+                    database.InsertBulk(works_bulk, works_bulk.Count, out int ins,
+                        CacheDatabase.Collection.DumpedBacklogBackupTemp);
+
+                    Assert.Equal(works_bulk.Count, ins);
+
+                    dumpcount = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklogBackup);
+                    dumptempcount = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklogBackupTemp);
+                    Assert.Equal(0, dumpcount);
+                    Assert.Equal(works_bulk.Count, dumptempcount);
+
+                    // transfer files
+                    sw = Stopwatch.StartNew();
+                    database.TransferTemporaryDumpedFilesToBackup();
+                    sw.Stop();
+
+                    // must be instant
+                    Assert.True(sw.ElapsedMilliseconds < 200);
+
+                    dumpcount = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklogBackup);
+                    dumptempcount = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklogBackupTemp);
+                    Assert.Equal(works_bulk.Count, dumpcount);
+                    Assert.Equal(0, dumptempcount);
+
+                    // try inserting into temp and backup
+                    success = database.Insert(new Work("http://google.com/"), CacheDatabase.Collection.DumpedBacklogBackupTemp);
+                    Assert.True(success);
+
+                    success = database.Insert(new Work("http://google.com/"), CacheDatabase.Collection.DumpedBacklogBackup);
+                    Assert.True(success);
+
+                    dumpcount = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklogBackup);
+                    dumptempcount = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklogBackupTemp);
+                    Assert.Equal(works_bulk.Count + 1, dumpcount);
+                    Assert.Equal(1, dumptempcount);
+
+                    // try transferring AGAIN
+                    sw = Stopwatch.StartNew();
+                    database.TransferTemporaryDumpedFilesToBackup();
+                    sw.Stop();
+
+                    // must be instant (LiteDB does something here that adds a time delay)
+                    // Assert.True(sw.ElapsedMilliseconds < 200); 
+
+                    // check items
+                    dumpcount = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklogBackup);
+                    dumptempcount = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklogBackupTemp);
+                    Assert.Equal(1, dumpcount);
+                    Assert.Equal(0, dumptempcount);
                 });
 
 

@@ -5,6 +5,8 @@ using System.Linq;
 using System.Threading;
 using CryCrawler.Worker;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace CryCrawler
 {
@@ -16,6 +18,9 @@ namespace CryCrawler
         const string DumpedName = "dumped";
         const string BacklogName = "backlog";
         const string CrawledName = "crawled";
+        const string DumpedBackupName = "dumpedbackup";
+        const string DumpedBackupTempName = "dumpedbackuptemp";
+
         readonly string filename = DefaultFilename;
 
         // semaphores per collection
@@ -24,7 +29,9 @@ namespace CryCrawler
             {
                 { Collection.CachedCrawled, new SemaphoreSlim(1) },
                 { Collection.CachedBacklog, new SemaphoreSlim(1) },
-                { Collection.DumpedBacklog, new SemaphoreSlim(1) }
+                { Collection.DumpedBacklog, new SemaphoreSlim(1) },
+                { Collection.DumpedBacklogBackup, new SemaphoreSlim(1) },
+                { Collection.DumpedBacklogBackupTemp, new SemaphoreSlim(1) }
             };
 
         readonly Dictionary<string, Work> cachedWorks = new Dictionary<string, Work>();
@@ -36,13 +43,15 @@ namespace CryCrawler
         LiteCollection<Work> backlogCollection;
         LiteCollection<Work> crawledCollection;
         LiteCollection<Work> dumpedCollection;
+        LiteCollection<Work> dumpedBackupCollection;
+        LiteCollection<Work> dumpedBackupTempCollection;
 
         public CacheDatabase(string filename)
         {
             // here is the problem
             this.filename = filename;
-            database = new LiteDatabase($"Filename={filename};Mode=Exclusive");
-            
+            database = new LiteDatabase($"Filename={filename};Mode=Exclusive;");
+
             PrepareCollections();
         }
 
@@ -479,10 +488,11 @@ namespace CryCrawler
         private void PrepareCollections()
         {
             // WARNING: Calling EnsureIndex() on a large collection causes a huge memory usage spike
-
+            dumpedCollection = database.GetCollection<Work>(DumpedName);
             crawledCollection = database.GetCollection<Work>(CrawledName);
             backlogCollection = database.GetCollection<Work>(BacklogName);
-            dumpedCollection = database.GetCollection<Work>(DumpedName);
+            dumpedBackupCollection = database.GetCollection<Work>(DumpedBackupName);
+            dumpedBackupTempCollection = database.GetCollection<Work>(DumpedBackupTempName);
 
             // Indexing only necessary on first database initialization
             if (!database.CollectionExists(CrawledName))
@@ -500,6 +510,69 @@ namespace CryCrawler
                 dumpedCollection.EnsureIndex(x => x.AddedTime);
                 dumpedCollection.EnsureIndex(x => x.Key);
             }
+            if (!database.CollectionExists(DumpedBackupName))
+            {
+                dumpedBackupCollection.EnsureIndex(x => x.AddedTime);
+                dumpedBackupCollection.EnsureIndex(x => x.Key);
+            }
+            if (!database.CollectionExists(DumpedBackupTempName))
+            {
+                dumpedBackupTempCollection.EnsureIndex(x => x.AddedTime);
+                dumpedBackupTempCollection.EnsureIndex(x => x.Key);
+            }
+        }
+
+        /// <summary>
+        /// Transfers temporary backup dumped files to backup dumped files. 
+        /// This drops the backup collection and renames the temporary collection.
+        /// </summary>
+        public bool TransferTemporaryDumpedFilesToBackup()
+        {
+            // we must wait if any other function is using the backup dump
+            semaphores[Collection.DumpedBacklogBackup].Wait();
+
+            // we must wait if any other function is using the backup temp dump
+            semaphores[Collection.DumpedBacklogBackupTemp].Wait();
+
+            try
+            {
+                var bcol = GetCollection(Collection.DumpedBacklogBackup);
+                var tcol = GetCollection(Collection.DumpedBacklogBackupTemp);
+
+                // rename backup collection and drop it later 
+                // (because if we drop it now, there will be a time delay)
+                // (LiteDB does something in the background either when dropping it or preparing collection)
+                const string tempname = "dropping";
+                database.RenameCollection(bcol.Name, tempname);
+
+                // rename temporary collection to backup collection
+                if (database.RenameCollection(tcol.Name, bcol.Name) == false)
+                    throw new InvalidOperationException("Failed to rename collection!");
+
+                // set the new collection
+                dumpedBackupCollection = database.GetCollection<Work>(DumpedBackupName);
+
+                // drop the backup collection now
+                // (this will most likely cause a time delay, luckily for us - temp backup has already been transferred)
+                database.DropCollection(tempname);
+
+                // ensure all collections exist (should re-create temporary collection)
+                PrepareCollections();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("Failed to transfer temporary dumped files to backup dump! " + ex.Message,
+                    Logger.LogSeverity.Warning);
+
+                return false;
+            }
+            finally
+            {
+                semaphores[Collection.DumpedBacklogBackupTemp].Release();
+                semaphores[Collection.DumpedBacklogBackup].Release();
+            }
         }
 
         private LiteCollection<Work> GetCollection(Collection collection)
@@ -512,6 +585,10 @@ namespace CryCrawler
                     return crawledCollection;
                 case Collection.DumpedBacklog:
                     return dumpedCollection;
+                case Collection.DumpedBacklogBackup:
+                    return dumpedBackupCollection;
+                case Collection.DumpedBacklogBackupTemp:
+                    return dumpedBackupTempCollection;
                 default:
                     return null;
             }
@@ -521,7 +598,10 @@ namespace CryCrawler
         {
             DumpedBacklog,
             CachedBacklog,
-            CachedCrawled
+            CachedCrawled,
+            DumpedBacklogBackup,
+            DumpedBacklogBackupTemp,
+            DroppingCollection
         }
 
         public class DatabaseErrorException : Exception
