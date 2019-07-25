@@ -393,7 +393,7 @@ namespace CryCrawlerTests
                     Assert.True(w11.IsDownloaded);
 
                     // find works with IsDownloaded = false
-                    database.FindWorks(out IEnumerable<Work> works, 
+                    database.FindWorks(out IEnumerable<Work> works,
                         Query.EQ("IsDownloaded", new BsonValue(false)), CacheDatabase.Collection.CachedBacklog);
                     Assert.Single(works);
 
@@ -402,7 +402,7 @@ namespace CryCrawlerTests
                     Assert.Equal(2, works.Count());
 
                     // delete only works with IsDownloaded = true
-                    database.DeleteWorks(out int dcount, Query.EQ("IsDownloaded", new BsonValue(true)), 
+                    database.DeleteWorks(out int dcount, Query.EQ("IsDownloaded", new BsonValue(true)),
                         CacheDatabase.Collection.CachedBacklog);
                     Assert.Equal(1, dcount);
 
@@ -460,8 +460,92 @@ namespace CryCrawlerTests
                     count = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklog);
                     Assert.Equal(0, count);
                     Assert.Equal(count, inserted);
+
+                    database.DropCollection(CacheDatabase.Collection.DumpedBacklog);
+                    database.DropCollection(CacheDatabase.Collection.CachedBacklog);
+                    database.DropCollection(CacheDatabase.Collection.CachedCrawled);
+
+                    // concurrent test
+                    long time1 = 0, time2 = 0, time3 = 0;
+
+                    const int generateCount = 120005;
+                    const int generateCountDump = 70;
+                    var t1 = new Task(() =>
+                    {
+                        var work_bulk = new List<Work>();
+                        for (int i = 0; i < generateCount; i++) work_bulk.Add(new Work("http://google.com"));
+
+                        var sw = Stopwatch.StartNew();
+                        database.InsertBulk(work_bulk, generateCount, out int ins, CacheDatabase.Collection.CachedBacklog);
+                        sw.Stop();
+
+                        Assert.Equal(generateCount, ins);
+
+                        time1 = sw.ElapsedMilliseconds;
+                    });
+                    var t2 = new Task(() =>
+                    {
+                        var work_bulk = new List<Work>();
+                        for (int i = 0; i < generateCount; i++) work_bulk.Add(new Work("http://google.com"));
+
+                        var sw = Stopwatch.StartNew();
+                        database.InsertBulk(work_bulk, generateCount, out int ins, CacheDatabase.Collection.CachedCrawled);
+                        sw.Stop();
+
+                        Assert.Equal(generateCount, ins);
+
+                        time2 = sw.ElapsedMilliseconds;
+                    });
+                    var t3 = new Task(() =>
+                    {
+                        var work_bulk = new List<Work>();
+                        for (int i = 0; i < generateCountDump; i++) work_bulk.Add(new Work("http://google.com"));
+
+                        var sw = Stopwatch.StartNew();
+
+                        foreach (var w in work_bulk)
+                            database.Insert(w, CacheDatabase.Collection.DumpedBacklog);
+                        /*
+                        database.InsertBulk(work_bulk, work_bulk.Count, out int ins, 
+                            CacheDatabase.Collection.DumpedBacklog);*/
+
+                        database.DropCollection(CacheDatabase.Collection.DumpedBacklog);
+                        sw.Stop();
+
+                        time3 = sw.ElapsedMilliseconds;
+                    });
+
+                    // check status
+                    var count1 = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
+                    var count2 = database.GetWorkCount(CacheDatabase.Collection.CachedCrawled);
+                    var count3 = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklog);
+                    Assert.Equal(0, count1);
+                    Assert.Equal(0, count2);
+                    Assert.Equal(0, count3);
+
+                    t1.Start();
+                    t2.Start();
+                    t3.Start();
+
+                    var sw = Stopwatch.StartNew();
+                    Task.WhenAll(t1, t2, t3).Wait();
+                    sw.Stop();
+
+                    var totaltime = sw.ElapsedMilliseconds;
+
+                    // check status
+                    count1 = database.GetWorkCount(CacheDatabase.Collection.CachedBacklog);
+                    count2 = database.GetWorkCount(CacheDatabase.Collection.CachedCrawled);
+                    count3 = database.GetWorkCount(CacheDatabase.Collection.DumpedBacklog);
+                    Assert.Equal(generateCount, count1);
+                    Assert.Equal(generateCount, count2);
+                    Assert.Equal(0, count3);
+
+                    // check performance
+                    var max = Math.Max(time1, Math.Max(time2, time3));
+                    Assert.True(totaltime < time1 + time2);
                 });
-           
+
 
         void MakeEnvironment(string dbName,
             Action<CacheDatabase, WorkerConfiguration, WorkManager, int> action,
