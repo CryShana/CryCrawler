@@ -31,7 +31,7 @@ namespace CryCrawler.Worker
         int? hostMaxFileChunkSize = null;
         CancellationTokenSource workCancelSource;
 
-        // file transfer variables
+        // file transfer variables       
         Work transferWork = null;
         bool transferringFile = false;
         string transferringFilePath = null;
@@ -42,7 +42,7 @@ namespace CryCrawler.Worker
 
         // MAIN VARIABLES
         bool isFIFO = false;
-        readonly Timer dumpTimer;
+        readonly Thread dumpThread;
         readonly Timer resultTimer;
         readonly Timer statusTimer;
         readonly CacheDatabase database;
@@ -135,9 +135,8 @@ namespace CryCrawler.Worker
                 ConnectedToHost = false;
 
                 // autosaving/dumping only on localsources - in hostmode, host manages everything
-                dumpTimer = new Timer(TimeSpan.FromSeconds(config.AutoSaveIntervalSeconds).TotalMilliseconds);
-                dumpTimer.Elapsed += TemporaryDump;
-                dumpTimer.Start();
+                dumpThread = new Thread(TemporaryDump) { IsBackground = true };
+                dumpThread.Start();
 
                 // use local Urls and Dashboard provided URLs
                 Logger.Log($"Using local Url source");
@@ -250,7 +249,7 @@ namespace CryCrawler.Worker
                 }
                 // TODO: better handle this
                 else if (!database.Disposing) throw new DatabaseErrorException("Failed to upsert crawled work to database!");
-                
+
             }
             catch (Exception)
             {
@@ -612,9 +611,10 @@ namespace CryCrawler.Worker
             return true;
         }
 
+        bool disposing = false;
         public void Dispose()
         {
-            dumpTimer?.Stop();
+            disposing = true;
             statusTimer?.Stop();
             resultTimer?.Stop();
             workCancelSource?.Cancel();
@@ -660,6 +660,7 @@ namespace CryCrawler.Worker
 
             if (useTemporaryCollection)
             {
+                Logger.Log("Starting dump to temporary cache...");
                 if (database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklogBackupTemp))
                 {
                     Logger.Log($"Dumped {inserted} backlog items to temporary cache", Logger.LogSeverity.Debug);
@@ -1103,32 +1104,37 @@ namespace CryCrawler.Worker
             return false;
         }
         #endregion
-
-
-        bool dumping = false;
-        long lastworkcount = 0;
+   
 
         /// <summary>
         /// Dump backlog to backup cache
         /// </summary>
-        void TemporaryDump(object sender, System.Timers.ElapsedEventArgs e)
+        void TemporaryDump()
         {
-            if (dumping) return;
-            dumping = true;
+            bool dumping = false;
+            var waitTime = (int)TimeSpan.FromSeconds(config.AutoSaveIntervalSeconds).TotalMilliseconds;
 
-            try
+            while (!disposing)
             {
-                if (Backlog.Count == 0) return;
+                Thread.Sleep(waitTime);
 
-                DumpMemoryToCache(true);
-            }
-            catch (Exception ex)
-            {
-                Logger.Log("Failed to dump to backup cache! " + ex.GetDetailedMessage(), Logger.LogSeverity.Warning);
-            }
-            finally
-            {
-                dumping = false;
+                if (dumping) continue;
+                dumping = true;
+
+                try
+                {
+                    if (Backlog.Count == 0) return;
+
+                    DumpMemoryToCache(true);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log("Failed to dump to backup cache! " + ex.GetDetailedMessage(), Logger.LogSeverity.Warning);
+                }
+                finally
+                {
+                    dumping = false;
+                }
             }
         }
 
