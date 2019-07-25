@@ -17,7 +17,16 @@ namespace CryCrawler
         const string BacklogName = "backlog";
         const string CrawledName = "crawled";
         readonly string filename = DefaultFilename;
-        readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
+
+        // semaphores per collection
+        readonly Dictionary<Collection, SemaphoreSlim> semaphores =
+            new Dictionary<Collection, SemaphoreSlim>()
+            {
+                { Collection.CachedCrawled, new SemaphoreSlim(1) },
+                { Collection.CachedBacklog, new SemaphoreSlim(1) },
+                { Collection.DumpedBacklog, new SemaphoreSlim(1) }
+            };
+
         readonly Dictionary<string, Work> cachedWorks = new Dictionary<string, Work>();
 
         public bool Disposing { get; private set; }
@@ -45,7 +54,7 @@ namespace CryCrawler
         /// <returns>Whether the operation was successful or not</returns>
         public bool Insert(Work w, Collection collection = Collection.CachedBacklog)
         {
-            semaphore.Wait();
+            semaphores[collection].Wait();
             try
             {
                 GetCollection(collection).Insert(w);
@@ -59,7 +68,7 @@ namespace CryCrawler
             }
             finally
             {
-                semaphore.Release();
+                semaphores[collection].Release();
             }
         }
 
@@ -102,7 +111,7 @@ namespace CryCrawler
                     var cnt = maxItems < space ? maxItems : space;
                     var split_works = works.GetRange(offset, cnt); // FIX: stack overflow error?
 
-                    if (InsertBulk(split_works, cnt, out int ins))
+                    if (InsertBulk(split_works, cnt, out int ins, collection))
                     {
                         inserted += ins;
                         offset += ins;
@@ -114,7 +123,7 @@ namespace CryCrawler
             else
             {
                 // Do normal bulk insert
-                semaphore.Wait();
+                semaphores[collection].Wait();
                 try
                 {
                     GetCollection(collection).InsertBulk(ws, count);
@@ -129,7 +138,7 @@ namespace CryCrawler
                 }
                 finally
                 {
-                    semaphore.Release();
+                    semaphores[collection].Release();
                 }
             }
         }
@@ -142,7 +151,7 @@ namespace CryCrawler
         /// <returns>Whether the operation was successful or not</returns>
         public bool Upsert(Work w, out bool wasInserted, Collection collection = Collection.CachedBacklog)
         {
-            semaphore.Wait();
+            semaphores[collection].Wait();
             try
             {
                 var col = GetCollection(collection);
@@ -172,7 +181,7 @@ namespace CryCrawler
             }
             finally
             {
-                semaphore.Release();
+                semaphores[collection].Release();
             }
         }
 
@@ -198,7 +207,7 @@ namespace CryCrawler
                 return false;
             }
 
-            semaphore.Wait();
+            semaphores[collection].Wait();
             try
             {
                 var col = GetCollection(collection);
@@ -225,7 +234,7 @@ namespace CryCrawler
             }
             finally
             {
-                semaphore.Release();
+                semaphores[collection].Release();
             }
         }
 
@@ -244,7 +253,7 @@ namespace CryCrawler
                 return false;
             }
 
-            semaphore.Wait();
+            semaphores[collection].Wait();
             try
             {
                 work = getWork(url, collection);
@@ -261,7 +270,7 @@ namespace CryCrawler
             }
             finally
             {
-                semaphore.Release();
+                semaphores[collection].Release();
             }
         }
 
@@ -272,7 +281,7 @@ namespace CryCrawler
         /// <returns>Number of cached works</returns>
         public long GetWorkCount(Collection collection = Collection.CachedBacklog)
         {
-            semaphore.Wait();
+            semaphores[collection].Wait();
             try
             {
                 return GetCollection(collection).LongCount();
@@ -285,7 +294,7 @@ namespace CryCrawler
             }
             finally
             {
-                semaphore.Release();
+                semaphores[collection].Release();
             }
         }
 
@@ -298,7 +307,7 @@ namespace CryCrawler
         /// <returns>Whether work was found or not</returns>
         public bool FindWorks(out IEnumerable<Work> works, Query query, Collection collection = Collection.CachedCrawled)
         {
-            semaphore.Wait();
+            semaphores[collection].Wait();
             try
             {
                 works = GetCollection(collection).Find(query);
@@ -315,7 +324,7 @@ namespace CryCrawler
             }
             finally
             {
-                semaphore.Release();
+                semaphores[collection].Release();
             }
         }
 
@@ -328,7 +337,7 @@ namespace CryCrawler
         /// <returns>Whether work was found or not</returns>
         public bool FindWork(out Work work, Query query, Collection collection = Collection.CachedCrawled)
         {
-            semaphore.Wait();
+            semaphores[collection].Wait();
             try
             {
                 work = GetCollection(collection).FindOne(query);
@@ -345,7 +354,7 @@ namespace CryCrawler
             }
             finally
             {
-                semaphore.Release();
+                semaphores[collection].Release();
             }
         }
 
@@ -358,7 +367,7 @@ namespace CryCrawler
         /// <returns>Whether operation was successful or not</returns>
         public bool DeleteWorks(out int deletedCount, Query query, Collection collection = Collection.CachedCrawled)
         {
-            semaphore.Wait();
+            semaphores[collection].Wait();
             try
             {
                 deletedCount = GetCollection(collection).Delete(query);
@@ -377,7 +386,7 @@ namespace CryCrawler
             }
             finally
             {
-                semaphore.Release();
+                semaphores[collection].Release();
             }
         }
 
@@ -388,7 +397,7 @@ namespace CryCrawler
         {
             if (!File.Exists(filename)) return;
 
-            semaphore.Wait();
+            foreach (var s in semaphores) s.Value.Wait();
             try
             {
                 Delete();
@@ -399,7 +408,7 @@ namespace CryCrawler
             }
             finally
             {
-                semaphore.Release();
+                foreach (var s in semaphores) s.Value.Release();
             }
         }
 
@@ -433,9 +442,17 @@ namespace CryCrawler
         /// </summary>
         public void DropCollection(Collection collection)
         {
-            if (collection == Collection.CachedCrawled) cachedWorks.Clear();
+            semaphores[collection].Wait();
+            try
+            {
+                if (collection == Collection.CachedCrawled) cachedWorks.Clear();
 
-            database.DropCollection(GetCollection(collection).Name);
+                database.DropCollection(GetCollection(collection).Name);
+            }
+            finally
+            {
+                semaphores[collection].Release();
+            }
         }
 
         private Work getWork(string url, Collection collection)
