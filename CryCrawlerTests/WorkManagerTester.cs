@@ -1,13 +1,12 @@
 using Xunit;
+using LiteDB;
 using System;
 using CryCrawler;
+using System.Linq;
 using CryCrawler.Worker;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using LiteDB;
-using System.Collections;
-using System.Linq;
 
 namespace CryCrawlerTests
 {
