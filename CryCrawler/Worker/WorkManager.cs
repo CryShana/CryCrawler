@@ -41,6 +41,7 @@ namespace CryCrawler.Worker
 
         // MAIN VARIABLES
         bool isFIFO = false;
+        readonly Timer dumpTimer;
         readonly Timer resultTimer;
         readonly Timer statusTimer;
         readonly CacheDatabase database;
@@ -76,6 +77,10 @@ namespace CryCrawler.Worker
             // depth-search = Stack (LIFO), breadth-search = Queue (FIFO)
             isFIFO = !config.DepthSearch;
             Backlog = new ConcurrentQueueOrStack<Work, string>(!isFIFO, t => t.Key);
+
+            dumpTimer = new Timer(TimeSpan.FromSeconds(30).TotalMilliseconds);
+            dumpTimer.Elapsed += TemporaryDump;
+            dumpTimer.Start();
 
             if (config.HostEndpoint.UseHost)
             {
@@ -135,9 +140,9 @@ namespace CryCrawler.Worker
                 // use local Urls and Dashboard provided URLs
                 Logger.Log($"Using local Url source");
 
+                #region Attempt to load backlog from 3 different dumps
                 // load dumped 
-                if (database.GetWorks(out List<Work> dumped, -1, false, false, Collection.DumpedBacklog) &&
-                    dumped != null && dumped.Count > 0)
+                if (database.GetWorks(out List<Work> dumped, -1, false, false, Collection.DumpedBacklog) && dumped != null && dumped.Count > 0)
                 {
                     // add to backlog
                     Backlog.AddItems(dumped);
@@ -145,9 +150,34 @@ namespace CryCrawler.Worker
 
                     Logger.Log($"Loaded {dumped.Count} backlog items from cache.");
                 }
+                else if (database.GetWorks(out dumped, -1, false, false, Collection.DumpedBacklogBackup) && dumped != null && dumped.Count > 0)
+                {
+                    // add to backlog
+                    Backlog.AddItems(dumped);
+                    database.DropCollection(Collection.DumpedBacklogBackup);
 
-                // load all local Urls (only if not yet crawled and dumped backlog items were loaded to continue work)
-                ReloadUrlSource();
+                    Logger.Log($"Loaded {dumped.Count} backlog items from backup cache.");
+                }
+                else if (database.GetWorks(out dumped, -1, false, false, Collection.DumpedBacklogBackupTemp) && dumped != null && dumped.Count > 0)
+                {
+                    // add to backlog
+                    Backlog.AddItems(dumped);
+                    database.DropCollection(Collection.DumpedBacklogBackupTemp);
+
+                    Logger.Log($"Loaded {dumped.Count} backlog items from temporary cache.");
+                }
+                #endregion
+
+                // ONLY LOAD URLs IF DUMP HASN'T LOADED ANYTHING
+                if (dumped.Count == 0)
+                {
+                    // load all local Urls (only if not yet crawled and dumped backlog items were loaded to continue work)
+                    ReloadUrlSource();
+                }
+                else
+                {
+                    Logger.Log("Ignoring seed Urls because existing items were loaded from cache.", Logger.LogSeverity.Debug);
+                }
 
                 // load cache stats
                 CachedWorkCount = database.GetWorkCount(Collection.CachedBacklog);
@@ -216,11 +246,11 @@ namespace CryCrawler.Worker
                 {
                     if (wasIns) CachedCrawledWorkCount++;
                 }
-
                 // TODO: better handle this
                 else if (!database.Disposing) throw new DatabaseErrorException("Failed to upsert crawled work to database!");
+                
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 throw;
             }
@@ -582,6 +612,9 @@ namespace CryCrawler.Worker
 
         public void Dispose()
         {
+            dumpTimer.Stop();
+            statusTimer?.Stop();
+            resultTimer?.Stop();
             workCancelSource?.Cancel();
 
             // dump all work if working locally - if working via Host, delete cache
@@ -616,15 +649,29 @@ namespace CryCrawler.Worker
         /// <summary>
         /// Dump memory items to backlog cache
         /// </summary>
-        void DumpMemoryToCache()
+        void DumpMemoryToCache(bool useTemporaryCollection = false)
         {
             var blist = Backlog.ToList();
 
             // set all Ids to 0
-            foreach (var w in blist) w.Id = 0;    
+            foreach (var w in blist) w.Id = 0;
 
-            database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklog);
-            Logger.Log($"Dumped {inserted} backlog items to cache");
+            if (useTemporaryCollection)
+            {
+                if (database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklogBackupTemp))
+                {
+                    Logger.Log($"Dumped {inserted} backlog items to temporary cache", Logger.LogSeverity.Debug);
+
+                    // transfer to backup
+                    database.TransferTemporaryDumpedFilesToBackup();
+                    Logger.Log($"Copied over to backup cache.", Logger.LogSeverity.Debug);
+                }
+            }
+            else
+            {
+                database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklog);
+                Logger.Log($"Dumped {inserted} backlog items to cache");
+            }
         }
 
         void NetworkManager_MessageReceived(NetworkMessage w, NetworkMessageHandler<NetworkMessage> msgHandler)
@@ -1030,6 +1077,34 @@ namespace CryCrawler.Worker
             return false;
         }
         #endregion
+
+
+        bool dumping = false;
+        long lastworkcount = 0;
+
+        /// <summary>
+        /// Dump backlog to backup cache
+        /// </summary>
+        void TemporaryDump(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (dumping) return;
+            dumping = true;
+
+            try
+            {
+                if (Backlog.Count == 0) return;
+
+                DumpMemoryToCache(true);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("Failed to dump to backup cache! " + ex.GetDetailedMessage(), Logger.LogSeverity.Warning);
+            }
+            finally
+            {
+                dumping = false;
+            }
+        }
 
         public class DomainFailInfo
         {
