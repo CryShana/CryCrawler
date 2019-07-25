@@ -163,9 +163,14 @@ namespace CryCrawler
             {
                 var col = GetCollection(collection);
                 var work = getWork(w.Url, collection);
+
                 if (work == null)
                 {
                     // insert work
+
+                    // set Id to 0, otherwise we might have duplicate Id problems
+                    w.Id = 0;
+
                     wasInserted = true;
                     col.Insert(w);
                     return true;
@@ -183,7 +188,7 @@ namespace CryCrawler
                 wasInserted = false;
 
                 if (Disposing) return false;
-                Logger.Log("Failed to upsert item to database! " + ex.Message, Logger.LogSeverity.Error);
+                Logger.Log("Failed to upsert item to database! " + ex.GetDetailedMessage(), Logger.LogSeverity.Error);
                 return false;
             }
             finally
@@ -521,10 +526,17 @@ namespace CryCrawler
                 var bcol = GetCollection(Collection.DumpedBacklogBackup);
                 var tcol = GetCollection(Collection.DumpedBacklogBackupTemp);
 
+                // temporary collection name to drop it
+                const string tempname = "dropping";
+
+                // check if it already exists (maybe from previous session and drop that one)
+                if (database.CollectionExists(tempname)) database.DropCollection(tempname);
+
                 // rename backup collection and drop it later 
                 // (because if we drop it now, there will be a time delay)
                 // (LiteDB does something in the background either when dropping it or preparing collection)
-                const string tempname = "dropping";
+
+                // rename it
                 database.RenameCollection(bcol.Name, tempname);
 
                 // rename temporary collection to backup collection

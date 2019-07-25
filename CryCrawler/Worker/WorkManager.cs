@@ -78,10 +78,6 @@ namespace CryCrawler.Worker
             isFIFO = !config.DepthSearch;
             Backlog = new ConcurrentQueueOrStack<Work, string>(!isFIFO, t => t.Key);
 
-            dumpTimer = new Timer(TimeSpan.FromSeconds(30).TotalMilliseconds);
-            dumpTimer.Elapsed += TemporaryDump;
-            dumpTimer.Start();
-
             if (config.HostEndpoint.UseHost)
             {
                 // HOST MODE
@@ -136,6 +132,11 @@ namespace CryCrawler.Worker
                 // LOCAL MODE
                 HostMode = false;
                 ConnectedToHost = false;
+
+                // autosaving/dumping only on localsources - in hostmode, host manages everything
+                dumpTimer = new Timer(TimeSpan.FromSeconds(config.AutoSaveIntervalSeconds).TotalMilliseconds);
+                dumpTimer.Elapsed += TemporaryDump;
+                dumpTimer.Start();
 
                 // use local Urls and Dashboard provided URLs
                 Logger.Log($"Using local Url source");
@@ -250,7 +251,7 @@ namespace CryCrawler.Worker
                 else if (!database.Disposing) throw new DatabaseErrorException("Failed to upsert crawled work to database!");
                 
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 throw;
             }
