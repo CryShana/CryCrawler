@@ -263,7 +263,7 @@ namespace CryCrawler.Host
                     if (client.AssignedUrl != null)
                     {
                         var works = (object[])message.Data;
-                        Logger.Log($"Retrieved {works.Length} results from client '{client.Id}'", Logger.LogSeverity.Debug);
+                        Logger.Log($"({client.Id}) - Retrieved {works.Length} results", Logger.LogSeverity.Debug);
 
                         // only add to backlog if not yet crawled
                         foreach (var url in works)
@@ -293,7 +293,7 @@ namespace CryCrawler.Host
                     if (client.AssignedUrl != null)
                     {
                         var works = (object[])message.Data;
-                        Logger.Log($"Retrieved {works.Length} cached items from client '{client.Id}'", Logger.LogSeverity.Debug);
+                        Logger.Log($"({client.Id}) - Retrieved {works.Length} cached crawled items", Logger.LogSeverity.Debug);
 
                         // only add to crawled if it doesn't exist yet
                         foreach (var url in works)
@@ -320,7 +320,7 @@ namespace CryCrawler.Host
                         var transferInfo = ((Dictionary<object, object>)message.Data)
                             .Deserialize<FileTransferInfo>();
 
-                        path = TranslateWorkerFilePathToHost(transferInfo.Location, transferInfo.Size);
+                        path = TranslateWorkerFilePathToHost(transferInfo.Location, transferInfo.Size, client);
 
                         if (client.TransferringFile)
                         {

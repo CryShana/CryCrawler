@@ -660,7 +660,7 @@ namespace CryCrawler.Worker
 
             if (useTemporaryCollection)
             {
-                Logger.Log("Starting dump to temporary cache...");
+                Logger.Log("Starting dump to temporary cache...", Logger.LogSeverity.Warning);
                 if (database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklogBackupTemp))
                 {
                     Logger.Log($"Dumped {inserted} backlog items to temporary cache", Logger.LogSeverity.Debug);
@@ -1123,7 +1123,7 @@ namespace CryCrawler.Worker
 
                 try
                 {
-                    if (Backlog.Count == 0) return;
+                    if (Backlog.Count == 0) continue;
 
                     DumpMemoryToCache(true);
                 }
