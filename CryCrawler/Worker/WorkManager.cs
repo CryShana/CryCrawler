@@ -669,7 +669,6 @@ namespace CryCrawler.Worker
 
                 if (useTemporaryCollection)
                 {
-                    Logger.Log("------- Starting dump to temporary cache... -------", Logger.LogSeverity.Warning);
                     if (database.InsertBulk(blist, blist.Count, out int inserted, Collection.DumpedBacklogBackupTemp))
                     {
                         Logger.Log($"Dumped {inserted} backlog items to temporary cache", Logger.LogSeverity.Debug);
@@ -796,10 +795,6 @@ namespace CryCrawler.Worker
                                     Size = transferringFileSize,
                                     Location = availableWork.DownloadLocation
                                 }));
-
-                            if (availableWork.DownloadLocation.Contains('/') || availableWork.DownloadLocation.Contains('\\'))
-                                Logger.Log($"FT Chosen location: {availableWork.DownloadLocation} (Url: {availableWork.Url})",
-                                    Logger.LogSeverity.Warning);
                         }
                         catch (Exception ex)
                         {
