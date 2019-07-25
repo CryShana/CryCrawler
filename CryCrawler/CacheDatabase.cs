@@ -32,8 +32,8 @@ namespace CryCrawler
         {
             // here is the problem
             this.filename = filename;
-            database = new LiteDatabase(filename);
-
+            database = new LiteDatabase($"Filename={filename};Mode=Exclusive");
+            
             PrepareCollections();
         }
 
