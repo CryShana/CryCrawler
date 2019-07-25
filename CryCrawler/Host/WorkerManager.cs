@@ -154,7 +154,13 @@ namespace CryCrawler.Host
                         ClientLeft?.Invoke(wc, null);
 
                         Logger.Log($"Client disconnected from {wc.RemoteEndpoint}! ({wc.Id})");
-                        Logger.Log(b.GetDetailedMessage(), Logger.LogSeverity.Debug);
+
+                        // ignore certain common errors
+                        if (!b.Message.Contains("Cannot access a disposed object") &&
+                            !b.Message.Contains("interrupted by a call to WSACancelBlockingCall"))
+                        {
+                            Logger.Log(b.GetDetailedMessage(), Logger.LogSeverity.Debug);
+                        }                      
                     }
                 };
 
@@ -651,18 +657,16 @@ namespace CryCrawler.Host
                     if (c == null) throw new NullReferenceException("No worker picked!");
 
                     // do something with work
-                    Logger.Log($"Assigning work to ({c.Id}) - '{url}'");
+                    Logger.Log($"({c.Id}) - Assigning work - {url}");
 
                     // send it work
                     c.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Work, url));
-
                     c.AssignedUrl = url;
-
                     failedUrl = null;
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log("Failed to assign work! " + ex.Message, Logger.LogSeverity.Warning);
+                    Logger.Log($"Failed to assign work! " + ex.Message, Logger.LogSeverity.Warning);
                     failedUrl = url;
                 }
 
