@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
-using System.Net;
 
 namespace CryCrawler
 {
@@ -13,10 +12,15 @@ namespace CryCrawler
     {
         const int TimerInterval = 50;
 
-        static bool IsActive = false;
         public static bool DebugMode = false;
-        static readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
         static readonly ConcurrentQueue<LogMessage> QueuedLogs = new ConcurrentQueue<LogMessage>();
+
+        static Logger()
+        {
+            var timer = new System.Timers.Timer(TimerInterval);
+            timer.Elapsed += TimerElapsed;
+            timer.Start();
+        }
 
         public static async Task Log(string message, LogSeverity severity = LogSeverity.Information)
         {
@@ -47,20 +51,6 @@ namespace CryCrawler
 
             // enqueue log
             QueuedLogs.Enqueue(new LogMessage(message, severity, callername));
-
-            // check if logger active
-            if (!IsActive)
-            {
-                // if logger not active, start the timer and activate it
-                await semaphore.WaitAsync();
-
-                var timer = new System.Timers.Timer(TimerInterval);
-                timer.Elapsed += TimerElapsed;
-                timer.Start();
-                IsActive = true;
-
-                semaphore.Release();
-            }
         }
 
         private static void TimerElapsed(object sender, ElapsedEventArgs e)

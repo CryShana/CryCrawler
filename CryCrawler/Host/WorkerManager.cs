@@ -443,6 +443,9 @@ namespace CryCrawler.Host
                                         Path.Combine(WorkerConfig.DownloadsPath, w.DownloadLocation),
                                         client.TransferringFileSize));
 
+                                    // mark as done
+                                    client.TransferringFile = false;
+
                                     client.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileTransfer, new FileTransferInfo
                                     {
                                         Url = w.Url,
@@ -453,14 +456,6 @@ namespace CryCrawler.Host
                                 catch
                                 {
                                     // client.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.FileReject));
-
-                                    // make sure file is deleted if it exists!
-                                    if (client.TransferringFileLocationHost != null &&
-                                        File.Exists(client.TransferringFileLocationHost))
-                                    {
-                                        Logger.Log($"({client.Id}) Deleted canceled file due to chunk transfer completion exception.", Logger.LogSeverity.Debug);
-                                        File.Delete(client.TransferringFileLocationHost);
-                                    }
                                 }
                                 finally
                                 {
