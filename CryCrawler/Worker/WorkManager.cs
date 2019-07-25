@@ -613,7 +613,7 @@ namespace CryCrawler.Worker
 
         public void Dispose()
         {
-            dumpTimer.Stop();
+            dumpTimer?.Stop();
             statusTimer?.Stop();
             resultTimer?.Stop();
             workCancelSource?.Cancel();
