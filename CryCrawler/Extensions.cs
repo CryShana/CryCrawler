@@ -301,7 +301,7 @@ namespace CryCrawler
             }
 
             // copy over
-            File.Copy(from, newto);
+            File.Copy(from, newto, true);
 
             return newto;
         }

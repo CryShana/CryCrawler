@@ -614,27 +614,7 @@ namespace CryCrawler.Host
                 workerPath = Path.GetFileName(workerPath);
             }
 
-            // find unique path that doesn't exist yet
-            int count = 0;
-            string path;
-            do
-            {
-                if (count == 0)
-                {
-                    // generate original path
-                    path = Path.Combine(Directory.GetCurrentDirectory(), WorkerConfig.DownloadsPath, workerPath);
-                }
-                else
-                {
-                    // generate path with counter
-                    var fname = Path.GetFileNameWithoutExtension(workerPath);
-                    var ext = Path.GetExtension(workerPath);
-                    path = Path.Combine(Directory.GetCurrentDirectory(), WorkerConfig.DownloadsPath, fname + $" ({count})" + ext);
-                }
-
-                count++;
-
-            } while (File.Exists(path));
+            var path = Path.Combine(Directory.GetCurrentDirectory(), WorkerConfig.DownloadsPath, workerPath);
 
             return path;
         }
