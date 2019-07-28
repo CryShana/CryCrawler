@@ -5,12 +5,37 @@ using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 namespace CryCrawler
 {
     public static class Extensions
     {
+        static List<char> ValidPathChars = null;
+
+        static Extensions()
+        {
+            ValidPathChars = new List<char>();
+
+            // add all 10 possible numbers
+            for (byte i = 48; i <= 57; i++) ValidPathChars.Add((char)i);
+            // add all 26 possible uppercase letters
+            for (byte i = 65; i <= 90; i++) ValidPathChars.Add((char)i);
+            // add all 26 possible lowercase letters
+            for (byte i = 97; i <= 122; i++) ValidPathChars.Add((char)i);
+        }
+
+        public static string GenerateRandomPathSafeString(int length)
+        {
+            string filename = "";
+            int count = ValidPathChars.Count;
+
+            for (int i = 0; i < length; i++) filename += ValidPathChars[RandomNumberGenerator.GetInt32(0, count)];
+
+            return filename;
+        }
+
         /// <summary>
         /// Combine all messages from inner exceptions
         /// </summary>
@@ -226,6 +251,69 @@ namespace CryCrawler
             }
 
             return path;
+        }
+
+        public static string GetTempFile(string directoryPath)
+        {
+            if (Directory.Exists(directoryPath) == false) Directory.CreateDirectory(directoryPath);
+
+            string path;
+
+            do path = Path.Combine(directoryPath, GenerateRandomPathSafeString(12));
+            while (File.Exists(path));
+
+            File.Create(path).Close();
+
+            return path;
+        }
+
+        public static string CopyToAndGetPath(string from, string to)
+        {
+            if (File.Exists(from) == false) throw new InvalidOperationException("File to copy from does not exist!");
+
+            var toname = Path.GetFileNameWithoutExtension(to);
+            var todir = Path.GetDirectoryName(to);
+            var toext = Path.GetExtension(to);
+
+            var count = 1;
+            var newto = to;
+
+            // if destination file exists, check if duplicate
+            while (File.Exists(newto))
+            {
+                var length1 = new FileInfo(from).Length;
+                var length2 = new FileInfo(newto).Length;
+
+                // compare file lengths - if not equal, they are not duplicates
+                if (length1 == length2)
+                {
+                    // continue checking if duplicate by calculating MD5
+                    var md5_1 = GetHash(from);
+                    var md5_2 = GetHash(newto);
+
+                    // files are duplicates - skipping copying - returning "to" path
+                    if (md5_1 == md5_2) return newto;
+                }
+
+                // files are not duplicates, get new filename
+                newto = Path.Combine(todir, toname + $" ({count})" + toext);
+                count++;
+            }
+
+            // copy over
+            File.Copy(from, newto);
+
+            return newto;
+        }
+
+        public static string GetHash(string file)
+        {
+            using (FileStream stream = File.OpenRead(file))
+            {
+                var sha = new SHA256Managed();  // use MD5 for faster performance
+                byte[] checksum = sha.ComputeHash(stream);
+                return BitConverter.ToString(checksum).Replace("-", string.Empty);
+            }
         }
     }
 }
