@@ -625,16 +625,6 @@ namespace CryCrawler.Host
 
                 count++;
 
-                if (fileSize != null)
-                {
-                    if (File.Exists(path) && new FileInfo(path).Length == fileSize)
-                    {
-                        // files are the same
-                        Logger.Log($"({(clientinfo?.Id.ToString() ?? "-")}) - Overriding file '{Path.GetFileName(path)}'", Logger.LogSeverity.Debug);
-                        break;
-                    }
-                }
-
             } while (File.Exists(path));
 
             return path;
