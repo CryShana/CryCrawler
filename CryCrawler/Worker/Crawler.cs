@@ -34,6 +34,8 @@ namespace CryCrawler.Worker
         private CancellationTokenSource cancelSource;
         private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
 
+        const string TemporaryFileTransferDirectory = "temp";
+
         /// <summary>
         /// Crawler uses WorkManager to get URLs to crawl through.
         /// </summary>
@@ -204,7 +206,7 @@ namespace CryCrawler.Worker
 
                     // don't download file if not acceptable
                     if (IsAcceptable(filename, mediaType) == false ||
-                        cancelSource.IsCancellationRequested) continue;                    
+                        cancelSource.IsCancellationRequested) continue;
 
                     // check file size limits
                     var size = response.Content.Headers.ContentLength;
@@ -219,34 +221,25 @@ namespace CryCrawler.Worker
                     // construct path
                     var directory = GetDirectoryPath(url, true);
                     var path = Path.Combine(directory, filename);
+                    var temp = Extensions.GetTempFile(TemporaryFileTransferDirectory);
 
-                    // check if file exists
-                    if (File.Exists(path))
+                    try
                     {
-                        // if files have same size, they are most likely the same file - overwrite it
-                        var currentSize = new FileInfo(path).Length;
+                        // download content to temporary file
+                        using (var fstream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
+                            await response.Content.CopyToAsync(fstream);
 
-                        if (currentSize != size)
-                        {
-                            // otherwise rename it
-                            var count = 1;
-                            var fn = "";
-                            do
-                            {
-                                fn = $"{Path.GetFileNameWithoutExtension(filename)} ({count}){Path.GetExtension(filename)}";
-                                count++;
-
-                            } while (File.Exists(Path.Combine(directory, fn)) && count < int.MaxValue);
-
-                            path = Path.Combine(directory, fn);
-                        }
+                        // now compare temp file contents to destination file - check for duplicates using MD5 hash comparing
+                        path = Extensions.CopyToAndGetPath(temp, path);
                     }
-
-                    if (cancelSource.IsCancellationRequested) break;
-
-                    // download content to file
-                    using (var fstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
-                        await response.Content.CopyToAsync(fstream);
+                    catch
+                    {
+                        throw;
+                    }
+                    finally
+                    {
+                        File.Delete(temp);
+                    }
 
                     // log the download
                     RecentDownloads.Add(new DownloadedWork(path, response.Content.Headers.ContentLength.Value));

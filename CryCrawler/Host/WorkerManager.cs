@@ -455,6 +455,9 @@ namespace CryCrawler.Host
                                         client.TransferringFileStream.Name, 
                                         client.TransferringFileLocationHost);
 
+                                    // delete old temporary file
+                                    File.Delete(client.TransferringFileStream.Name);
+
                                     // transfer completed
                                     Logger.Log($"({client.Id}) - File transferred ({Path.GetFileName(spath)}).",
                                         Logger.LogSeverity.Debug);
@@ -776,7 +779,7 @@ namespace CryCrawler.Host
                 var trf = TransferringFile;
                 var size = TransferringFileSize;
                 var sizec = TransferringFileSizeCompleted;
-                var path = TransferringFileStream.Name;
+                string path = TransferringFileStream?.Name;
 
                 try
                 {
