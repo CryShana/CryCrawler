@@ -272,7 +272,9 @@ namespace CryCrawler.Host
                     if (client.AssignedUrl != null)
                     {
                         var works = (object[])message.Data;
-                        Logger.Log($"({client.Id}) - Retrieved {works.Length} results", Logger.LogSeverity.Debug);
+                        Logger.Log($"({client.Id}) - Retrieved {works.Length} results...", Logger.LogSeverity.Debug);
+
+                        var added = 0;
 
                         // only add to backlog if not yet crawled
                         foreach (var url in works)
@@ -285,9 +287,12 @@ namespace CryCrawler.Host
                             // do not add if already in backlog
                             if (manager.IsUrlInBacklog(u)) continue;
 
-                            // ignore crawled checking because GetWork does that anyway
+                            // add to backlog
                             manager.AddToBacklog(u);
+                            added++;
                         }
+
+                        Logger.Log($"({client.Id}) - Added {added} items to backlog", Logger.LogSeverity.Debug);
 
                         // unassign work
                         client.AssignedUrl = null;
@@ -304,11 +309,12 @@ namespace CryCrawler.Host
                     // retrieve crawled items from worker
 
                     #region Handle Receieved Crawled Works
+
                     // do not retrieve if work not assigned
                     if (client.AssignedUrl != null)
                     {
                         var works = (object[])message.Data;
-                        Logger.Log($"({client.Id}) - Retrieved {works.Length} cached crawled items", Logger.LogSeverity.Debug);
+                        Logger.Log($"({client.Id}) - Retrieved {works.Length} cached crawled items...", Logger.LogSeverity.Debug);
 
                         // only add to crawled if it doesn't exist yet
                         foreach (var url in works)
