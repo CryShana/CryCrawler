@@ -37,6 +37,8 @@ namespace CryCrawler.Host
         readonly SemaphoreSlim transferSemaphore = new SemaphoreSlim(1);
         public readonly List<WorkerClient> Clients = new List<WorkerClient>();
 
+        const string TemporaryFileTransferDirectory = "temp";
+
         public ConcurrentSlidingBuffer<DownloadedWork> RecentDownloads { get; }
 
         /// <summary>
@@ -337,14 +339,16 @@ namespace CryCrawler.Host
 
                     #region Initiate File Transfer
                     // use semaphore for starting file transfer - we don't want multiple threads creating same file and accessing it
-                    string path = null;
+                    string destination_path = null;
+                    string temp_path = null;
 
                     try
                     {
                         var transferInfo = ((Dictionary<object, object>)message.Data)
                             .Deserialize<FileTransferInfo>();
 
-                        path = TranslateWorkerFilePathToHost(transferInfo.Location, transferInfo.Size, client);
+                        destination_path = TranslateWorkerFilePathToHost(transferInfo.Location, transferInfo.Size, client);
+                        temp_path = Extensions.GetTempFile(TemporaryFileTransferDirectory);
 
                         if (client.TransferringFile)
                         {
@@ -362,13 +366,6 @@ namespace CryCrawler.Host
                                 $"({client.TransferringFileLocation})", Logger.LogSeverity.Debug);
 
                             client.StopTransfer();
-
-                            // delete old file (old code - empty files already handled by StopTransfer())
-                            if (File.Exists(path))
-                            {
-                                Logger.Log($"({client.Id}) Deleted canceled file.", Logger.LogSeverity.Debug);
-                                File.Delete(path);
-                            }
                         }
 
                         transferSemaphore.Wait();
@@ -380,12 +377,13 @@ namespace CryCrawler.Host
                         client.TransferringUrl = transferInfo.Url;
                         client.TransferringFileSize = transferInfo.Size;
                         client.TransferringFileLocation = transferInfo.Location;
-                        client.TransferringFileLocationHost = path;
+                        client.TransferringFileLocationHost = destination_path;
 
                         // create necessary directories and use proper location
-                        Directory.CreateDirectory(Path.GetDirectoryName(path));
+                        Directory.CreateDirectory(Path.GetDirectoryName(destination_path));
 
-                        client.TransferringFileStream = new FileStream(path,
+                        // transfer file to temporary file first and later check MD5 hashes for duplicates
+                        client.TransferringFileStream = new FileStream(temp_path,
                             FileMode.Create, FileAccess.ReadWrite);
 
                         // accept file transfer
@@ -397,10 +395,10 @@ namespace CryCrawler.Host
                         client.StopTransfer();
 
                         // make sure file is deleted
-                        if (path != null && File.Exists(path))
+                        if (temp_path != null && File.Exists(temp_path))
                         {
                             Logger.Log($"({client.Id}) Deleted canceled file due to file transfer exception.", Logger.LogSeverity.Debug);
-                            File.Delete(path);
+                            File.Delete(temp_path);
                         }
 
                         Logger.Log($"({client.Id}) Failed to accept file! " + ex.GetDetailedMessage(), Logger.LogSeverity.Warning);
@@ -449,8 +447,16 @@ namespace CryCrawler.Host
                             {
                                 try
                                 {
+                                    // close file stream as we don't need it anymore
+                                    client.TransferringFileStream.Close();
+
+                                    // attempt to copy file to destination while checking for duplicates
+                                    var spath = Extensions.CopyToAndGetPath(
+                                        client.TransferringFileStream.Name, 
+                                        client.TransferringFileLocationHost);
+
                                     // transfer completed
-                                    Logger.Log($"({client.Id}) - File transferred ({Path.GetFileName(client.TransferringFileLocation)}).",
+                                    Logger.Log($"({client.Id}) - File transferred ({Path.GetFileName(spath)}).",
                                         Logger.LogSeverity.Debug);
 
                                     // create work and upsert it to Crawled
@@ -458,8 +464,7 @@ namespace CryCrawler.Host
                                     {
                                         Transferred = false,
                                         IsDownloaded = true,
-                                        DownloadLocation = Extensions.GetRelativeFilePath(
-                                            client.TransferringFileLocationHost, WorkerConfig)
+                                        DownloadLocation = Extensions.GetRelativeFilePath(spath, WorkerConfig)
                                     };
 
                                     manager.AddToCrawled(w);
@@ -771,7 +776,7 @@ namespace CryCrawler.Host
                 var trf = TransferringFile;
                 var size = TransferringFileSize;
                 var sizec = TransferringFileSizeCompleted;
-                var path = TransferringFileLocationHost;
+                var path = TransferringFileStream.Name;
 
                 try
                 {
