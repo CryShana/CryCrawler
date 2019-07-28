@@ -7,6 +7,7 @@ using CryCrawler.Worker;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Net.WebSockets;
 
 namespace CryCrawlerTests
 {
@@ -603,6 +604,92 @@ namespace CryCrawlerTests
                     Assert.Equal(0, dumptempcount);
                 });
 
+        [Fact]
+        public void UrlContainmentCheckingTest()
+            => MakeEnvironment("testing_wm_urlcontainment",
+                (database, config, wm, memLimit) =>
+                {
+                    var works = new List<Work>();
+
+                    var url1 = "http://testurl.net/test?hello=1";
+                    var url2 = "http://helloworld.com/test";
+                    var url3 = "http://google.com/somestuffhere/";
+
+                    works.Add(new Work(url1));
+                    var wcount = (int)(memLimit * 1.5);
+                    for (int i = 0; i < wcount; i++) works.Add(new Work(url3 + i));
+                    works.Add(new Work(url2));
+
+                    // insert these works to backlog and crawled
+                    foreach (var w in works) wm.AddToBacklog(w);
+                    Assert.Equal(memLimit, wm.Backlog.Count);
+                    Assert.Equal(2 + wcount - memLimit, wm.CachedWorkCount);
+
+                    // test searching performance
+
+                    // should be fastest (in memory)
+                    var sw = Stopwatch.StartNew();
+                    wm.IsUrlInBacklog(works[0].Url);
+                    sw.Stop();
+                    var time1 = sw.ElapsedMilliseconds;
+
+                    // should be 2nd fastest (in memory)
+                    sw = Stopwatch.StartNew();
+                    wm.IsUrlInBacklog(works[memLimit - 1].Url);  
+                    sw.Stop();
+                    var time2 = sw.ElapsedMilliseconds;
+
+                    // should be 3rd fastest (on disk)
+                    sw = Stopwatch.StartNew();
+                    wm.IsUrlInBacklog(works[memLimit + 2].Url);
+                    sw.Stop();
+                    var time3 = sw.ElapsedMilliseconds;
+
+                    // should be 4th fastest (on disk)
+                    sw = Stopwatch.StartNew();
+                    wm.IsUrlInBacklog(works[wcount - 1].Url);  
+                    sw.Stop();
+                    var time4 = sw.ElapsedMilliseconds;
+
+                    // should be slowest
+                    sw = Stopwatch.StartNew();
+                    wm.IsUrlInBacklog("something that doesn't exist");
+                    sw.Stop();
+                    var time5 = sw.ElapsedMilliseconds;
+
+                    Assert.True(time1 - 1 <= time2); // 1ms deviance is tolerated
+                    Assert.True(time2 <= time3); // deviance here is not tolerated (memory < disk read)
+
+                    // when reading from disk for first time, it get's cached
+                    // the following should be faster than the first disk read
+                    Assert.True(time3 + 10 >= time4);  // 10ms deviance is tolerated
+                    Assert.True(time4 + 10 >= time5);
+
+                    // reset Ids
+                    foreach (var w in works) w.Id = 0;
+
+                    database.InsertBulk(works, works.Count, out int insCountC, CacheDatabase.Collection.CachedCrawled);
+
+                    // reset Ids
+                    foreach (var w in works) w.Id = 0;
+
+                    // test upserting for crawled
+                    var count1 = database.GetWorkCount(CacheDatabase.Collection.CachedCrawled);
+
+                    sw = Stopwatch.StartNew();
+                    for (int i = 0; i < 600; i++) wm.AddToCrawled(works[i].Url);
+                    sw.Stop();
+                    var time6 = sw.ElapsedMilliseconds;
+
+                    /*
+                    sw = Stopwatch.StartNew();
+                    for (int i = 0; i < 600; i++) wm.IsUrlCrawled(works[i].Url);
+                    sw.Stop();
+                    var time7 = sw.ElapsedMilliseconds;*/
+
+                    var count2 = database.GetWorkCount(CacheDatabase.Collection.CachedCrawled);
+                    Assert.Equal(count1, count2);
+                }, false, 70000);
 
         void MakeEnvironment(string dbName,
             Action<CacheDatabase, WorkerConfiguration, WorkManager, int> action,

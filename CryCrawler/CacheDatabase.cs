@@ -46,9 +46,12 @@ namespace CryCrawler
 
         public CacheDatabase(string filename)
         {
-            // here is the problem
             this.filename = filename;
-            database = new LiteDatabase($"Filename={filename};Mode=Exclusive;");
+
+            // exclusive mode with NO journaling for best performance 
+            // (no journaling = no double checks, risk of data corruption)
+            // (exclusive mode = no checking of external changes)
+            database = new LiteDatabase($"Filename={filename};Mode=Exclusive;Journal=false;");
 
             PrepareCollections();
         }
@@ -65,6 +68,7 @@ namespace CryCrawler
             try
             {
                 GetCollection(collection).Insert(w);
+
                 return true;
             }
             catch (Exception ex)
@@ -135,6 +139,7 @@ namespace CryCrawler
                 {
                     GetCollection(collection).InsertBulk(ws, count);
                     inserted += count;
+
                     return true;
                 }
                 catch (Exception ex)
@@ -163,7 +168,7 @@ namespace CryCrawler
             {
                 var col = GetCollection(collection);
                 var work = getWork(w.Url, collection);
-
+                
                 if (work == null)
                 {
                     // insert work
@@ -248,6 +253,16 @@ namespace CryCrawler
             {
                 semaphores[collection].Release();
             }
+        }
+
+        /// <summary>
+        /// Checks if URL has already been crawled. This uses inner cache to speed things up.
+        /// </summary>
+        /// <param name="url"></param>
+        /// <returns></returns>
+        public bool IsUrlCrawled(string url)
+        {
+            return GetWork(out _, url, Collection.CachedCrawled);
         }
 
         /// <summary>
