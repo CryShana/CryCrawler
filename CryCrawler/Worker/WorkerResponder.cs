@@ -76,7 +76,8 @@ namespace CryCrawler.Worker
             SeedUrls = crawler.Config.Urls,
             AllFiles = crawler.Config.AcceptAllFiles,
             MaxSize = crawler.Config.MaximumAllowedFileSizekB,
-            MinSize = crawler.Config.MinimumAllowedFileSizekB
+            MinSize = crawler.Config.MinimumAllowedFileSizekB,
+            DontSubfolders = crawler.Config.DontCreateSubfolders
         });
 
         string handleStateUpdate(StateUpdateRequest req)
@@ -151,6 +152,7 @@ namespace CryCrawler.Worker
                 config.WorkerConfig.ScanTargetsMediaTypes = req.ScanTargets;
                 config.WorkerConfig.MaximumAllowedFileSizekB = req.MaxSize;
                 config.WorkerConfig.MinimumAllowedFileSizekB = req.MinSize;
+                config.WorkerConfig.DontCreateSubfolders = req.DontCreateSubfolders;
                 ConfigManager.SaveConfiguration(ConfigManager.LastLoaded);
 
                 // reload seed urls
@@ -186,6 +188,7 @@ namespace CryCrawler.Worker
             public List<string> Blacklist { get; set; }
             public double MaxSize { get; set; }
             public double MinSize { get; set; }
+            public bool DontCreateSubfolders { get; set; }
         }
     }
 }

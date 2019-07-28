@@ -168,6 +168,7 @@ function setStatus(data) {
     if (configNeedsUpdate === true || usingHost === true) {
         // set configuration
         let allfiles = data.AllFiles;
+        let dontsubf = data.DontSubfolders;
         let seedurls = data.SeedUrls.join('\n');
         let whitelist = data.Whitelist.join('\n');
         let blacklist = data.Blacklist.join('\n');
@@ -177,6 +178,7 @@ function setStatus(data) {
         let minsize = data.MinSize;
         let maxsize = data.MaxSize;
 
+        $("#config-dont-subfolders").attr("checked", dontsubf);
         $("#config-accept-files").attr("checked", allfiles);
         $("#config-extensions").val(extensions);
         $("#config-media-types").val(mediaTypes);
@@ -192,6 +194,7 @@ function setStatus(data) {
             $("#config-warning").text("Using host configuration!");
             $("#config-warning").addClass("active");
 
+            $("#config-dont-subfolders").addClass("disabled");
             $("#config-accept-files").addClass("disabled");
             $("#config-extensions").addClass("disabled");
             $("#config-media-types").addClass("disabled");
@@ -309,6 +312,7 @@ function updateConfig(self) {
 
     let btn = $(self);
 
+    let dontsubf = $("#config-dont-subfolders").is(":checked");
     let allfiles = $("#config-accept-files").is(":checked");
     let extensions = $("#config-extensions").val().split(' ');
     let mediaTypes = $("#config-media-types").val().split(' ');
@@ -335,7 +339,8 @@ function updateConfig(self) {
         Whitelist: whitelist,
         Blacklist: blacklist,
         MinSize: minsize,
-        MaxSize: maxsize
+        MaxSize: maxsize,
+        DontCreateSubfolders: dontsubf
 
     }, function (s) {
 
