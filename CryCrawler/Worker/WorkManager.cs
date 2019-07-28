@@ -7,6 +7,7 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -351,7 +352,17 @@ namespace CryCrawler.Worker
                 addingSemaphore.Release();
             }
         }
-        public bool IsUrlCrawled(string url) => database.GetWork(out _, url, Collection.CachedCrawled);
+
+        public bool IsUrlCrawled(string url) => database.IsUrlCrawled(url);
+        public bool IsUrlInBacklog(string url)
+        {
+            // check if url in memory backlog
+            var isInMemory = Backlog.Contains(x => x.Url == url);
+
+            // if any cached backlog items, check cache too
+            if (CachedWorkCount > 0) return isInMemory || database.GetWork(out _, url);
+            else return isInMemory;
+        }
 
         /// <summary>
         /// Attempts to get work from backlog and removes it from work list.
@@ -1117,7 +1128,7 @@ namespace CryCrawler.Worker
             return false;
         }
         #endregion
-   
+
 
         /// <summary>
         /// Dump backlog to backup cache

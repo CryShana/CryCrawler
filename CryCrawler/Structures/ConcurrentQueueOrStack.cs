@@ -79,6 +79,18 @@ namespace CryCrawler.Structures
             }
         }
 
+        public bool Contains(Predicate<T> predicate)
+        {
+            if (queue != null)
+            {
+                return queue.FirstOrDefault(x => predicate(x)) != null;
+            }
+            else
+            {
+                return stack.FirstOrDefault(x => predicate(x)) != null;
+            }
+        }
+
         /// <summary>
         /// Clear collection. This does not clear the cached items!
         /// </summary>

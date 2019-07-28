@@ -14,6 +14,8 @@ using CryCrawler.Structures;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Timer = System.Timers.Timer;
+using System.Diagnostics;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CryCrawler.Host
 {
@@ -161,7 +163,7 @@ namespace CryCrawler.Host
                             !b.Message.Contains("An existing connection was forcibly closed by the remote host"))
                         {
                             Logger.Log(b.GetDetailedMessage(), Logger.LogSeverity.Debug);
-                        }                      
+                        }
                     }
                 };
 
@@ -277,8 +279,14 @@ namespace CryCrawler.Host
                         {
                             var u = (string)url;
 
-                            if (manager.IsUrlCrawled(u) == false)
-                                manager.AddToBacklog(u);
+                            // do not add if already crawled
+                            if (manager.IsUrlCrawled(u)) continue;
+
+                            // do not add if already in backlog
+                            if (manager.IsUrlInBacklog(u)) continue;
+
+                            // ignore crawled checking because GetWork does that anyway
+                            manager.AddToBacklog(u);
                         }
 
                         // unassign work
@@ -307,8 +315,11 @@ namespace CryCrawler.Host
                         {
                             var u = (string)url;
 
-                            if (manager.IsUrlCrawled(u) == false)
-                                manager.AddToCrawled(u);
+                            // do not add if already crawled
+                            // if (manager.IsUrlCrawled(u)) continue;
+                            // Check is not necessary because database upserts it anyway (will update existing ones automatically)
+
+                            manager.AddToCrawled(u);
                         }
                     }
                     #endregion
@@ -479,7 +490,7 @@ namespace CryCrawler.Host
                             client.StopTransfer();
 
                             // make sure file is deleted if it exists!
-                            if (client.TransferringFileLocationHost != null && 
+                            if (client.TransferringFileLocationHost != null &&
                                 File.Exists(client.TransferringFileLocationHost))
                             {
                                 Logger.Log($"({client.Id}) - Deleted canceled file due to chunk transfer exception.", Logger.LogSeverity.Debug);
