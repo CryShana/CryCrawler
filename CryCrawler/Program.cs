@@ -5,7 +5,6 @@ using System.Linq;
 using CryCrawler.Host;
 using CryCrawler.Worker;
 using System.Threading.Tasks;
-using System.Threading;
 
 namespace CryCrawler
 {

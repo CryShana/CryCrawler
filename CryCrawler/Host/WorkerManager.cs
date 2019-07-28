@@ -347,7 +347,9 @@ namespace CryCrawler.Host
                         var transferInfo = ((Dictionary<object, object>)message.Data)
                             .Deserialize<FileTransferInfo>();
 
-                        destination_path = TranslateWorkerFilePathToHost(transferInfo.Location, transferInfo.Size, client);
+                        destination_path = TranslateWorkerFilePathToHost(transferInfo.Location,
+                            transferInfo.Size, client, WorkerConfig.DontCreateSubfolders);
+
                         temp_path = Extensions.GetTempFile(TemporaryFileTransferDirectory);
 
                         if (client.TransferringFile)
@@ -571,6 +573,7 @@ namespace CryCrawler.Host
                 DomainBlacklist = config.DomainBlacklist,
                 DomainWhitelist = config.DomainWhitelist,
                 ScanTargetsMediaTypes = config.ScanTargetsMediaTypes,
+                DontCreateSubfolders = config.DontCreateSubfolders,
                 Urls = config.Urls
             };
 
@@ -601,9 +604,15 @@ namespace CryCrawler.Host
             if (w != null) manager.AddToBacklog(w);
         }
 
-        public string TranslateWorkerFilePathToHost(string workerPath, long? fileSize = null, WorkerClient clientinfo = null)
+        public string TranslateWorkerFilePathToHost(string workerPath, long? fileSize = null, 
+            WorkerClient clientinfo = null, bool dontCreateSubfolders = false)
         {
             // WorkerPath must be relative without the "Downloads" folder
+            if (dontCreateSubfolders && string.IsNullOrEmpty(workerPath) == false)
+            {
+                // file path contains 1 or more subfolders - remove them if "DontCreateSubfolders" is true
+                workerPath = Path.GetFileName(workerPath);
+            }
 
             // find unique path that doesn't exist yet
             int count = 0;
