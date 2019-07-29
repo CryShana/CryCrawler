@@ -745,7 +745,7 @@ namespace CryCrawler.Host
         bool IgnoreError(Exception ex)
         {
             if (
-                (ex.Message.Contains("Cannot access a disposed object") && ex.Message.Contains("NetworkStream")) ||
+                (ex.Message.Contains("Cannot access a disposed object") && (ex.Message.Contains("NetworkStream") || ex.Message.Contains("Object disposed!"))) ||
                 ex.Message.Contains("interrupted by a call to WSACancelBlockingCall") ||
                 ex.Message.Contains("An existing connection was forcibly closed by the remote host"))
                 return true;
