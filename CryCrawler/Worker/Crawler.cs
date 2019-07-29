@@ -145,7 +145,7 @@ namespace CryCrawler.Worker
                             case HttpStatusCode.TooManyRequests:
                             case HttpStatusCode.InternalServerError:
                                 // if no recrawl date set yet, set it into the future
-                                if (w.RecrawlDate == null && w.LastCrawled != null) recrawlDate = DateTime.Now.AddMinutes(5);                  
+                                if (w.RecrawlDate == null && w.LastCrawled != null) recrawlDate = DateTime.Now.AddMinutes(5);
                                 // if recrawl was already set, double it since last time
                                 else
                                 {
@@ -159,7 +159,7 @@ namespace CryCrawler.Worker
                         }
 
                         // if recrawl date was set
-                        if (recrawlDate != null) w.RecrawlDate = recrawlDate;                       
+                        if (recrawlDate != null) w.RecrawlDate = recrawlDate;
 
                         w.Success = false;
 
@@ -168,7 +168,7 @@ namespace CryCrawler.Worker
                     }
 
                     var mediaType = response.Content?.Headers?.ContentType?.MediaType;
-                    if (mediaType == null) continue;                 
+                    if (mediaType == null) continue;
 
                     // Check if media type is set as a scanning target, if yes, scan it for new URLs
                     if (Config.ScanTargetsMediaTypes.Count(x => x == mediaType) > 0)
@@ -184,7 +184,7 @@ namespace CryCrawler.Worker
                             if (cancelSource.IsCancellationRequested) break;
 
                             // check if URL is eligible for crawling
-                            if (Manager.IsUrlEligibleForCrawl(u) == false) continue;                         
+                            if (Manager.IsUrlEligibleForCrawl(u) == false) continue;
 
                             cnt++;
                             if (Manager.IsUrlCrawled(url))
@@ -221,6 +221,15 @@ namespace CryCrawler.Worker
                     // construct path
                     var directory = GetDirectoryPath(url, true);
                     var path = Path.Combine(directory, filename);
+
+                    // check plugins
+                    if (plugins?.Invoke(p => p.BeforeDownload(url, path), true) == false)
+                    {
+                        Logger.Log($"Plugin rejected download of '{filename}'", Logger.LogSeverity.Debug);
+                        continue;
+                    }
+
+                    // get temporary file to download content to
                     var temp = Extensions.GetTempFile(ConfigManager.TemporaryFileTransferDirectory);
 
                     try
@@ -231,6 +240,8 @@ namespace CryCrawler.Worker
 
                         // now compare temp file contents to destination file - check for duplicates using MD5 hash comparing
                         path = Extensions.CopyToAndGetPath(temp, path);
+
+                        plugins?.Invoke(p => p.AfterDownload(url, path));
                     }
                     catch
                     {
@@ -255,18 +266,18 @@ namespace CryCrawler.Worker
                 catch (OperationCanceledException) { }
                 catch (NullReferenceException nex)
                 {
-                    Logger.Log($"NullReferenceException while crawling - {url} - {nex.Message} -- {nex.StackTrace}", 
+                    Logger.Log($"NullReferenceException while crawling - {url} - {nex.Message} -- {nex.StackTrace}",
                         Logger.LogSeverity.Error);
                 }
                 catch (IOException iex)
                 {
                     // usually happens when trying to download file with same name
-                    Logger.Log($"IOException while crawling - {iex.Message}", 
+                    Logger.Log($"IOException while crawling - {iex.Message}",
                         Logger.LogSeverity.Debug);
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log($"Exception while crawling - {url} - ({ex.GetType().Name}) {ex.Message}", 
+                    Logger.Log($"Exception while crawling - {url} - ({ex.GetType().Name}) {ex.Message}",
                         Logger.LogSeverity.Debug);
                 }
                 finally
@@ -281,7 +292,7 @@ namespace CryCrawler.Worker
                             // TODO: re-add it to backlog maybe?
                         }
                         else Logger.Log($"Crawled ({statusCode}) {url}");
-                    }        
+                    }
 
                     CurrentTasks[taskNumber] = null;
                     Manager.ReportWorkResult(w);
