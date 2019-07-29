@@ -128,7 +128,7 @@ namespace CryCrawler
                 var err = "";
                 foreach (var c in compiled) err += $"\n{c.ToString()}";
 
-                throw new Exception("Failed to compile plugin!" + err);
+                throw new Exception("Failed to compile:" + err);
             }
 
             var comp = script.GetCompilation();
@@ -197,6 +197,23 @@ namespace CryCrawler
             foreach (var p in Plugins) invokeAction(p.LoadedPlugin);
         }
 
+        /// <summary>
+        /// Invoke function with boolean return type on all plugins in order.
+        /// Return true if all plugins return [expected] value, otherwise false.
+        /// </summary>
+        /// <param name="invokeAction">Action to invoke on each plugin</param>
+        /// <param name="breakOn">Expected returned value</param>
+        public bool Invoke(Func<Plugin, bool> invokeAction, bool expected)
+        {
+            foreach (var p in Plugins)
+            {
+                var result = invokeAction(p.LoadedPlugin);
+                if (result != expected) return false;
+            }
+
+            return true;
+        }
+
         // Plugins should have following TYPES of functions:
         // - Middleware functions (no limit on how many, will be called based on plugin load order)
         // - Override functions (only one will be loaded from plugins - this function overrides a whole function)
@@ -210,11 +227,11 @@ namespace CryCrawler
         // Supported functions:
         // - [Middleware] void Info()                                               -> Called on start, can be used to display plugin info
         // - [Middleware] void OnDump()
-        // - [Middleware] void OnClientConnect(TcpClient client)                    -> When client connects to host
+        // - [Middleware] void OnClientConnect(TcpClient client, string id)         -> When client connects to host
         // - [Middleware] bool OnClientConnecting(TcpClient client)                 -> Used for accepting or denying clients on host
-        // - [Middleware] void OnClientDisconnect(TcpClient client)                 -> When client disconnects from host
+        // - [Middleware] void OnClientDisconnect(TcpClient client, string id)      -> When client disconnects from host
         // - [Middleware] void OnDisconnect()                                       -> When we disconnect from host
-        // - [Middleware] void OnConnect()                                          -> When we connect to host
+        // - [Middleware] void OnConnect(string id)                                 -> When we connect to host
         // - [Override]   IEnumerable<string> FindUrls(string url, string content)  -> Used for returning next URLs to crawl based on content
         // - [Middleware] bool BeforeDownload(string url, string detination)        -> When file is about to be downloaded, this can accept or deny it
         // - [Middleware] void AfterDownload(string url, string desitnation)        -> After file is downloaded
@@ -262,11 +279,11 @@ namespace CryCrawler
     {
         public virtual void Info() { }
         public virtual void OnDump() { }
-        public virtual void OnClientConnect(TcpClient client) { }
+        public virtual void OnClientConnect(TcpClient client, string id) { }
         public virtual bool OnClientConnecting(TcpClient client) => true;
-        public virtual void OnClientDisconnect(TcpClient client) { }
+        public virtual void OnClientDisconnect(TcpClient client, string id) { }
         public virtual void OnDisconnect() { }
-        public virtual void OnConnect() { }
+        public virtual void OnConnect(string id) { }
         public virtual bool BeforeDownload(string url, string detination) => true;
         public virtual void AfterDownload(string url, string desitnation) { }
         public virtual bool OnWorkReceived(string url) => true;

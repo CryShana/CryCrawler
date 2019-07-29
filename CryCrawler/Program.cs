@@ -69,7 +69,7 @@ namespace CryCrawler
             }
 
             // Start program
-            var program = isHost ? new HostProgram(config) : (IProgram)new WorkerProgram(config);
+            var program = isHost ? new HostProgram(config, plugins) : (IProgram)new WorkerProgram(config, plugins);
             program.Start();
 
             // Wait for shutdown signal

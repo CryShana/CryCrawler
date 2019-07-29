@@ -11,21 +11,23 @@ namespace CryCrawler.Worker
         readonly WebGUI webgui;
         readonly Crawler crawler;
         readonly Configuration config;
+        readonly PluginManager plugins;
         readonly CacheDatabase database;
         readonly WorkManager workmanager;
 
-        public WorkerProgram(Configuration config)
+        public WorkerProgram(Configuration config, PluginManager plugins)
         {
             this.config = config;
+            this.plugins = plugins;
 
             database = new CacheDatabase(config.CacheFilename);
 
-            workmanager = new WorkManager(config.WorkerConfig, database, () =>
+            workmanager = new WorkManager(config.WorkerConfig, database, plugins, () =>
             {
                 return crawler.CurrentTasks.Count(x => x.Value == null) < crawler.CurrentTasks.Count;
             });
 
-            crawler = new Crawler(workmanager, config.WorkerConfig);
+            crawler = new Crawler(workmanager, config.WorkerConfig, plugins);
 
             webgui = new WebGUI(new IPEndPoint(IPAddress.Parse(config.WebGUI.IP), config.WebGUI.Port), new WorkerResponder(config, crawler));
 

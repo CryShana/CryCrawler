@@ -33,14 +33,16 @@ namespace CryCrawler.Worker
         private int currentTaskNumber = 1;
         private CancellationTokenSource cancelSource;
         private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
+        private readonly PluginManager plugins;
 
         /// <summary>
         /// Crawler uses WorkManager to get URLs to crawl through.
         /// </summary>
-        public Crawler(WorkManager manager, WorkerConfiguration config)
+        public Crawler(WorkManager manager, WorkerConfiguration config, PluginManager plugins = null)
         {
             Config = config;
             Manager = manager;
+            this.plugins = plugins;
             RecentDownloads = new ConcurrentSlidingBuffer<DownloadedWork>(config.MaxLoggedDownloads);
         }
 

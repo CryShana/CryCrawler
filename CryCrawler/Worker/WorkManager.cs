@@ -46,6 +46,7 @@ namespace CryCrawler.Worker
         readonly Thread dumpThread;
         readonly Timer resultTimer;
         readonly Timer statusTimer;
+        readonly PluginManager plugins;
         readonly CacheDatabase database;
         readonly WorkerConfiguration config;
         readonly Func<bool> areWorkersActive;
@@ -69,12 +70,15 @@ namespace CryCrawler.Worker
         public event NetworkWorkManager.MessageReceivedHandler HostMessageReceived;
         #endregion
 
-        public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount, Func<bool> areWorkersActive = null)
-            : this(config, database, areWorkersActive) => MemoryLimitCount = newMemoryLimitCount;
+        public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount, 
+            PluginManager plugins = null, Func<bool> areWorkersActive = null)
+            : this(config, database, plugins, areWorkersActive) => MemoryLimitCount = newMemoryLimitCount;
 
-        public WorkManager(WorkerConfiguration config, CacheDatabase database, Func<bool> areWorkersActive = null)
+        public WorkManager(WorkerConfiguration config, CacheDatabase database, PluginManager plugins = null,
+            Func<bool> areWorkersActive = null)
         {
             this.config = config;
+            this.plugins = plugins;
             this.database = database;
             this.areWorkersActive = areWorkersActive;
 
