@@ -60,15 +60,11 @@ namespace CryCrawler
             if (newSession && File.Exists(config.CacheFilename)) File.Delete(config.CacheFilename);
 
             // Load plugins
-            PluginManager plugins;
-            try
+            var plugins = new PluginManager(config);
+            if (plugins.Load())
             {
-                plugins = new PluginManager(ConfigManager.PluginsDirectory);
-                plugins.Load();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Failed to load plugins! " + ex.GetDetailedMessage());
+                // save changes
+                ConfigManager.SaveConfiguration(config);
             }
 
             // Start program
