@@ -120,6 +120,8 @@ namespace CryCrawler.Worker
 
                     // set status
                     ConnectedToHost = false;
+
+                    plugins?.Invoke(p => p.OnDisconnect());
                 };
                 NetworkManager.Connected += id =>
                 {
@@ -131,6 +133,8 @@ namespace CryCrawler.Worker
 
                     // set status
                     ConnectedToHost = true;
+
+                    plugins?.Invoke(p => p.OnConnect(id));
                 };
 
                 NetworkManager.Start();
