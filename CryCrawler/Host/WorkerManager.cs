@@ -151,6 +151,7 @@ namespace CryCrawler.Host
             {
                 var stream = client.GetStream();
 
+                Logger.Log($"Establishing secure connection to {client.Client.RemoteEndPoint}...", Logger.LogSeverity.Debug);
                 // setup SSL here
                 var sslstream = SecurityUtils.ServerEstablishSSL(stream, certificate);
 
@@ -167,14 +168,11 @@ namespace CryCrawler.Host
                         Logger.Log($"Client disconnected from {wc.RemoteEndpoint}! ({wc.Id})");
 
                         // ignore certain common errors
-                        if (!b.Message.Contains("Cannot access a disposed object") &&
-                            !b.Message.Contains("interrupted by a call to WSACancelBlockingCall") &&
-                            !b.Message.Contains("An existing connection was forcibly closed by the remote host"))
-                        {
-                            Logger.Log(b.GetDetailedMessage(), Logger.LogSeverity.Debug);
-                        }
+                        if (!IgnoreError(b)) Logger.Log(b.GetDetailedMessage(), Logger.LogSeverity.Debug);
                     }
                 };
+
+                Logger.Log($"Validating {client.Client.RemoteEndPoint}...", Logger.LogSeverity.Debug);
 
                 wc.Id = SecurityUtils.DoHandshake(wc.MesssageHandler, passwordHash, false, null,
                     id => Clients.Count(x => x.Id == id) > 0,
@@ -461,7 +459,7 @@ namespace CryCrawler.Host
 
                                     // attempt to copy file to destination while checking for duplicates
                                     var spath = Extensions.CopyToAndGetPath(
-                                        client.TransferringFileStream.Name, 
+                                        client.TransferringFileStream.Name,
                                         client.TransferringFileLocationHost);
 
                                     // delete old temporary file
@@ -520,7 +518,8 @@ namespace CryCrawler.Host
                                 File.Delete(client.TransferringFileLocationHost);
                             }
 
-                            Logger.Log($"({client.Id}) - Failed to transfer chunk! " + ex.GetDetailedMessage() + ex.StackTrace, Logger.LogSeverity.Debug);
+                            if (!IgnoreError(ex))
+                                Logger.Log($"({client.Id}) - Failed to transfer chunk! " + ex.GetDetailedMessage() + ex.StackTrace, Logger.LogSeverity.Debug);
                         }
                     }
                     #endregion
@@ -559,7 +558,7 @@ namespace CryCrawler.Host
             }
             catch (Exception ex)
             {
-                Logger.Log(ex.GetDetailedMessage(), Logger.LogSeverity.Debug);
+                if (!IgnoreError(ex)) Logger.Log(ex.GetDetailedMessage(), Logger.LogSeverity.Debug);
             }
         }
 
@@ -611,7 +610,7 @@ namespace CryCrawler.Host
             if (w != null) manager.AddToBacklog(w);
         }
 
-        public string TranslateWorkerFilePathToHost(string workerPath, long? fileSize = null, 
+        public string TranslateWorkerFilePathToHost(string workerPath, long? fileSize = null,
             WorkerClient clientinfo = null, bool dontCreateSubfolders = false)
         {
             // WorkerPath must be relative without the "Downloads" folder
@@ -724,6 +723,17 @@ namespace CryCrawler.Host
                     }
                 }
             }
+        }
+
+        bool IgnoreError(Exception ex)
+        {
+            if (
+                (ex.Message.Contains("Cannot access a disposed object") && ex.Message.Contains("NetworkStream")) ||
+                ex.Message.Contains("interrupted by a call to WSACancelBlockingCall") ||
+                ex.Message.Contains("An existing connection was forcibly closed by the remote host"))
+                return true;
+
+            return false;
         }
 
         public class WorkerClient
