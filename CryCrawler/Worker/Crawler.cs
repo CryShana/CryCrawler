@@ -177,24 +177,50 @@ namespace CryCrawler.Worker
                         // scan the content for more urls
                         var content = await response.Content.ReadAsStringAsync();
 
-                        // find URLs
-                        int cnt = 0;
-                        foreach (var u in FindUrls(url, content))
+                        // check plugins for FindUrls implementation
+                        PluginInfo foundplugin = null;
+                        if (plugins != null)
                         {
-                            if (cancelSource.IsCancellationRequested) break;
+                            foreach (var p in plugins.Plugins)
+                            {
+                                if (p.FindUrlsImplemented)
+                                {
+                                    foundplugin = p;
+                                    break;
+                                }
+                            }
+                        }
 
+                        // find URLs (use PLUGIN that overrides it, if it exists)
+                        if (foundplugin == null)
+                        {
+                            foreach (var u in FindUrls(url, content))
+                            {
+                                if (cancelSource.IsCancellationRequested) break;
+                                validateFoundUrl(u);
+                            }
+                        }                            
+                        else
+                        {
+                            foreach (var u in foundplugin.FindUrls(url, content))
+                            {
+                                if (cancelSource.IsCancellationRequested) break;
+                                validateFoundUrl(u);
+                            }
+                        }
+
+                        // LOCAL FUNCTION FOR VALIDATING FOUND URLS
+                        void validateFoundUrl(string u)
+                        {
                             // check if URL is eligible for crawling
-                            if (Manager.IsUrlEligibleForCrawl(u) == false) continue;
-
-                            cnt++;
-                            if (Manager.IsUrlCrawled(url))
+                            if (Manager.IsUrlEligibleForCrawl(u) == false) return;
+                         
+                            if (Manager.IsUrlCrawled(u))
                             {
                                 // ignore already-crawled urls
                             }
                             else Manager.AddToBacklog(u);
                         }
-
-                        // Logger.Log($"Found {cnt} new URLs from '{url}'"); 
                         #endregion
                     }
 
