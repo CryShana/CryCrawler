@@ -83,6 +83,11 @@ namespace CryCrawlerTests
             string clReceived = "";
             string srReceived = "";
 
+            string clMessage2 = "Ping Ping!";
+            string srMessage2 = "Pong Pong!";
+            string clReceived2 = "";
+            string srReceived2 = "";
+
             int port = 0;
 
             var t1 = Task.Run(() =>
@@ -118,6 +123,10 @@ namespace CryCrawlerTests
 
                     msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.Join, srMessage));
 
+                    response = msgHandler.WaitForResponse(5000).Result;
+                    srReceived2 = response.Data as string;
+                    msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.Join, srMessage2));
+
                     Task.Delay(1000).Wait();
                     ssl.Close();
                     str.Close();
@@ -150,6 +159,10 @@ namespace CryCrawlerTests
                 var response = msgHandler.WaitForResponse(5000).Result;
                 clReceived = response.Data as string;
 
+                msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.Join, clMessage2));
+                response = msgHandler.WaitForResponse(5000).Result;
+                clReceived2 = response.Data as string;
+
                 Task.Delay(1000).Wait();
                 ssl.Close();
                 str.Close();
@@ -159,6 +172,9 @@ namespace CryCrawlerTests
 
             Assert.Equal(clMessage, srReceived);
             Assert.Equal(srMessage, clReceived);
+
+            Assert.Equal(clMessage2, srReceived2);
+            Assert.Equal(srMessage2, clReceived2);
         }
     }
 }
