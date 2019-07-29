@@ -1,26 +1,17 @@
 ﻿using System;
+using System.IO;
 using System.Text;
-using System.Security.Cryptography;
 using CryCrawler.Network;
+using System.Net.Security;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 
 namespace CryCrawler.Security
 {
     public static class SecurityUtils
     {
-        static readonly List<char> ValidPathChars;
-        static SecurityUtils()
-        {
-            ValidPathChars = new List<char>();
-
-            // add all 10 possible numbers
-            for (byte i = 48; i <= 57; i++) ValidPathChars.Add((char)i);
-            // add all 26 possible uppercase letters
-            for (byte i = 65; i <= 90; i++) ValidPathChars.Add((char)i);
-            // add all 26 possible lowercase letters
-            for (byte i = 97; i <= 122; i++) ValidPathChars.Add((char)i);
-        }
-
         public static string GetHash(string text) => string.IsNullOrEmpty(text) ? null :
             Convert.ToBase64String(SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(text)));
 
@@ -28,7 +19,7 @@ namespace CryCrawler.Security
         /// Do handshake between client and server. Password is validated and client id is exchanged.
         /// </summary>
         /// <returns>Client ID that was exchanged</returns>
-        public static string DoHandshake(NetworkMessageHandler<NetworkMessage> messageHandler, string passwordHash, bool asClient, 
+        public static string DoHandshake(NetworkMessageHandler<NetworkMessage> messageHandler, string passwordHash, bool asClient,
             string existingClientId = null, Predicate<string> clientIdExists = null, Predicate<string> clientIdValid = null)
         {
             if (asClient)
@@ -72,9 +63,9 @@ namespace CryCrawler.Security
                 {
                     do
                     {
-                        clientId = GenerateRandomSafeString(20);
+                        clientId = Extensions.GenerateRandomPathSafeString(20);
                     } while (clientIdExists?.Invoke(clientId) != false);
-                }                              
+                }
 
                 // send ACCEPT 
                 messageHandler.SendMessage(new NetworkMessage(NetworkMessageType.Accept, clientId));
@@ -87,14 +78,32 @@ namespace CryCrawler.Security
             }
         }
 
-        public static string GenerateRandomSafeString(int length)
+        /// <summary>
+        /// Establish SSL stream between server and client. This should be called by the server.
+        /// </summary>
+        /// <param name="stream">Stream to be used by SSL stream</param>
+        /// <param name="serverCertificate">Server certificate</param>
+        public static SslStream ServerEstablishSSL(Stream stream, X509Certificate2 serverCertificate)
         {
-            string filename = "";
-            int count = ValidPathChars.Count;
+            var ssl = new SslStream(stream, true, (a, b, c, d) => true);
 
-            for (int i = 0; i < length; i++) filename += ValidPathChars[RandomNumberGenerator.GetInt32(0, count)];
+            ssl.AuthenticateAsServer(serverCertificate, false, SslProtocols.Tls13, false);
 
-            return filename;
+            return ssl;
+        }
+
+        /// <summary>
+        /// Establish SSL stream between server and client. This should be called by the client.
+        /// </summary>
+        /// <param name="stream">Stream to be used by SSL stream</param>
+        /// <param name="targetHost">Target host name</param>
+        public static SslStream ClientEstablishSSL(Stream stream, string targetHost)
+        {
+            var ssl = new SslStream(stream, true, (a, b, c, d) => true);
+
+            ssl.AuthenticateAsClient(targetHost, null, SslProtocols.Tls13, false);
+
+            return ssl;
         }
     }
 
