@@ -1,4 +1,5 @@
 ﻿using CryCrawler;
+using CryCrawler.Network;
 using CryCrawler.Security;
 using CryCrawler.Worker;
 using System;
@@ -72,6 +73,92 @@ namespace CryCrawlerTests
 
             Assert.True(success);
             Assert.Equal(msgToSend, msgReceived);
+        }
+
+        [Fact]
+        public void SSLWithMessageHandler()
+        {
+            string clMessage = "Ping!";
+            string srMessage = "Pong!";
+            string clReceived = "";
+            string srReceived = "";
+
+            int port = 0;
+
+            var t1 = Task.Run(() =>
+            {
+                var listener = new TcpListener(IPAddress.Any, 0);
+                listener.Start();
+
+                port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+                try
+                {
+                    listener.Start();
+
+                    var cert = SecurityUtils.BuildSelfSignedCertificate("crycrawler");
+
+                    var cl = listener.AcceptTcpClient();
+
+                    var str = cl.GetStream();
+
+                    var ssl = SecurityUtils.ServerEstablishSSL(str, cert);
+
+                    // create message handler
+                    var msgHandler = new NetworkMessageHandler<NetworkMessage>(ssl);
+                    msgHandler.ExceptionThrown += (a, b) =>
+                    {
+
+                    };
+
+                    var response = msgHandler.WaitForResponse(5000).Result;
+                    srReceived = response.Data as string;
+
+                    Task.Delay(3000).Wait();
+
+                    msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.Join, srMessage));
+
+                    Task.Delay(1000).Wait();
+                    ssl.Close();
+                    str.Close();
+                }
+                finally
+                {
+                    listener.Stop();
+                }
+            });
+
+            Task.Delay(1000).Wait();
+            var t2 = Task.Run(() =>
+            {
+                var cl = new TcpClient();
+                cl.Connect(IPAddress.Loopback, port);
+
+                var str = cl.GetStream();
+
+                var ssl = SecurityUtils.ClientEstablishSSL(str);
+
+                // create message handler
+                var msgHandler = new NetworkMessageHandler<NetworkMessage>(ssl);
+                msgHandler.ExceptionThrown += (a, b) =>
+                {
+
+                };
+
+                msgHandler.SendMessage(new NetworkMessage(NetworkMessageType.Join, clMessage));
+
+                var response = msgHandler.WaitForResponse(5000).Result;
+                clReceived = response.Data as string;
+
+                Task.Delay(1000).Wait();
+                ssl.Close();
+                str.Close();
+            });
+
+            Task.WhenAll(t1, t2).Wait();
+
+            Assert.Equal(clMessage, srReceived);
+            Assert.Equal(srMessage, clReceived);
         }
     }
 }
