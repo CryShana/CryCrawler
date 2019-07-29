@@ -284,7 +284,7 @@ namespace CryCrawler
         public virtual void OnClientDisconnect(TcpClient client, string id) { }
         public virtual void OnDisconnect() { }
         public virtual void OnConnect(string id) { }
-        public virtual bool BeforeDownload(string url, string detination) => true;
+        public virtual bool BeforeDownload(string url, string destination) => true;
         public virtual void AfterDownload(string url, string desitnation) { }
         public virtual bool OnWorkReceived(string url) => true;
         public abstract void Dispose();

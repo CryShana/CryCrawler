@@ -59,7 +59,7 @@ public class TestPlugin : Plugin
         // called on successful connection to host
     }
 
-    public override bool BeforeDownload(string url, string detination)
+    public override bool BeforeDownload(string url, string destination)
     {
         // called before starting file download (from url to destination)
         // return false to reject download
