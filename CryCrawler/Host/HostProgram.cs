@@ -11,23 +11,25 @@ namespace CryCrawler.Host
     {
         readonly WebGUI webgui;
         readonly Configuration config;
+        readonly PluginManager plugins;
         readonly CacheDatabase database;
         readonly WorkManager workmanager;
         readonly WorkerManager workermanager;
 
-        public HostProgram(Configuration config)
+        public HostProgram(Configuration config, PluginManager plugins)
         {
             this.config = config;
+            this.plugins = plugins;
 
             database = new CacheDatabase(config.CacheFilename);
 
-            workmanager = new WorkManager(config.WorkerConfig, database, () =>
+            workmanager = new WorkManager(config.WorkerConfig, database, plugins, () =>
             {
                 return workermanager.Clients.Count(x => x.Online && string.IsNullOrEmpty(x.AssignedUrl))
                      < workermanager.Clients.Count(x => x.Online);
             });
 
-            workermanager = new WorkerManager(workmanager, config, new FreeWorkerPicker());
+            workermanager = new WorkerManager(workmanager, config, new FreeWorkerPicker(), plugins);
 
             webgui = new WebGUI(new IPEndPoint(IPAddress.Parse(config.WebGUI.IP), config.WebGUI.Port), new HostResponder(config, workmanager, workermanager));
 

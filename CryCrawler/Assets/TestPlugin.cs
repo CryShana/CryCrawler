@@ -33,7 +33,7 @@ public class TestPlugin : Plugin
         // called every time backlog gets dumped to cache or backup cache
     }
 
-    public override void OnClientConnect(TcpClient client)
+    public override void OnClientConnect(TcpClient client, string id)
     {
         // called every time a client successfully connects
     }
@@ -44,7 +44,7 @@ public class TestPlugin : Plugin
         return true;
     }
 
-    public override void OnClientDisconnect(TcpClient client)
+    public override void OnClientDisconnect(TcpClient client, string id)
     {
         // called on client disconnect
     }
@@ -54,7 +54,7 @@ public class TestPlugin : Plugin
         // called on disconnect from host
     }
 
-    public override void OnConnect()
+    public override void OnConnect(string id)
     {
         // called on successful connection to host
     }

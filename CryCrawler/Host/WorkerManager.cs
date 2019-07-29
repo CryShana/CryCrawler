@@ -32,6 +32,7 @@ namespace CryCrawler.Host
         readonly string passwordHash;
         readonly IWorkerPicker picker;
         readonly TcpListener listener;
+        readonly PluginManager plugins;
         readonly HostConfiguration config;
         readonly X509Certificate2 certificate;
         CancellationTokenSource cancelSource;
@@ -58,9 +59,11 @@ namespace CryCrawler.Host
         /// <summary>
         /// Starts a TCP listener for clients. Uses WorkManager to get URLs to distribute among clients.
         /// </summary>
-        public WorkerManager(WorkManager manager, Configuration config, IWorkerPicker workerPicker)
+        public WorkerManager(WorkManager manager, Configuration config, 
+            IWorkerPicker workerPicker, PluginManager plugins = null)
         {
             // paramaters
+            this.plugins = plugins;
             this.manager = manager;
             this.picker = workerPicker;
             this.config = config.HostConfig;
@@ -141,6 +144,14 @@ namespace CryCrawler.Host
             var client = listener.EndAcceptTcpClient(r);
             Logger.Log($"Client connecting from {client.Client.RemoteEndPoint}...", Logger.LogSeverity.Debug);
 
+            if (plugins?.Invoke(p => p.OnClientConnecting(client), true) == false)
+            {
+                // reject client
+                Logger.Log("Client rejected by plugin.", Logger.LogSeverity.Debug);
+                client.ProperlyClose();
+                return;
+            }
+
             // Create client object
             var wc = new WorkerClient(client);
 
@@ -220,6 +231,8 @@ namespace CryCrawler.Host
                     Clients[index] = wc;
                 }
             }
+
+            plugins?.Invoke(p => p.OnClientConnect(wc.Client, wc.Id));
 
             // send configuration
             wc.MesssageHandler.SendMessage(new NetworkMessage(NetworkMessageType.ConfigUpdate, WorkerConfig));
@@ -595,7 +608,13 @@ namespace CryCrawler.Host
         }
 
         void clientRemoved(WorkerClient wc, object data) => unassignWorkFromClient(wc);
-        void clientDisconnected(WorkerClient wc, object data) => unassignWorkFromClient(wc);
+        void clientDisconnected(WorkerClient wc, object data)
+        {
+            plugins?.Invoke(x => x.OnClientDisconnect(wc.Client, wc.Id));
+
+            unassignWorkFromClient(wc);
+        }
+
         void unassignWorkFromClient(WorkerClient wc)
         {
             // take assigned work from client, remove it, add back to backlog
