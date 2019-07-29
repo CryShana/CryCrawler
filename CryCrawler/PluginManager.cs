@@ -165,7 +165,7 @@ namespace CryCrawler
         /// </summary>
         public void Dispose()
         {
-
+            foreach (var p in Plugins) p.Dispose();
         }
 
         // Plugins should have following TYPES of functions:
