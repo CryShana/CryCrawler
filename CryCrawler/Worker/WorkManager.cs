@@ -1,21 +1,16 @@
-using CryCrawler.Network;
-using CryCrawler.Structures;
 using LiteDB;
-using MessagePack.Formatters;
-using Newtonsoft.Json;
 using System;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
+using Newtonsoft.Json;
 using System.Threading;
+using CryCrawler.Network;
+using CryCrawler.Structures;
 using System.Threading.Tasks;
-using System.Transactions;
-using static CryCrawler.CacheDatabase;
+using System.Collections.Generic;
 using Timer = System.Timers.Timer;
+using System.Collections.Concurrent;
+using static CryCrawler.CacheDatabase;
 
 namespace CryCrawler.Worker
 {
@@ -478,6 +473,14 @@ namespace CryCrawler.Worker
 
                 // reset consecutive invalid works counter on success
                 ConsecutiveInvalidWorks = 0;
+
+                // check plugins
+                if (plugins?.Invoke(p => p.OnWorkReceived(url), true) == false)
+                {
+                    Logger.Log("Plugin rejected work - " + url, Logger.LogSeverity.Debug);
+                    url = null;
+                    return false;
+                }
             }
 
             return success;
@@ -710,6 +713,8 @@ namespace CryCrawler.Worker
             finally
             {
                 dumpingSemaphore.Release();
+
+                plugins?.Invoke(p => p.OnDump());
             }
         }
 
