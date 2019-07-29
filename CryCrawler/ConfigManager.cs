@@ -8,6 +8,8 @@ namespace CryCrawler
     public static class ConfigManager
     {
         public const string FileName = "config.json";
+        public const string PluginsDirectory = "plugins";
+        public const string TemporaryFileTransferDirectory = "temp";
 
         public static Configuration LastLoaded { get; private set; }
         public static bool LoadConfiguration(out Configuration config)

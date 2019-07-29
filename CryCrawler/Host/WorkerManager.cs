@@ -39,8 +39,6 @@ namespace CryCrawler.Host
         readonly SemaphoreSlim transferSemaphore = new SemaphoreSlim(1);
         public readonly List<WorkerClient> Clients = new List<WorkerClient>();
 
-        const string TemporaryFileTransferDirectory = "temp";
-
         public ConcurrentSlidingBuffer<DownloadedWork> RecentDownloads { get; }
 
         /// <summary>
@@ -355,7 +353,7 @@ namespace CryCrawler.Host
                         destination_path = TranslateWorkerFilePathToHost(transferInfo.Location,
                             transferInfo.Size, client, WorkerConfig.DontCreateSubfolders);
 
-                        temp_path = Extensions.GetTempFile(TemporaryFileTransferDirectory);
+                        temp_path = Extensions.GetTempFile(ConfigManager.TemporaryFileTransferDirectory);
 
                         if (client.TransferringFile)
                         {

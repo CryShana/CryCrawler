@@ -59,6 +59,18 @@ namespace CryCrawler
             // Delete old cache file if new session flag is present
             if (newSession && File.Exists(config.CacheFilename)) File.Delete(config.CacheFilename);
 
+            // Load plugins
+            PluginManager plugins;
+            try
+            {
+                plugins = new PluginManager(ConfigManager.PluginsDirectory);
+                plugins.Load();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Failed to load plugins! " + ex.GetDetailedMessage());
+            }
+
             // Start program
             var program = isHost ? new HostProgram(config) : (IProgram)new WorkerProgram(config);
             program.Start();
@@ -69,6 +81,7 @@ namespace CryCrawler
             // Cleanup
             Logger.Log("Shutting down...");
             program.Stop();
+            plugins.Dispose();
 
             // Save configuration
             ConfigManager.SaveConfiguration(config);
