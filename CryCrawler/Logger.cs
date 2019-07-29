@@ -89,12 +89,12 @@ namespace CryCrawler
             Console.ForegroundColor = targetColor;
             Console.Write($"[{msg.LogTime.ToString("dd.MM HH:mm:ss")}] {severityText, -5} ");
 
-            if (DebugMode)
-            {
+            //if (DebugMode)
+            //{
                 const int length = 15;
                 Console.ForegroundColor = targetColor;
                 Console.Write($"{msg.Caller.Limit(length - 1) ?? "-",-length}");
-            }
+            //}
 
             Console.ForegroundColor = targetColor;
             Console.WriteLine($"{msg.Message}");
