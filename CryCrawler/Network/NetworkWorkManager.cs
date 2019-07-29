@@ -98,8 +98,11 @@ namespace CryCrawler.Network
                         client = new TcpClient();
                         client.Connect(new IPEndPoint(Address, Port));
 
+                        Logger.Log($"Connecting to host...", Logger.LogSeverity.Debug);
+
                         var stream = client.GetStream();
 
+                        Logger.Log($"Establishing secure connection...", Logger.LogSeverity.Debug);
                         // setup SSL here
                         var sslstream = SecurityUtils.ClientEstablishSSL(stream);
 
@@ -131,6 +134,8 @@ namespace CryCrawler.Network
                             MessageHandler.Dispose();
                             reset.Set();
                         };
+
+                        Logger.Log($"Validating host...", Logger.LogSeverity.Debug);
 
                         // handshake
                         ClientId = SecurityUtils.DoHandshake(MessageHandler, PasswordHash, true, ClientId);
