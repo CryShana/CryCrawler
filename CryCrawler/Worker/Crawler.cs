@@ -34,8 +34,6 @@ namespace CryCrawler.Worker
         private CancellationTokenSource cancelSource;
         private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
 
-        const string TemporaryFileTransferDirectory = "temp";
-
         /// <summary>
         /// Crawler uses WorkManager to get URLs to crawl through.
         /// </summary>
@@ -221,7 +219,7 @@ namespace CryCrawler.Worker
                     // construct path
                     var directory = GetDirectoryPath(url, true);
                     var path = Path.Combine(directory, filename);
-                    var temp = Extensions.GetTempFile(TemporaryFileTransferDirectory);
+                    var temp = Extensions.GetTempFile(ConfigManager.TemporaryFileTransferDirectory);
 
                     try
                     {
