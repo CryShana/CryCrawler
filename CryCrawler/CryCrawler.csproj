@@ -23,6 +23,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Assets\TestPlugin.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Host\GUI\Home.html" />
     <None Remove="Host\GUI\main.css" />
     <None Remove="Host\GUI\main.js" />
@@ -30,6 +34,10 @@
     <None Remove="Worker\GUI\jquery.min.js" />
     <None Remove="Worker\GUI\main.css" />
     <None Remove="Worker\GUI\main.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\TestPlugin.cs" />
   </ItemGroup>
 
   <ItemGroup>
