@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using Timer = System.Timers.Timer;
 using System.Diagnostics;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Security.Cryptography.X509Certificates;
 
 namespace CryCrawler.Host
 {
@@ -32,6 +33,7 @@ namespace CryCrawler.Host
         readonly IWorkerPicker picker;
         readonly TcpListener listener;
         readonly HostConfiguration config;
+        readonly X509Certificate2 certificate;
         CancellationTokenSource cancelSource;
         WorkerConfiguration toSendConfig = null;
         readonly SemaphoreSlim transferSemaphore = new SemaphoreSlim(1);
@@ -77,7 +79,7 @@ namespace CryCrawler.Host
 
             // initialize everything
             listener = new TcpListener(endpoint);
-
+            certificate = SecurityUtils.BuildSelfSignedCertificate("crycrawler");
             passwordHash = string.IsNullOrEmpty(password) ? null : SecurityUtils.GetHash(password);
 
             // prepare checking timer
@@ -147,7 +149,12 @@ namespace CryCrawler.Host
             // Start handshake
             try
             {
-                wc.MesssageHandler = new NetworkMessageHandler<NetworkMessage>(client.GetStream(), m => ClientMessageReceived(wc, m));
+                var stream = client.GetStream();
+
+                // setup SSL here
+                var sslstream = SecurityUtils.ServerEstablishSSL(stream, certificate);
+
+                wc.MesssageHandler = new NetworkMessageHandler<NetworkMessage>(sslstream, m => ClientMessageReceived(wc, m));
                 wc.MesssageHandler.ExceptionThrown += (a, b) =>
                 {
                     wc.MesssageHandler.Dispose();

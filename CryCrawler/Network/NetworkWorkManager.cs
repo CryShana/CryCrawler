@@ -98,9 +98,13 @@ namespace CryCrawler.Network
                         client = new TcpClient();
                         client.Connect(new IPEndPoint(Address, Port));
 
+                        var stream = client.GetStream();
+
+                        // setup SSL here
+                        var sslstream = SecurityUtils.ClientEstablishSSL(stream);
+
                         // message handler here
-                        MessageHandler = new NetworkMessageHandler<NetworkMessage>(
-                            client.GetStream(),
+                        MessageHandler = new NetworkMessageHandler<NetworkMessage>(sslstream,
                             w =>
                             {
                                 if (w.MessageType == NetworkMessageType.ConfigUpdate ||
