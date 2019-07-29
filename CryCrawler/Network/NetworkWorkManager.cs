@@ -1,12 +1,9 @@
-﻿using CryCrawler.Security;
-using CryCrawler.Worker;
-using LiteDB;
-using Newtonsoft.Json;
-using System;
-using System.Linq;
+﻿using System;
 using System.Net;
-using System.Net.Sockets;
+using System.Linq;
 using System.Threading;
+using System.Net.Sockets;
+using CryCrawler.Security;
 using System.Threading.Tasks;
 
 namespace CryCrawler.Network

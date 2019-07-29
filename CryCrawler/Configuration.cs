@@ -12,6 +12,8 @@ namespace CryCrawler
         public WorkerConfiguration WorkerConfig { get; set; } = new WorkerConfiguration();
         public WebGUIEndPoint WebGUI { get; set; } = new WebGUIEndPoint();
         public string CacheFilename { get; set; } = CacheDatabase.DefaultFilename;
+        public string PluginsDirectory { get; set; } = ConfigManager.PluginsDirectory;
+        public Dictionary<string, string> CompiledPlugins { get; set; } = new Dictionary<string, string>();
     }
 
     [MessagePackObject(keyAsPropertyName: true)]
