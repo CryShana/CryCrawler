@@ -127,6 +127,10 @@ namespace CryCrawler.Host
             }
         }
 
+        /// <summary>
+        /// Client connected. Establish SSL, do handshake and validate client before accepting it.
+        /// </summary>
+        /// <param name="r"></param>
         void ClientAccepted(IAsyncResult r)
         {
             // Continue listening
@@ -244,6 +248,9 @@ namespace CryCrawler.Host
             ClientJoined?.Invoke(wc, ewc != null);
         }
 
+        /// <summary>
+        /// Handles messages received from clients
+        /// </summary>
         void ClientMessageReceived(WorkerClient client, NetworkMessage message)
         {
             if (!client.HandshakeCompleted) return;
@@ -363,8 +370,7 @@ namespace CryCrawler.Host
                         var transferInfo = ((Dictionary<object, object>)message.Data)
                             .Deserialize<FileTransferInfo>();
 
-                        destination_path = TranslateWorkerFilePathToHost(transferInfo.Location,
-                            transferInfo.Size, client, WorkerConfig.DontCreateSubfolders);
+                        destination_path = TranslateWorkerFilePathToHost(transferInfo.Location, WorkerConfig.DontCreateSubfolders);
 
                         temp_path = Extensions.GetTempFile(ConfigManager.TemporaryFileTransferDirectory);
 
@@ -615,6 +621,10 @@ namespace CryCrawler.Host
             unassignWorkFromClient(wc);
         }
 
+        /// <summary>
+        /// Unassigns work from client and stops any ongoing file transfers.
+        /// Unassigned works are added back to the backlog.
+        /// </summary>
         void unassignWorkFromClient(WorkerClient wc)
         {
             // take assigned work from client, remove it, add back to backlog
@@ -627,8 +637,13 @@ namespace CryCrawler.Host
             if (w != null) manager.AddToBacklog(w);
         }
 
-        public string TranslateWorkerFilePathToHost(string workerPath, long? fileSize = null,
-            WorkerClient clientinfo = null, bool dontCreateSubfolders = false)
+        /// <summary>
+        /// Translates provided remote file path (retrieved from worker) to absolute local file path
+        /// </summary>
+        /// <param name="workerPath">Worker provided relative path to file (does not include the downloads folder)</param>
+        /// <param name="dontCreateSubfolders">If true, any subfolders in provided path will be removed</param>
+        /// <returns></returns>
+        public string TranslateWorkerFilePathToHost(string workerPath, bool dontCreateSubfolders = false)
         {
             // WorkerPath must be relative without the "Downloads" folder
             if (dontCreateSubfolders && string.IsNullOrEmpty(workerPath) == false)
@@ -642,6 +657,9 @@ namespace CryCrawler.Host
             return path;
         }
 
+        /// <summary>
+        /// Main WorkerManager function. Used to get work from WorkManager and assign it to workers.
+        /// </summary>
         async void Work()
         {
             string failedUrl = null, url = null;
@@ -703,6 +721,9 @@ namespace CryCrawler.Host
             }
         }
 
+        /// <summary>
+        /// Used to send status and file checks to clients 
+        /// </summary>
         void WorkerStatusCheck(object sender, ElapsedEventArgs e)
         {
             foreach (var c in Clients.Where(x => x.Online))
@@ -717,6 +738,9 @@ namespace CryCrawler.Host
             }
         }
 
+        /// <summary>
+        /// Checks registered clients and removes old clients from list
+        /// </summary>
         void OldClientCheck(object sender, ElapsedEventArgs e)
         {
             if (Clients == null) return;
@@ -742,6 +766,9 @@ namespace CryCrawler.Host
             }
         }
 
+        /// <summary>
+        /// Returns true if the exception should be ignored. Used to hide common exceptions.
+        /// </summary>
         bool IgnoreError(Exception ex)
         {
             if (
