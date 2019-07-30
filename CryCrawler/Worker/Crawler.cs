@@ -326,9 +326,8 @@ namespace CryCrawler.Worker
             }
         }
 
-
         /// <summary>
-        /// Based on the configuration, is the file acceptable based on extension and media type.
+        /// Based on the configuration, is the file acceptable based on extension, media type and filename itself.
         /// </summary>
         /// <param name="filename">Filename with extension</param>
         /// <param name="mediaType">Media type</param>
@@ -340,13 +339,28 @@ namespace CryCrawler.Worker
             var ext = Path.GetExtension(filename).ToLower().Trim();
             var mty = mediaType.ToLower().Trim();
 
-            // first check extension
+            // check filename first (if not acceptable, reject immediately)
+            if (Config.FilenameMustContainEither.Count > 0)
+            {
+                bool accepted = false;
+                foreach (var w in Config.FilenameMustContainEither)
+                {
+                    if (filename.ToLower().Contains(w.ToLower()))
+                    {
+                        accepted = true;
+                        break;
+                    }
+                }
+                if (accepted == false) return false;
+            }
+
+            // then check extension (if accepted, ignore media type check)
             if (Config.AcceptedExtensions.Count(x => x.ToLower().Trim() == ext) > 0) return true;
 
-            // then check media type
+            // now check media type
             if (Config.AcceptedMediaTypes.Count(x => x.ToLower().Trim() == mty) > 0) return true;
 
-            // if both are not accepted, we are not interested
+            // if both are not accepted, reject it
             return false;
         }
 
