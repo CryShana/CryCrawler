@@ -718,6 +718,9 @@ namespace CryCrawler.Worker
             }
         }
 
+        /// <summary>
+        /// Handles messages received from host
+        /// </summary>
         void NetworkManager_MessageReceived(NetworkMessage w, NetworkMessageHandler<NetworkMessage> msgHandler)
         {
             // handle message inside work manager
@@ -741,7 +744,7 @@ namespace CryCrawler.Worker
                     break;
 
                 case NetworkMessageType.StatusCheck:
-                    // ignore it (status timer will send feedback handle it)
+                    // ignore it (handled outside this function and by status timer)
                     break;
 
                 case NetworkMessageType.SendResults:
@@ -906,7 +909,7 @@ namespace CryCrawler.Worker
                     break;
             }
 
-            // pass it on
+            // pass it on (to handle it outside this class)
             HostMessageReceived?.Invoke(w, msgHandler);
         }
 

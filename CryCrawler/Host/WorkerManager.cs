@@ -14,8 +14,6 @@ using CryCrawler.Structures;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Timer = System.Timers.Timer;
-using System.Diagnostics;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Security.Cryptography.X509Certificates;
 
 namespace CryCrawler.Host
@@ -588,16 +586,18 @@ namespace CryCrawler.Host
             toSendConfig = new WorkerConfiguration()
             {
                 HostEndpoint = null,
+
+                Urls = config.Urls,
                 AcceptAllFiles = config.AcceptAllFiles,
-                AcceptedExtensions = config.AcceptedExtensions,
-                AcceptedMediaTypes = config.AcceptedMediaTypes,
-                MaximumAllowedFileSizekB = config.MaximumAllowedFileSizekB,
-                MinimumAllowedFileSizekB = config.MinimumAllowedFileSizekB,
                 DomainBlacklist = config.DomainBlacklist,
                 DomainWhitelist = config.DomainWhitelist,
-                ScanTargetsMediaTypes = config.ScanTargetsMediaTypes,
+                AcceptedExtensions = config.AcceptedExtensions,
+                AcceptedMediaTypes = config.AcceptedMediaTypes,
                 DontCreateSubfolders = config.DontCreateSubfolders,
-                Urls = config.Urls
+                ScanTargetsMediaTypes = config.ScanTargetsMediaTypes,
+                MaximumAllowedFileSizekB = config.MaximumAllowedFileSizekB,
+                MinimumAllowedFileSizekB = config.MinimumAllowedFileSizekB,
+                FilenameMustContainEither = config.FilenameMustContainEither    
             };
 
             foreach (var c in Clients.Where(x => x.Online))

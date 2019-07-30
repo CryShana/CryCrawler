@@ -130,6 +130,7 @@ function setStatus(data) {
         let seedurls = data.SeedUrls.join('\n');
         let whitelist = data.Whitelist.join('\n');
         let blacklist = data.Blacklist.join('\n');
+        let filenamec = data.FilenameCriteria.join('\n');
         let extensions = data.AcceptedExtensions.join(' ');
         let mediaTypes = data.AccesptedMediaTypes.join(' ');
         let scantargets = data.ScanTargetMediaTypes.join(' ');
@@ -144,6 +145,7 @@ function setStatus(data) {
         $("#config-seeds").val(seedurls);
         $("#config-whitelist").val(whitelist);
         $("#config-blacklist").val(blacklist);
+        $("#config-filename-criteria").val(filenamec);
         $("#config-min-size").val(minsize);
         $("#config-max-size").val(maxsize);
 
@@ -160,12 +162,14 @@ function setStatus(data) {
             $("#config-seeds").addClass("disabled");
             $("#config-whitelist").addClass("disabled");
             $("#config-blacklist").addClass("disabled");
+            $("#config-filename-criteria").addClass("disabled");
             $("#config-min-size").addClass("disabled");
             $("#config-max-size").addClass("disabled");
         }
         else {
             $("#update-button").removeClass("disabled");
         }
+
         configNeedsUpdate = false;
     }
 }
@@ -277,6 +281,7 @@ function updateConfig(self) {
     let seedUrls = $("#config-seeds").val().split('\n');
     let whitelist = $("#config-whitelist").val().split('\n');
     let blacklist = $("#config-blacklist").val().split('\n');
+    let filenamec = $("#config-filename-criteria").val().split('\n');
     let minsize = parseFloat($("#config-min-size").val());
     let maxsize = parseFloat($("#config-max-size").val());
     if (isNaN(minsize) || isNaN(maxsize)) {
@@ -297,7 +302,8 @@ function updateConfig(self) {
         Blacklist: blacklist,
         MinSize: minsize,
         MaxSize: maxsize,
-        DontCreateSubfolders: dontsubf
+        DontCreateSubfolders: dontsubf,
+        FilenameCriteria: filenamec
 
     }, function (s) {
 
