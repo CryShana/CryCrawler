@@ -42,7 +42,7 @@ namespace CryCrawler.Worker
                 foreach (var u in FindUrls(url, content, config))
                 {
                     if (cancelSource.IsCancellationRequested) break;
-                    validateFoundUrl(u);
+                    validateAndAddFoundUrl(u);
                 }
             }
             else
@@ -50,12 +50,12 @@ namespace CryCrawler.Worker
                 foreach (var u in foundplugin.FindUrls(url, content))
                 {
                     if (cancelSource.IsCancellationRequested) break;
-                    validateFoundUrl(u);
+                    validateAndAddFoundUrl(u);
                 }
             }
 
             // LOCAL FUNCTION FOR VALIDATING FOUND URLS
-            void validateFoundUrl(string u)
+            void validateAndAddFoundUrl(string u)
             {
                 // check if URL is eligible for crawling
                 if (manager.IsUrlEligibleForCrawl(u) == false) return;
