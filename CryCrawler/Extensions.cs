@@ -198,6 +198,11 @@ namespace CryCrawler
 
         public static string GetDomainName(string url, out string protocol, bool withProtocol = false)
         {
+            // check if URL starts with protocol, otherwise add it
+            if (url.StartsWith("http") == false) url = "http://" + url;
+
+            // check if question mark is within domain name, separate using slash
+
             // check if url ends with a slash, otherwise add it
             if (url.Count(x => x == '/') == 2) url += '/';
 
@@ -216,6 +221,17 @@ namespace CryCrawler
                 protocol = null;
                 return null;
             }
+        }
+
+        public static string GetDomainName(string url, out string protocol, out string path, bool withProtocol = false)
+        {
+            var domain = GetDomainName(url, out protocol, withProtocol);
+
+            var index = url.IndexOf(domain);
+            path = url.Substring(index + domain.Length);
+            if (path == "") path = "/";
+
+            return domain;
         }
 
         /// <summary>

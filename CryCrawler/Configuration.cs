@@ -1,7 +1,7 @@
-﻿using MessagePack;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Net;
+using MessagePack;
+using System.Collections.Generic;
 
 namespace CryCrawler
 {
@@ -38,6 +38,9 @@ namespace CryCrawler
         public int MaxFileChunkSizekB { get; set; } = 200;
         public int MaxCrawledWorksBeforeCleanHost { get; set; } = 2000;
         public int AutoSaveIntervalSeconds { get; set; } = 40;
+
+        public string UserAgent { get; set; } = "CryCrawler";
+        public bool RespectRobotsExclusionStandard { get; set; } = true;
 
         /// <summary>
         /// When deciding if file is acceptable to be downloaded, extension is checked first

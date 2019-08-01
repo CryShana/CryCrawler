@@ -44,5 +44,46 @@ namespace CryCrawlerTests
                 File.Delete(path2);
             }
         }
+
+        [Fact]
+        public void GettingDomainName()
+        {
+            string url1 = "https://regexr.com/",
+                url2 = "https://regexr.com",
+                url3 = "https://twitter.com/robots.txt",
+                url4 = "http://developercommunity.visualstudio.com/hello/something?test=1",
+                url5 = "www.google.com",
+                url6 = "google.com";
+
+            var domain = Extensions.GetDomainName(url1, out string protocol, out string path);
+            Assert.Equal("regexr.com", domain);
+            Assert.Equal("https", protocol);
+            Assert.Equal("/", path);
+
+            domain = Extensions.GetDomainName(url2, out protocol, out path);
+            Assert.Equal("regexr.com", domain);
+            Assert.Equal("https", protocol);
+            Assert.Equal("/", path);
+
+            domain = Extensions.GetDomainName(url3, out protocol, out path);
+            Assert.Equal("twitter.com", domain);
+            Assert.Equal("https", protocol);
+            Assert.Equal("/robots.txt", path);
+
+            domain = Extensions.GetDomainName(url4, out protocol, out path);
+            Assert.Equal("developercommunity.visualstudio.com", domain);
+            Assert.Equal("http", protocol);
+            Assert.Equal("/hello/something?test=1", path);
+
+            domain = Extensions.GetDomainName(url5, out protocol, out path);
+            Assert.Equal("www.google.com", domain);
+            Assert.Equal("http", protocol);
+            Assert.Equal("/", path);
+
+            domain = Extensions.GetDomainName(url6, out protocol, out path);
+            Assert.Equal("google.com", domain);
+            Assert.Equal("http", protocol);
+            Assert.Equal("/", path);
+        }
     }
 }
