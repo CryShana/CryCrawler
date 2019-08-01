@@ -41,7 +41,7 @@ namespace CryCrawler.Worker
         /// Checks if URL is excluded for specified domain. Specify new config to override default one.
         /// </summary>
         /// <returns></returns>
-        public async Task<bool> IsUrlExcluded(string url, WorkerConfiguration config = null, bool getRobotsIfMissing = true)
+        public async Task<bool> IsUrlExcluded(string url, WorkerConfiguration config = null, bool getRobotsIfMissing = false)
         {
             config = config ?? this.config;
 
