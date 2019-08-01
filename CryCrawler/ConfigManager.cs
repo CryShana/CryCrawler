@@ -32,6 +32,8 @@ namespace CryCrawler
                         throw new Exception($"'{config.HostConfig.ListenerConfiguration.IP}' is not a valid IP address for listener!");
                     if (IPAddress.TryParse(config.WebGUI.IP, out IPAddress addr2) == false)
                         throw new Exception($"'{config.WebGUI.IP}' is not a valid IP address for listener!");
+                    if (string.IsNullOrEmpty(config.WorkerConfig.UserAgent))
+                        throw new Exception("User agent can not be empty!");
 
                     LastLoaded = config;
 

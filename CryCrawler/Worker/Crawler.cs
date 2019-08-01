@@ -53,7 +53,7 @@ namespace CryCrawler.Worker
 
             IsActive = true;
             httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "CryCrawler");
+            httpClient.DefaultRequestHeaders.Add("User-Agent", Config.UserAgent);
             cancelSource = new CancellationTokenSource();
 
             for (int i = 0; i < Config.MaxConcurrency; i++)
