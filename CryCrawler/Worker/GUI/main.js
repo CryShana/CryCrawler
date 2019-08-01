@@ -136,7 +136,10 @@ function setStatus(data) {
         let scantargets = data.ScanTargetMediaTypes.join(' ');
         let minsize = data.MinSize;
         let maxsize = data.MaxSize;
+        let useragent = data.UserAgent;
+        let respectrobots = data.RespectRobots;
 
+        $("#config-respect-robots").attr("checked", respectrobots);
         $("#config-dont-subfolders").attr("checked", dontsubf);
         $("#config-accept-files").attr("checked", allfiles);
         $("#config-extensions").val(extensions);
@@ -148,12 +151,14 @@ function setStatus(data) {
         $("#config-filename-criteria").val(filenamec);
         $("#config-min-size").val(minsize);
         $("#config-max-size").val(maxsize);
+        $("#config-user-agent").val(useragent);
 
         // if using host, disable config options - they are received from host
         if (usingHost === true) {
             $("#config-warning").text("Using host configuration!");
             $("#config-warning").addClass("active");
 
+            $("#config-respect-robots").addClass("disabled");
             $("#config-dont-subfolders").addClass("disabled");
             $("#config-accept-files").addClass("disabled");
             $("#config-extensions").addClass("disabled");
@@ -165,6 +170,7 @@ function setStatus(data) {
             $("#config-filename-criteria").addClass("disabled");
             $("#config-min-size").addClass("disabled");
             $("#config-max-size").addClass("disabled");
+            $("#config-user-agent").addClass("disabled");
         }
         else {
             $("#update-button").removeClass("disabled");
@@ -284,6 +290,9 @@ function updateConfig(self) {
     let filenamec = $("#config-filename-criteria").val().split('\n');
     let minsize = parseFloat($("#config-min-size").val());
     let maxsize = parseFloat($("#config-max-size").val());
+    let respectrobots = $("#config-respect-robots").is(":checked");
+    let useragent = $("#config-user-agent").val();
+
     if (isNaN(minsize) || isNaN(maxsize)) {
         alert("Invalid file sizes specified!");
         return;
@@ -303,7 +312,9 @@ function updateConfig(self) {
         MinSize: minsize,
         MaxSize: maxsize,
         DontCreateSubfolders: dontsubf,
-        FilenameCriteria: filenamec
+        FilenameCriteria: filenamec,
+        RespectRobots: respectrobots,
+        UserAgent: useragent
 
     }, function (s) {
 

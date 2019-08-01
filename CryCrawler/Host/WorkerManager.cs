@@ -588,6 +588,7 @@ namespace CryCrawler.Host
                 HostEndpoint = null,
 
                 Urls = config.Urls,
+                UserAgent = config.UserAgent, 
                 AcceptAllFiles = config.AcceptAllFiles,
                 DomainBlacklist = config.DomainBlacklist,
                 DomainWhitelist = config.DomainWhitelist,
@@ -597,7 +598,8 @@ namespace CryCrawler.Host
                 ScanTargetsMediaTypes = config.ScanTargetsMediaTypes,
                 MaximumAllowedFileSizekB = config.MaximumAllowedFileSizekB,
                 MinimumAllowedFileSizekB = config.MinimumAllowedFileSizekB,
-                FilenameMustContainEither = config.FilenameMustContainEither    
+                FilenameMustContainEither = config.FilenameMustContainEither,
+                RespectRobotsExclusionStandard = config.RespectRobotsExclusionStandard
             };
 
             foreach (var c in Clients.Where(x => x.Online))

@@ -92,7 +92,9 @@ namespace CryCrawler.Host
             MaxSize = workerManager.WorkerConfig.MaximumAllowedFileSizekB,
             MinSize = workerManager.WorkerConfig.MinimumAllowedFileSizekB,
             DontSubfolders = workerManager.WorkerConfig.DontCreateSubfolders,
-            FilenameCriteria = workerManager.WorkerConfig.FilenameMustContainEither
+            FilenameCriteria = workerManager.WorkerConfig.FilenameMustContainEither,
+            UserAgent = workerManager.WorkerConfig.UserAgent,
+            RespectRobots = workerManager.WorkerConfig.RespectRobotsExclusionStandard
         });
 
         string handleStateUpdate(StateUpdateRequest req)
@@ -149,6 +151,7 @@ namespace CryCrawler.Host
             {
                 // update configuration and save it
                 config.WorkerConfig.Urls = req.SeedUrls;
+                config.WorkerConfig.UserAgent = req.UserAgent;
                 config.WorkerConfig.AcceptAllFiles = req.AllFiles;
                 config.WorkerConfig.DomainWhitelist = req.Whitelist;
                 config.WorkerConfig.DomainBlacklist = req.Blacklist;
@@ -158,7 +161,8 @@ namespace CryCrawler.Host
                 config.WorkerConfig.MaximumAllowedFileSizekB = req.MaxSize;
                 config.WorkerConfig.MinimumAllowedFileSizekB = req.MinSize;
                 config.WorkerConfig.DontCreateSubfolders = req.DontCreateSubfolders;
-                config.WorkerConfig.FilenameMustContainEither = req.FilenameCriteria;         
+                config.WorkerConfig.FilenameMustContainEither = req.FilenameCriteria;
+                config.WorkerConfig.RespectRobotsExclusionStandard = req.RespectRobots;
                 ConfigManager.SaveConfiguration(ConfigManager.LastLoaded);
 
                 // reload seed urls
@@ -197,6 +201,8 @@ namespace CryCrawler.Host
             public List<string> FilenameCriteria { get; set; }
             public double MaxSize { get; set; }
             public double MinSize { get; set; }
+            public string UserAgent { get; set; }
+            public bool RespectRobots { get; set; }
             public bool DontCreateSubfolders { get; set; }
         }
     }
