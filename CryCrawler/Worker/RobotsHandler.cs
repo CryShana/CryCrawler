@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using System.Text;
 
 namespace CryCrawler.Worker
 {
@@ -35,7 +36,7 @@ namespace CryCrawler.Worker
         /// Checks if URL is excluded for specified domain. Specify new config to override default one.
         /// </summary>
         /// <returns></returns>
-        public async Task<bool> IsUrlExcluded(string url, WorkerConfiguration config = null)
+        public async Task<bool> IsUrlExcluded(string url, WorkerConfiguration config = null, bool getRobotsIfMissing = true)
         {
             config = config ?? this.config;
 
@@ -46,8 +47,8 @@ namespace CryCrawler.Worker
 
             var domain = Extensions.GetDomainName(url, out string protocol, out string path, false);
 
-            if (UrlExclusions.TryGetValue(domain, out RobotsData data)) return isUrlExcluded(data, path, url);       
-            else
+            if (UrlExclusions.TryGetValue(domain, out RobotsData data)) return isUrlExcluded(data, path);       
+            else if (getRobotsIfMissing)
             {
                 // send request for robot.txt
                 data = null;
@@ -80,8 +81,10 @@ namespace CryCrawler.Worker
                     UrlExclusions.TryAdd(domain, data);
                 }
 
-                return isUrlExcluded(data, path, url);
+                return isUrlExcluded(data, path);
             }
+
+            return false;
         }
 
         /// <summary>
@@ -102,6 +105,27 @@ namespace CryCrawler.Worker
 
             if (UrlExclusions.TryGetValue(domain, out RobotsData data)) return data.WaitTime;
             else return 0;
+        }
+
+        /// <summary>
+        /// Associate specified domain with specified robot.txt content.
+        /// </summary>
+        public async Task<RobotsData> RegisterRobotsTxt(string domain, string content, 
+            bool overrideExistingDomainData = true)
+        {
+            if (string.IsNullOrEmpty(content)) return null;
+
+            using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(content)))
+            {
+                var data = await processRobotsContent(stream);
+
+                // add or override this data
+                if (overrideExistingDomainData && UrlExclusions.ContainsKey(domain)) UrlExclusions[domain] = data;             
+                else UrlExclusions.TryAdd(domain, data);
+                
+                return data;
+
+            }           
         }
 
         /// <summary>
@@ -127,6 +151,13 @@ namespace CryCrawler.Worker
                     // check if we match the user-agent
                     if (line.StartsWith(userAgentKey, StringComparison.OrdinalIgnoreCase))
                     {
+                        if (userAgentMatched)
+                        {
+                            // our user-agent was already matched, this means we got OUT of our user-agent sector
+                            // based on specification: Only first matched User-Agent section is respected - others are ignored
+                            break;
+                        }
+
                         var useragent = line.Substring(userAgentKey.Length);
 
                         // if useragent is identical to our useragent, it's a match
@@ -134,9 +165,11 @@ namespace CryCrawler.Worker
                         else
                         {
                             // otherwise if useragent contains '*', treat it as regex pattern
-                            var pattern = Regex.Escape(useragent).Replace("\\*", ".*");
-                            if (Regex.IsMatch(useragent, pattern, RegexOptions.IgnoreCase)) userAgentMatched = true;
+                            var pattern = GetRegexPattern(useragent);
+                            if (Regex.IsMatch(useragent, pattern, RegexOptions.IgnoreCase)) userAgentMatched = true;         
                         }
+
+                        continue;
                     }
 
                     // do not continue until user agent is matched
@@ -149,13 +182,13 @@ namespace CryCrawler.Worker
                     if (line.StartsWith(disallowKey, StringComparison.OrdinalIgnoreCase))
                     {
                         var disallowedPath = line.Substring(disallowKey.Length);
-                        var pattern = Regex.Escape(disallowedPath).Replace("\\*", ".*");
+                        var pattern = GetRegexPattern(disallowedPath);
                         data.DisallowedList.Add(pattern);
                     }
                     else if (line.StartsWith(allowKey, StringComparison.OrdinalIgnoreCase))
                     {
                         var allowedPath = line.Substring(allowKey.Length);
-                        var pattern = Regex.Escape(allowedPath).Replace("\\*", ".*");
+                        var pattern = GetRegexPattern(allowedPath);
                         data.AllowedList.Add(pattern);
                     }
                     else if (line.StartsWith(delayKey, StringComparison.OrdinalIgnoreCase))
@@ -177,6 +210,9 @@ namespace CryCrawler.Worker
         /// <returns></returns>
         bool isUrlExcluded(RobotsData data, string path)
         {
+            // update last access
+            data.LastAccess = DateTime.Now;
+
             // check if disallow list is empty, automatically accept url
             if (data.DisallowedList == null || data.DisallowedList.Count == 0) return false;
 
@@ -214,6 +250,15 @@ namespace CryCrawler.Worker
             return true;
         }
 
+        /// <summary>
+        /// Transforms regular patterns with * symbols to regex pattern
+        /// </summary>
+        public static string GetRegexPattern(string pattern)
+            // REGEX EXPLANATION:
+            // - Beginning of path needs to be marked with ^
+            // - Ending also needs to be marked in a special way to not include different paths (for example: "/admin2" is not matched by "/admin", but "/admin/test" is)
+            => "^" + Regex.Escape(pattern).Replace("\\*", ".*") + @"([ \\\?\/].*?)?$";
+        
 
         /// <summary>
         /// Checks and removes old entries to free up memory.
