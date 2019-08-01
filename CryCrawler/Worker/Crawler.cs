@@ -30,6 +30,7 @@ namespace CryCrawler.Worker
         public event EventHandler<bool> StateChanged;
         #endregion
 
+        private RobotsHandler robots;
         private HttpClient httpClient;
         private int currentTaskNumber = 1;
         private CancellationTokenSource cancelSource;
@@ -54,6 +55,8 @@ namespace CryCrawler.Worker
             IsActive = true;
             httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Add("User-Agent", Config.UserAgent);
+            robots = new RobotsHandler(Config, httpClient);
+
             cancelSource = new CancellationTokenSource();
 
             for (int i = 0; i < Config.MaxConcurrency; i++)
@@ -98,6 +101,10 @@ namespace CryCrawler.Worker
 
                 // check if url is whitelisted
                 if (Extensions.IsUrlWhitelisted(url, Config) == false) continue;
+
+                // check if robots.txt provided wait time for this url
+                var wait = robots.GetWaitTime(url, Config);
+                if (wait > 0) Task.Delay((int)TimeSpan.FromSeconds(wait).TotalMilliseconds).Wait();
                 #endregion
 
                 DateTime? recrawlDate = null;
@@ -177,7 +184,7 @@ namespace CryCrawler.Worker
                         // scan content for more urls
                         var content = await response.Content.ReadAsStringAsync();
 
-                        UrlFinder.ScanContentAndAddToManager(url, content, Config, plugins, Manager, cancelSource);
+                        UrlFinder.ScanContentAndAddToManager(url, content, Config, plugins, Manager, robots, cancelSource);
                     }
 
                     // Check if media type is set as an accepted file to download
