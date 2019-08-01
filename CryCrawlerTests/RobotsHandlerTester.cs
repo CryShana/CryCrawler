@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace CryCrawlerTests
@@ -197,7 +198,8 @@ Disallow: /janitor_trials";
             var data = robots.RegisterRobotsTxt("test.com", robotsTxt).Result;
             Assert.Empty(data.AllowedList);
             Assert.Equal(16, data.DisallowedList.Count);
-            
+            Assert.Equal(0, data.WaitTime);
+
             Assert.Contains(RobotsHandler.GetRegexPattern("/admin"), data.DisallowedList);
             Assert.Contains(RobotsHandler.GetRegexPattern("/bans"), data.DisallowedList);
             Assert.Contains(RobotsHandler.GetRegexPattern("/artist_commentary_versions"), data.DisallowedList);
@@ -251,6 +253,7 @@ Disallow: /janitor_trials";
             var data = robots.RegisterRobotsTxt("test.com", robotsTxt).Result;
             Assert.Empty(data.AllowedList);
             Assert.Single(data.DisallowedList);
+            Assert.Equal(0, data.WaitTime);
 
             Assert.DoesNotContain(RobotsHandler.GetRegexPattern("/admin"), data.DisallowedList);
             Assert.DoesNotContain(RobotsHandler.GetRegexPattern("/bans"), data.DisallowedList);
@@ -270,18 +273,15 @@ Disallow: /janitor_trials";
             Assert.True(e);
             e = robots.IsUrlExcluded("http://test.com/admin2").Result;
             Assert.True(e);
+            e = robots.IsUrlExcluded("http://test.com/").Result;
+            Assert.True(e);
+            e = robots.IsUrlExcluded("http://test.com").Result;
+            Assert.True(e);
         }
 
         [Fact]
         public void AdvancedTest()
         {
-            // test multiple folders
-            // test multiple wildards /*/...
-            // test multiple user-agents
-            // test if user-agents break after leaving
-            // test prioritization
-            // check if disallow: /   works
-
             // general test
             string robotsTxt = @"
 User-agent: Googlebot
@@ -311,45 +311,82 @@ Disallow: /search/realtime
 Disallow: /search/users
 Disallow: /search/*/grid
 Disallow: /hashtag
+Crawl-delay: 1
 
 User-agent: *
-Disallow: /testdomain
-Disallow: /advertisements
-Disallow: /artists
+Disallow: /
+Crawl-delay: 4
 ";
 
             var config = new WorkerConfiguration() { UserAgent = "CryCrawler", RespectRobotsExclusionStandard = true };
             var robots = new RobotsHandler(config, new System.Net.Http.HttpClient());
             var data = robots.RegisterRobotsTxt("test.com", robotsTxt).Result;
-            Assert.Empty(data.AllowedList);
-            Assert.Equal(16, data.DisallowedList.Count);
+            Assert.Equal(3, data.AllowedList.Count);
+            Assert.Equal(5, data.DisallowedList.Count);
+            Assert.Equal(1, data.WaitTime);
 
-            Assert.Contains(RobotsHandler.GetRegexPattern("/admin"), data.DisallowedList);
-            Assert.Contains(RobotsHandler.GetRegexPattern("/bans"), data.DisallowedList);
-            Assert.Contains(RobotsHandler.GetRegexPattern("/artist_commentary_versions"), data.DisallowedList);
-            Assert.Contains(RobotsHandler.GetRegexPattern("/favorite"), data.DisallowedList);
-            Assert.Contains(RobotsHandler.GetRegexPattern("/janitor_trials"), data.DisallowedList);
-
-            var e = robots.IsUrlExcluded("http://test2.com/admin", null, false).Result;
+            var e = robots.IsUrlExcluded("http://test.com/testdomain2", null, false).Result;
             Assert.False(e);
             e = robots.IsUrlExcluded("http://test.com/admin").Result;
             Assert.True(e);
-            e = robots.IsUrlExcluded("http://test.com/admin?url=test").Result;
-            Assert.True(e);
-            e = robots.IsUrlExcluded("http://test.com/admin/test/admin?url=test").Result;
-            Assert.True(e);
 
-            // special cases
-            e = robots.IsUrlExcluded("http://test.com/test/admin").Result;
+            e = robots.IsUrlExcluded("http://test.com/search").Result;
             Assert.False(e);
-            e = robots.IsUrlExcluded("http://test.com/admin2").Result;
-            Assert.False(e); // TODO: this should be false
+            e = robots.IsUrlExcluded("http://test.com/search/realtime").Result;
+            Assert.True(e);
+            e = robots.IsUrlExcluded("http://test.com/search/users").Result;
+            Assert.True(e);
+            e = robots.IsUrlExcluded("http://test.com/search/usersss").Result;
+            Assert.False(e);
+            e = robots.IsUrlExcluded("http://test.com/search/something").Result;
+            Assert.False(e);
+            e = robots.IsUrlExcluded("http://test.com/search/something/grid").Result;
+            Assert.True(e);
+            e = robots.IsUrlExcluded("http://test.com/search/something/grid2").Result;
+            Assert.False(e);
         }
 
         [Fact]
         public void TimerRemovalTest()
         {
             // test if timer correctly removes old entries
+
+            // general test
+            string robotsTxt = @"
+User-agent: *
+Disallow: /";
+
+            var timerInterval = TimeSpan.FromSeconds(2);
+            var config = new WorkerConfiguration() { UserAgent = "CryCrawler", RespectRobotsExclusionStandard = true };
+            var robots = new RobotsHandler(config, new System.Net.Http.HttpClient(), timerInterval);
+            var data = robots.RegisterRobotsTxt("test.com", robotsTxt).Result;
+
+            var e = robots.IsUrlExcluded("http://test.com/something", null, false).Result;
+            Assert.True(e);
+            e = robots.IsUrlExcluded("http://test.com", null, false).Result;
+            Assert.True(e);
+            e = robots.IsUrlExcluded("http://test.com/lol/test", null, false).Result;
+            Assert.True(e);
+
+            Task.Delay((int)timerInterval.TotalMilliseconds + 100).Wait();
+
+            e = robots.IsUrlExcluded("http://test.com/something", null, false).Result;
+            Assert.False(e);
+            e = robots.IsUrlExcluded("http://test.com", null, false).Result;
+            Assert.False(e);
+            e = robots.IsUrlExcluded("http://test.com/lol/test", null, false).Result;
+            Assert.False(e);
+        }
+
+        [Fact]
+        public void PracticalTest()
+        {
+            //var timerInterval = TimeSpan.FromSeconds(2);
+            var config = new WorkerConfiguration() { UserAgent = "CryCrawler", RespectRobotsExclusionStandard = true };
+            var robots = new RobotsHandler(config, new System.Net.Http.HttpClient());
+
+            var e = robots.IsUrlExcluded("https://www.google.com/").Result;
+            // Assert.False(e); // this could change...
         }
     }
 }

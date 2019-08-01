@@ -1,24 +1,29 @@
 ﻿using System;
 using System.IO;
+using System.Text;
 using System.Timers;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
-using System.Text;
+
 
 namespace CryCrawler.Worker
 {
     public class RobotsHandler
     {
+        readonly TimeSpan maxAgeDefault = TimeSpan.FromHours(24);
+        readonly TimeSpan maxAge = default;
+
         readonly Timer timer;
         readonly HttpClient http;
         readonly WorkerConfiguration config;
 
-        public RobotsHandler(WorkerConfiguration config, HttpClient client)
+        public RobotsHandler(WorkerConfiguration config, HttpClient client, TimeSpan overrideMaxEntryAge = default)
         {
             this.config = config;
+            this.maxAge = overrideMaxEntryAge == default ? maxAgeDefault : overrideMaxEntryAge;
 
             http = client;
             timer = new Timer(TimeSpan.FromMinutes(5).TotalMinutes);
@@ -272,7 +277,6 @@ namespace CryCrawler.Worker
         void Timer_Elapsed(object sender, ElapsedEventArgs e)
         {
             var now = DateTime.Now;
-            const int maxAgeHours = 24;
 
             List<string> removalList = new List<string>();
 
@@ -280,7 +284,7 @@ namespace CryCrawler.Worker
             foreach (var i in UrlExclusions)
             {
                 var lastAccess = i.Value.LastAccess;
-                if (now.Subtract(lastAccess).TotalHours > maxAgeHours)
+                if (now.Subtract(lastAccess).TotalMinutes > maxAge.TotalMinutes)
                 {
                     // needs to be removed
                     removalList.Add(i.Key);
