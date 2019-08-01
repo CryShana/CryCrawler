@@ -1,12 +1,14 @@
 ﻿using System;
-using System.Text;
-using System.Collections.Generic;
-using System.Threading;
 using System.Web;
 using System.Linq;
+using System.Threading;
+using System.Collections.Generic;
 
 namespace CryCrawler.Worker
 {
+    /// <summary>
+    /// Responsible for getting valid URLs out of downloaded content.
+    /// </summary>
     public static class UrlFinder
     {
         /// <summary>
@@ -19,8 +21,8 @@ namespace CryCrawler.Worker
         /// <param name="manager"></param>
         /// <param name="cancelSource"></param>
         public static void ScanContentAndAddToManager(string url, string content,
-            WorkerConfiguration config, PluginManager plugins, WorkManager manager,
-            CancellationTokenSource cancelSource)
+            WorkerConfiguration config, PluginManager plugins, WorkManager manager, 
+            RobotsHandler robotHandler, CancellationTokenSource cancelSource)
         {
             // check plugins for FindUrls implementation
             PluginInfo foundplugin = null;
@@ -57,6 +59,9 @@ namespace CryCrawler.Worker
             // LOCAL FUNCTION FOR VALIDATING FOUND URLS
             void validateAndAddFoundUrl(string u)
             {
+                // check if URL is excluded
+                if (robotHandler.IsUrlExcluded(u, config).Result) return;
+
                 // check if URL is eligible for crawling
                 if (manager.IsUrlEligibleForCrawl(u) == false) return;
 
