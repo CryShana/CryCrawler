@@ -86,7 +86,7 @@ Disallow: /testdomain
             Assert.Single(data.AllowedList);
             Assert.Equal(2, data.DisallowedList.Count);
 
-            var e = robots.IsUrlExcluded("http://test.com/admin", null, false).Result;
+            var e = robots.IsUrlExcluded("http://test.com/admin").Result;
             Assert.True(e);
             e = robots.IsUrlExcluded("http://test.com/search").Result;
             Assert.True(e);
@@ -128,7 +128,7 @@ Disallow: /testdomain
             Assert.Single(data.AllowedList);
             Assert.Equal(2, data.DisallowedList.Count);
 
-            var e = robots.IsUrlExcluded("http://test.com/admin", null, false).Result;
+            var e = robots.IsUrlExcluded("http://test.com/admin").Result;
             Assert.True(e);
             e = robots.IsUrlExcluded("http://test.com/search").Result;
             Assert.False(e);
@@ -206,7 +206,7 @@ Disallow: /janitor_trials";
             Assert.Contains(RobotsHandler.GetRegexPattern("/favorite"), data.DisallowedList);
             Assert.Contains(RobotsHandler.GetRegexPattern("/janitor_trials"), data.DisallowedList);
 
-            var e = robots.IsUrlExcluded("http://test2.com/admin", null, false).Result;
+            var e = robots.IsUrlExcluded("http://test2.com/admin").Result;
             Assert.False(e);
             e = robots.IsUrlExcluded("http://test.com/admin").Result;
             Assert.True(e);
@@ -261,7 +261,7 @@ Disallow: /janitor_trials";
             Assert.DoesNotContain(RobotsHandler.GetRegexPattern("/favorite"), data.DisallowedList);
             Assert.DoesNotContain(RobotsHandler.GetRegexPattern("/janitor_trials"), data.DisallowedList);
 
-            var e = robots.IsUrlExcluded("http://test2.com/admin", null, false).Result;
+            var e = robots.IsUrlExcluded("http://test2.com/admin").Result;
             Assert.False(e);
             e = robots.IsUrlExcluded("http://test.com/admin").Result;
             Assert.True(e);
@@ -325,7 +325,7 @@ Crawl-delay: 4
             Assert.Equal(5, data.DisallowedList.Count);
             Assert.Equal(1, data.WaitTime);
 
-            var e = robots.IsUrlExcluded("http://test.com/testdomain2", null, false).Result;
+            var e = robots.IsUrlExcluded("http://test.com/testdomain2").Result;
             Assert.False(e);
             e = robots.IsUrlExcluded("http://test.com/admin").Result;
             Assert.True(e);
@@ -361,32 +361,21 @@ Disallow: /";
             var robots = new RobotsHandler(config, new System.Net.Http.HttpClient(), timerInterval);
             var data = robots.RegisterRobotsTxt("test.com", robotsTxt).Result;
 
-            var e = robots.IsUrlExcluded("http://test.com/something", null, false).Result;
+            var e = robots.IsUrlExcluded("http://test.com/something").Result;
             Assert.True(e);
-            e = robots.IsUrlExcluded("http://test.com", null, false).Result;
+            e = robots.IsUrlExcluded("http://test.com").Result;
             Assert.True(e);
-            e = robots.IsUrlExcluded("http://test.com/lol/test", null, false).Result;
+            e = robots.IsUrlExcluded("http://test.com/lol/test").Result;
             Assert.True(e);
 
             Task.Delay((int)timerInterval.TotalMilliseconds + 100).Wait();
 
-            e = robots.IsUrlExcluded("http://test.com/something", null, false).Result;
+            e = robots.IsUrlExcluded("http://test.com/something").Result;
             Assert.False(e);
-            e = robots.IsUrlExcluded("http://test.com", null, false).Result;
+            e = robots.IsUrlExcluded("http://test.com").Result;
             Assert.False(e);
-            e = robots.IsUrlExcluded("http://test.com/lol/test", null, false).Result;
+            e = robots.IsUrlExcluded("http://test.com/lol/test").Result;
             Assert.False(e);
-        }
-
-        [Fact]
-        public void PracticalTest()
-        {
-            //var timerInterval = TimeSpan.FromSeconds(2);
-            var config = new WorkerConfiguration() { UserAgent = "CryCrawler", RespectRobotsExclusionStandard = true };
-            var robots = new RobotsHandler(config, new System.Net.Http.HttpClient());
-
-            var e = robots.IsUrlExcluded("https://www.google.com/").Result;
-            // Assert.False(e); // this could change...
         }
     }
 }
