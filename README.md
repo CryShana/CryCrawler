@@ -2,7 +2,7 @@
 Cross-platform distributed multi-threaded web crawler
 
 ### Build
-Go into `CryCrawler` directory and run the following command:
+Go into `CryCrawler` directory (path should be `CryCrawler/CryCrawler`) and run the following command:
 
 `dotnet publish -c Release -r win-x64 /p:PublishSingleFile=true  /p:PublishReadyToRun=true`
 
