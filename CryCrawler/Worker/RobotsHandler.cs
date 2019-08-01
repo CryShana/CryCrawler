@@ -47,7 +47,7 @@ namespace CryCrawler.Worker
 
             var domain = Extensions.GetDomainName(url, out string protocol, out string path, false);
 
-            if (UrlExclusions.TryGetValue(domain, out RobotsData data)) return isUrlExcluded(data, path);       
+            if (UrlExclusions.TryGetValue(domain, out RobotsData data)) return isUrlExcluded(data, path);
             else if (getRobotsIfMissing)
             {
                 // send request for robot.txt
@@ -110,7 +110,7 @@ namespace CryCrawler.Worker
         /// <summary>
         /// Associate specified domain with specified robot.txt content.
         /// </summary>
-        public async Task<RobotsData> RegisterRobotsTxt(string domain, string content, 
+        public async Task<RobotsData> RegisterRobotsTxt(string domain, string content,
             bool overrideExistingDomainData = true)
         {
             if (string.IsNullOrEmpty(content)) return null;
@@ -120,20 +120,22 @@ namespace CryCrawler.Worker
                 var data = await processRobotsContent(stream);
 
                 // add or override this data
-                if (overrideExistingDomainData && UrlExclusions.ContainsKey(domain)) UrlExclusions[domain] = data;             
+                if (overrideExistingDomainData && UrlExclusions.ContainsKey(domain)) UrlExclusions[domain] = data;
                 else UrlExclusions.TryAdd(domain, data);
-                
+
                 return data;
 
-            }           
+            }
         }
 
         /// <summary>
-        /// Processes "robots.txt" content and returns the data.
+        /// Processes "robots.txt" content and returns the data. Specify new config to override default one.
         /// </summary>
         /// <param name="stream">Stream containing "robots.txt" content</param>
-        async Task<RobotsData> processRobotsContent(Stream stream)
+        async Task<RobotsData> processRobotsContent(Stream stream, WorkerConfiguration config = null)
         {
+            config = config ?? this.config;
+
             var data = new RobotsData();
 
             using (var reader = new StreamReader(stream))
@@ -166,7 +168,7 @@ namespace CryCrawler.Worker
                         {
                             // otherwise if useragent contains '*', treat it as regex pattern
                             var pattern = GetRegexPattern(useragent);
-                            if (Regex.IsMatch(useragent, pattern, RegexOptions.IgnoreCase)) userAgentMatched = true;         
+                            if (Regex.IsMatch(config.UserAgent, pattern, RegexOptions.IgnoreCase)) userAgentMatched = true;
                         }
 
                         continue;
@@ -183,6 +185,10 @@ namespace CryCrawler.Worker
                     {
                         var disallowedPath = line.Substring(disallowKey.Length);
                         var pattern = GetRegexPattern(disallowedPath);
+
+                        // '/' is a special symbol to match everything
+                        if (disallowedPath == "/") pattern = ".*";
+
                         data.DisallowedList.Add(pattern);
                     }
                     else if (line.StartsWith(allowKey, StringComparison.OrdinalIgnoreCase))
@@ -194,7 +200,7 @@ namespace CryCrawler.Worker
                     else if (line.StartsWith(delayKey, StringComparison.OrdinalIgnoreCase))
                     {
                         var delay = line.Substring(delayKey.Length);
-                        if (double.TryParse(delay, out double r)) data.WaitTime = r;                     
+                        if (double.TryParse(delay, out double r)) data.WaitTime = r;
                     }
                 }
             }
@@ -258,7 +264,7 @@ namespace CryCrawler.Worker
             // - Beginning of path needs to be marked with ^
             // - Ending also needs to be marked in a special way to not include different paths (for example: "/admin2" is not matched by "/admin", but "/admin/test" is)
             => "^" + Regex.Escape(pattern).Replace("\\*", ".*") + @"([ \\\?\/].*?)?$";
-        
+
 
         /// <summary>
         /// Checks and removes old entries to free up memory.
