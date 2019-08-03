@@ -3,11 +3,12 @@ Portable cross-platform web crawler. Used to crawl websites and download files t
 
 **Note!** This is a college project. Don't expect this to be actively maintained.
 
-### Features
+## Features
+---
 - **Portable** - Single executable file you can run anywhere without any extra requirements
 - **Cross-platform** - Works on Windows/Linux/OSX and other platforms supported by NET Core
 - **Multi-threaded** - Single crawler can use as many threads as specified by the user for crawling.
-- **Distributed** - Connect multiple crawlers to a host; you can also connect multiple hosts to a single master host. (Using **SSL**)
+- **Distributed** - Connect multiple crawlers to a host; or connect multiple hosts to a master host. (using **SSL**)
 - **Extensible** - Extend CryCrawler's functionality by using plugins/extensions.
 - **Web GUI** - Check status, change configuration, start/stop program, all through your browser - remotely.
 - **Breadth/Depth-first crawling** - Two different modes for crawling websites (FIFO or LIFO for storing URLs)
@@ -15,10 +16,11 @@ Portable cross-platform web crawler. Used to crawl websites and download files t
 - **Custom User-Agent** - User can provide a custom user-agent for crawler to use when getting websites.
 - **File Critera Configuration** - Decide which files to download based on extension, media type, file size or filename.
 - **Domain Whitelist/Blacklist** - Force crawler to stay only on certain domains or simply blaclist domains you don't need.
-- **Duplicate file detection** - Downloaded files with same names are compared using MD5 checksums to ensure no duplicates.
+- **Duplicate file detection** - Files with same names are compared using MD5 checksums to ensure no duplicates.
 - **Persistent** - CryCrawler will keep retrying to crawl failed URLs until they are crawled (up to a certain time limit)
 
-### Overview
+## Overview
+----
 CryCrawler has two working modes:
 - **Crawling mode** (*default*) - program will attempt to crawl provided URLs (provided either locally or by host)
 - **Hosting mode** - program will manage multiple connected clients and assign them URLs to crawl
@@ -28,7 +30,27 @@ Assuming we are on Linux:
 - `./CryCrawler -h` (or `./CryCrawler --host`) - Will run CryCrawler in *Hosting* mode
 - `./CryCrawler --help` - Will display a list of supported flags (`-d` - Debug mode, `-n` - New session)
 
-### Build
+Running it for the first time will generate the following:
+- `config.json` - main configuration file for CryCrawler
+- `plugins/` - folder where you can place your plugins to be loaded on startup
+- `plugins/PluginTemplate.cs-template` - plugin template file for creating plugins
+- `crycrawler_cache` - this file stores all crawled URLs and backups of current URLs to be crawled.
+
+### Crawling mode
+CryCrawler will start crawling available URLs immediately. 
+
+By default, if no previous URLs are loaded, it will use seed Urls (defined in `config.json` or via WebGUI) to start.
+
+However, **if you are using Host for URLs** - locally defined URLs will be ignored and any existing crawled data will be erased. This is because Host manages all crawled URLs and work.
+
+
+### Hosting mode
+CryCrawler starts listening for connections. URLs will start being crawled only once at least one client is connected. 
+
+Loading URLs works the same way as it works in *Crawling* mode.
+
+## Build
+----
 Go into `CryCrawler` directory (path should be `CryCrawler/CryCrawler`) and run the following command:
 
 `dotnet publish -c Release -r win-x64 /p:PublishSingleFile=true  /p:PublishReadyToRun=true`
