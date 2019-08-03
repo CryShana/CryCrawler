@@ -78,8 +78,8 @@ The `config.json` has 3 main parts (`HostConfig`, `WorkerConfig` and `WebGUI`)
   - **MaxConcurrency** - Max. number of threads the crawler can use for crawling
   - **DepthSearch** - If `true`, it will crawl URLs depth-first - recommended is `false`
   - **MaxLoggedDownloads** - Max. number of recently downloaded items to track and display on Web GUI
-  - **MaxFileChunkSizekB** - (When using Host) Max. file chunk size (in kB) when transferring files to Host in chunk
-  - **MaxCrawledWorksBeforeCleanHost** - (When using Host) Max. number of crawled works to store before clearing them
+  - **MaxFileChunkSizekB** - Max. file chunk size (in kB) when transferring files to Host in chunk
+  - **MaxCrawledWorksBeforeCleanHost** - Max. number of crawled works to store before clearing them
   - **AutoSaveIntervalSeconds** - Define interval when to backup uncrawled URLs in memory to disk cache.
   - **UserAgent** - User-Agent the crawler will use when visiting websites (can not be empty)
   - **RespectRobotsExclusionStandard** - If `true`, crawler will try to get `robots.txt` from every website and respect it.
