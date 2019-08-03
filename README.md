@@ -36,7 +36,7 @@ Running it for the first time will generate the following:
 - `plugins/PluginTemplate.cs-template` - plugin template file for creating plugins
 - `crycrawler_cache` - this file stores all crawled URLs and backups of current URLs to be crawled.
 
-### Crawling mode
+#### Crawling mode
 CryCrawler will start crawling available URLs immediately. 
 
 By default, if no previous URLs are loaded, it will use seed Urls (defined in `config.json` or via WebGUI) to start.
@@ -44,7 +44,7 @@ By default, if no previous URLs are loaded, it will use seed Urls (defined in `c
 However, **if you are using Host for URLs** - locally defined URLs will be ignored and any existing crawled data will be erased. This is because Host manages all crawled URLs and work.
 
 
-### Hosting mode
+#### Hosting mode
 CryCrawler starts listening for connections. URLs will start being crawled only once at least one client is connected. 
 
 Loading URLs works the same way as it works in *Crawling* mode.
