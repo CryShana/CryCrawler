@@ -63,6 +63,38 @@ Loading URLs works the same way as it works in *Crawling* mode.
 
 6. Remember to properly shut it down by using `Ctrl + C` (to ensure all current uncrawled URLs are backed up to the cache)
 
+## Configuration
+The `config.json` has 3 main parts (`HostConfig`, `WorkerConfig` and `WebGUI`)
+
+- **HostConfig** - Configuration used by the Host (CryCrawler in Hosting mode)
+  - **ListenerConfiguration** - Configure the listening endpoint and optionally define password
+  - **MaxClientAgeMinutes** - Max. allowed time for a client to be offline before Host removes it from it's client list
+  - **ClientWorkLimit** - Max. number of found URLs a client can accumulate before it needs to send them to the host
+- **WorkerConfig**
+  - **HostEndpoint** - Host endpoint to connect to. (set `UseHost` to `true` to use this endpoint)
+  - **DownloadsPath** - Relative path to the folder where all files will be downloaded to
+  - **DontCreateSubfolders** - If `false`, subfolders will be created for each domain and path of file
+  - **LogEveryCrawl** - If `true`, every URL crawl will be written to the console
+  - **MaxConcurrency** - Max. number of threads the crawler can use for crawling
+  - **DepthSearch** - If `true`, it will crawl URLs depth-first - recommended is `false`
+  - **MaxLoggedDownloads** - Max. number of recently downloaded items to track and display on Web GUI
+  - **MaxFileChunkSizekB** - (When using Host) Max. file chunk size (in kB) when transferring files to Host in chunk
+  - **MaxCrawledWorksBeforeCleanHost** - (When using Host) Max. number of crawled works to store before clearing them
+  - **AutoSaveIntervalSeconds** - Define interval when to backup uncrawled URLs in memory to disk cache.
+  - **UserAgent** - User-Agent the crawler will use when visiting websites (can not be empty)
+  - **RespectRobotsExclusionStandard** - If `true`, crawler will try to get `robots.txt` from every website and respect it.
+  - **AcceptedExtensions** - (File Criteria) List of accepted extensions (ex: `.jpg`)
+  - **AcceptedMediaTypes** - (File Criteria) List of accepted media types (ex: `image/jpeg`)
+  - **ScanTargetsMediaTypes** - Media types that should be scanned for more URLs (ex: `text/html`)
+  - **DomainWhitelist** - List of whitelisted domains. If this list is not empty, only these domains will be crawled.
+  - **DomainBlacklist** - List of blacklisted domains. Any domain listed here will be ignored.
+  - **FilenameMustContainEither** - (File Criteria) List of words - filename must contain at least one of them.
+  - **MaximumAllowedFileSizekB** - (File Criteria) Max. allowed file size in kB (`-1` for no limit)
+  - **MinimumAllowedFileSizekB** - (File Criteria) Min. allowed file size in kB (`-1` for no limit)
+  - **AcceptAllFiles** - If `true`, ignores all file criteria and downloads every file it finds.
+  - **Urls** - List of seed URLs that will be loaded when cache is empty (no previous URLs can be loaded)
+- **WebGUI** - Configure the listening endpoint for the Web GUI
+
 ## Build
 
 Go into `CryCrawler` directory (path should be `CryCrawler/CryCrawler`) and run the following command:
