@@ -4,7 +4,7 @@ Portable cross-platform web crawler. Used to crawl websites and download files t
 **Note!** This is a college project. Don't expect this to be actively maintained.
 
 ## Features
----
+
 - **Portable** - Single executable file you can run anywhere without any extra requirements
 - **Cross-platform** - Works on Windows/Linux/OSX and other platforms supported by NET Core
 - **Multi-threaded** - Single crawler can use as many threads as specified by the user for crawling.
@@ -20,7 +20,7 @@ Portable cross-platform web crawler. Used to crawl websites and download files t
 - **Persistent** - CryCrawler will keep retrying to crawl failed URLs until they are crawled (up to a certain time limit)
 
 ## Overview
-----
+
 CryCrawler has two working modes:
 - **Crawling mode** (*default*) - program will attempt to crawl provided URLs (provided either locally or by host)
 - **Hosting mode** - program will manage multiple connected clients and assign them URLs to crawl
@@ -49,8 +49,22 @@ CryCrawler starts listening for connections. URLs will start being crawled only 
 
 Loading URLs works the same way as it works in *Crawling* mode.
 
+## Quick Start
+
+1. Run CryCrawler normally (by double-clicking it or running `./CryCrawler`)
+
+2. Access CryCrawler's WebGUI by opening your browser and navigating to `127.0.0.1:6001`
+
+3. Scroll down to `Seed Urls` and enter the URLs you wish to start with (one per line)
+
+4. You can adjust any other configuration options here (but if you want a more extensive configuration, check `config.json`)
+
+5. Click `Update Configuration` once done and CryCrawler will load up the URLs and start crawling
+
+6. Remember to properly shut it down by using `Ctrl + C` (to ensure all current uncrawled URLs are backed up to the cache)
+
 ## Build
-----
+
 Go into `CryCrawler` directory (path should be `CryCrawler/CryCrawler`) and run the following command:
 
 `dotnet publish -c Release -r win-x64 /p:PublishSingleFile=true  /p:PublishReadyToRun=true`
