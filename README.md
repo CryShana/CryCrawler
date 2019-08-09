@@ -1,7 +1,7 @@
 # CryCrawler
 Portable cross-platform web crawler. Used to crawl websites and download files that match specified criteria.
 
-**Note!** This is a college project. Don't expect this to be actively maintained.
+**Note!** This is a college project. Don't expect this to be actively maintained. (I also don't recommend using it for any complex and large crawling projects)
 
 ## Features
 
