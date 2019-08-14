@@ -167,12 +167,19 @@ namespace CryCrawler
         public static bool IsUrlWhitelisted(string url, WorkerConfiguration config)
         {
             // check if url ends with a slash, otherwise add it
-            var domain = GetDomainName(url, out _);
+            var domain = GetDomainName(url, out _).ToLower();
 
             // reject url if domain is empty
             if (string.IsNullOrEmpty(domain)) return false;
 
-            // check whitelist first
+            // check blacklist first
+            foreach (var w in config.DomainBlacklist)
+            {
+                // if domain name is equal to any blacklisted domains, reject it
+                if (domain == w.ToLower()) return false;
+            }
+
+            // check whitelist second
             if (config.DomainWhitelist.Count > 0)
             {
                 foreach (var w in config.DomainWhitelist)
@@ -183,13 +190,6 @@ namespace CryCrawler
 
                 // if whitelist is not empty, any non-matching domains are rejected!
                 return false;
-            }
-
-            // check blacklist second
-            foreach (var w in config.DomainBlacklist)
-            {
-                // if domain contains any of the blacklisted words, automatically reject it
-                if (domain.Contains(w.ToLower())) return false;
             }
 
             // accept url if it doesn't contain any blacklisted word
