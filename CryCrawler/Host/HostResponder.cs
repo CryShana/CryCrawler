@@ -94,6 +94,7 @@ namespace CryCrawler.Host
             DontSubfolders = workerManager.WorkerConfig.DontCreateSubfolders,
             FilenameCriteria = workerManager.WorkerConfig.FilenameMustContainEither,
             URLPatterns = workerManager.WorkerConfig.URLMustMatchPattern,
+            BlacklistedURLPatterns = workerManager.WorkerConfig.BlacklistedURLPatterns,
             UserAgent = workerManager.WorkerConfig.UserAgent,
             RespectRobots = workerManager.WorkerConfig.RespectRobotsExclusionStandard
         });
@@ -162,6 +163,7 @@ namespace CryCrawler.Host
                 config.WorkerConfig.MaximumAllowedFileSizekB = req.MaxSize;
                 config.WorkerConfig.MinimumAllowedFileSizekB = req.MinSize;
                 config.WorkerConfig.DontCreateSubfolders = req.DontCreateSubfolders;
+                config.WorkerConfig.BlacklistedURLPatterns = req.BlacklistedURLPatterns;
                 config.WorkerConfig.URLMustMatchPattern = req.URLPatterns;
                 config.WorkerConfig.FilenameMustContainEither = req.FilenameCriteria;
                 config.WorkerConfig.RespectRobotsExclusionStandard = req.RespectRobots;
@@ -202,6 +204,7 @@ namespace CryCrawler.Host
             public List<string> Blacklist { get; set; }
             public List<string> FilenameCriteria { get; set; }
             public List<string> URLPatterns { get; set; }
+            public List<string> BlacklistedURLPatterns { get; set; }
             public double MaxSize { get; set; }
             public double MinSize { get; set; }
             public string UserAgent { get; set; }

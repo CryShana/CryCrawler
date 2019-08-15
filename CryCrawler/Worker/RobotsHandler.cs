@@ -45,6 +45,9 @@ namespace CryCrawler.Worker
         {
             config = config ?? this.config;
 
+            // check if URL matches any blacklisted patterns
+            if (Extensions.IsURLBlacklisted(url, config)) return true;
+            
             // if robot standard is not being respected, return false
             if (config.RespectRobotsExclusionStandard == false) return false;
 

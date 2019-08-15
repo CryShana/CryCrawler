@@ -102,7 +102,8 @@ namespace CryCrawler.Worker
                 // check if url is whitelisted
                 if (Extensions.IsUrlWhitelisted(url, Config) == false) continue;
 
-                // check robots.txt (this also attempts to download robots.txt on first run)
+                // check robots.txt and blacklisted tags 
+                // (this also attempts to download robots.txt on first run)
                 if (robots.IsUrlExcluded(url, Config, true).Result) continue;
    
                 var wait = robots.GetWaitTime(url, Config);

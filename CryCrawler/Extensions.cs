@@ -206,19 +206,42 @@ namespace CryCrawler
             // accept URL automatically if no patterns are defined to be matched
             if (config?.URLMustMatchPattern == null || config.URLMustMatchPattern.Count == 0) return true;
 
-            // first we need to escape the pattern with Regex.Escape (check RobotsHandler.GetRegexPattern)
-            // pattern can start without domain name - all '*' symbols need to be replaced with '.*' - ending needs to be marked with $
-            string getPattern(string pp) => "^(.*?)" + Regex.Escape(pp).Replace("\\*", ".*") + "$";
-
             foreach (var p in config.URLMustMatchPattern)
             {
-                var pattern = getPattern(p);
+                if (string.IsNullOrEmpty(p)) continue;
+
+                var pattern = GetRegexPatternForUrlMatching(p);
 
                 if (Regex.IsMatch(url, pattern, RegexOptions.IgnoreCase)) return true;
             }
 
             return false;
         }
+
+        /// <summary>
+        /// Based on defined blacklisted URL patterns, checks if given URL matches them
+        /// </summary>
+        public static bool IsURLBlacklisted(string url, WorkerConfiguration config)
+        {
+            // accept URL automatically if no patterns are defined to be matched
+            if (config?.BlacklistedURLPatterns == null || config.BlacklistedURLPatterns.Count == 0) return false;
+            
+            foreach (var p in config.BlacklistedURLPatterns)
+            {
+                if (string.IsNullOrEmpty(p)) continue;
+
+                var pattern = GetRegexPatternForUrlMatching(p);
+
+                if (Regex.IsMatch(url, pattern, RegexOptions.IgnoreCase)) return true;
+            }
+
+            return false;
+        }
+
+        // first we need to escape the pattern with Regex.Escape (check RobotsHandler.GetRegexPattern)
+        // pattern can start without domain name - all '*' symbols need to be replaced with '.*' - ending needs to be marked with $
+        public static string GetRegexPatternForUrlMatching(string pattern) 
+            => "^(.*?)" + Regex.Escape(pattern).Replace("\\*", ".*") + "$";
 
         public static string GetDomainName(string url, out string protocol, bool withProtocol = false)
         {
