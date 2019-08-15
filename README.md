@@ -88,8 +88,9 @@ The `config.json` has 3 main parts (`HostConfig`, `WorkerConfig` and `WebGUI`)
   - **ScanTargetsMediaTypes** - Media types that should be scanned for more URLs (ex: `text/html`)
   - **DomainWhitelist** - List of whitelisted domains. If this list is not empty, only these domains will be crawled.
   - **DomainBlacklist** - List of blacklisted domains. Any domain listed here will be ignored.
+  - **BlacklistedURLPatterns** - List of blacklisted URL patterns. Any URL that matches any pattern in this list will be ignored. Case insensitive.
   - **FilenameMustContainEither** - (File Criteria) List of words - filename must contain at least one of them. Case insensitive.
-  - **URLMustMatchPattern** - (File Criteria) List of URL patterns - filename URL must match at least on of them. Case insensitive.
+  - **URLMustMatchPattern** - (File Criteria) List of URL patterns - filename URL must match at least one of them. Case insensitive.
   - **MaximumAllowedFileSizekB** - (File Criteria) Max. allowed file size in kB (`-1` for no limit)
   - **MinimumAllowedFileSizekB** - (File Criteria) Min. allowed file size in kB (`-1` for no limit)
   - **AcceptAllFiles** - If `true`, ignores all file criteria and downloads every file it finds.
