@@ -81,5 +81,85 @@ namespace CryCrawlerTests
             database.Dispose();
             database.Delete();
         }
+
+        [Fact]
+        public void WhiteListMatchingTest()
+        {
+            var config = new WorkerConfiguration
+            {
+                DomainWhitelist = new List<string> { "testsite.com" },
+                DomainBlacklist = new List<string> { }
+            };
+
+            var w = Extensions.IsUrlWhitelisted("facebook.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsUrlWhitelisted("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsUrlWhitelisted("www.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsUrlWhitelisted("facebook.com/testsite.com/page/123?test=3", config);
+            Assert.False(w);
+
+            config = new WorkerConfiguration
+            {
+                DomainWhitelist = new List<string> { },
+                DomainBlacklist = new List<string> { "facebook.com" }
+            };
+
+            w = Extensions.IsUrlWhitelisted("facebook.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsUrlWhitelisted("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsUrlWhitelisted("www.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsUrlWhitelisted("facebook.com/testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsUrlWhitelisted("www.facebook.com/testsite.com/page/123?test=3", config);
+            Assert.True(w);
+
+            config = new WorkerConfiguration
+            {
+                DomainWhitelist = new List<string> { "testsite.com" },
+                DomainBlacklist = new List<string> { "www.testsite.com", "cdn.testsite.com" }
+            };
+
+            w = Extensions.IsUrlWhitelisted("facebook.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsUrlWhitelisted("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsUrlWhitelisted("www.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsUrlWhitelisted("app.testsite.com/testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsUrlWhitelisted("CDN.testsite.com/testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsUrlWhitelisted("cdn.testsite.com/testsite.com/page/123?test=3", config);
+            Assert.False(w);
+
+            config = new WorkerConfiguration
+            {
+                DomainWhitelist = new List<string> { "testsite.com", "facebook.com" },
+                DomainBlacklist = new List<string> { "cdn.testsite.com" }
+            };
+
+            w = Extensions.IsUrlWhitelisted("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsUrlWhitelisted("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsUrlWhitelisted("www.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsUrlWhitelisted("app.testsite.com/testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsUrlWhitelisted("CDN.testsite.com/testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsUrlWhitelisted("cdn.testsite.com/testsite.com/page/123?test=3", config);
+            Assert.False(w);
+        }
+
+        [Fact]
+        public void FilenameURLMatchingTest()
+        {
+
+        }
     }
 }
