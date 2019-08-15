@@ -14,7 +14,7 @@ Portable cross-platform web crawler. Used to crawl websites and download files t
 - **Breadth/Depth-first crawling** - Two different modes for crawling websites (FIFO or LIFO for storing URLs)
 - **Robots Exclusion Standard** - Option for crawler to respect or ignore 'robots.txt' provided by websites
 - **Custom User-Agent** - User can provide a custom user-agent for crawler to use when getting websites.
-- **File Critera Configuration** - Decide which files to download based on extension, media type, file size or filename.
+- **File Critera Configuration** - Decide which files to download based on extension, media type, file size, filename or URL pattern.
 - **Domain Whitelist/Blacklist** - Force crawler to stay only on certain domains or simply blaclist domains you don't need.
 - **Duplicate file detection** - Files with same names are compared using MD5 checksums to ensure no duplicates.
 - **Persistent** - CryCrawler will keep retrying to crawl failed URLs until they are crawled (up to a certain time limit)
@@ -88,7 +88,8 @@ The `config.json` has 3 main parts (`HostConfig`, `WorkerConfig` and `WebGUI`)
   - **ScanTargetsMediaTypes** - Media types that should be scanned for more URLs (ex: `text/html`)
   - **DomainWhitelist** - List of whitelisted domains. If this list is not empty, only these domains will be crawled.
   - **DomainBlacklist** - List of blacklisted domains. Any domain listed here will be ignored.
-  - **FilenameMustContainEither** - (File Criteria) List of words - filename must contain at least one of them.
+  - **FilenameMustContainEither** - (File Criteria) List of words - filename must contain at least one of them. Case insensitive.
+  - **URLMustMatchPattern** - (File Criteria) List of URL patterns - filename URL must match at least on of them. Case insensitive.
   - **MaximumAllowedFileSizekB** - (File Criteria) Max. allowed file size in kB (`-1` for no limit)
   - **MinimumAllowedFileSizekB** - (File Criteria) Min. allowed file size in kB (`-1` for no limit)
   - **AcceptAllFiles** - If `true`, ignores all file criteria and downloads every file it finds.
