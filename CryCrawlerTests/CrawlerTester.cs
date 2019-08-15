@@ -269,5 +269,119 @@ namespace CryCrawlerTests
             w = Extensions.IsURLMatch("app.testsite.com/image/123?test=3", config);
             Assert.False(w);
         }
+
+        [Fact]
+        public void FilenameURLBlacklistTest()
+        {
+            var config = new WorkerConfiguration
+            {
+                BlacklistedURLPatterns = new List<string> { }
+            };
+
+            var w = Extensions.IsURLBlacklisted("facebook.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("cdn.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("app.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+
+            config = new WorkerConfiguration
+            {
+                BlacklistedURLPatterns = new List<string> { "*" }
+            };
+
+            w = Extensions.IsURLBlacklisted("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("app.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+
+            config = new WorkerConfiguration
+            {
+                BlacklistedURLPatterns = new List<string> { "facebook.com" }
+            };
+
+            w = Extensions.IsURLBlacklisted("facebook.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("cdn.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("app.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("http://facebook.com", config);
+            Assert.True(w);
+
+            config = new WorkerConfiguration
+            {
+                BlacklistedURLPatterns = new List<string> { "facebook.com/*" }
+            };
+
+            w = Extensions.IsURLBlacklisted("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("cdn.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("app.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+
+            config = new WorkerConfiguration
+            {
+                BlacklistedURLPatterns = new List<string> { "facebook.com/*", "testsite.com/*" }
+            };
+
+            w = Extensions.IsURLBlacklisted("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("app.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("app.testsite2.com/page/123?test=3", config);
+            Assert.False(w);
+
+            config = new WorkerConfiguration
+            {
+                BlacklistedURLPatterns = new List<string> { "/page/*" }
+            };
+
+            w = Extensions.IsURLBlacklisted("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("facebook.com/original/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("app.testsite.com/image/123?test=3", config);
+            Assert.False(w);
+
+            config = new WorkerConfiguration
+            {
+                BlacklistedURLPatterns = new List<string> { "cdn.testsite.com/*/1*", "face*.com*" }
+            };
+
+            w = Extensions.IsURLBlacklisted("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("facebook.com/original/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("http://cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLBlacklisted("cdn.testsite.com/page/223?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLBlacklisted("app.testsite.com/image/123?test=3", config);
+            Assert.False(w);
+        }
     }
 }
