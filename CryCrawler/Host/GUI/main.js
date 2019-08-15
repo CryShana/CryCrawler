@@ -172,6 +172,7 @@ function setStatus(data) {
         let seedurls = data.SeedUrls.join('\n');
         let whitelist = data.Whitelist.join('\n');
         let blacklist = data.Blacklist.join('\n');
+        let urlpatterns = data.URLPatterns.join('\n');
         let filenamec = data.FilenameCriteria.join('\n');
         let extensions = data.AcceptedExtensions.join(' ');
         let mediaTypes = data.AccesptedMediaTypes.join(' ');
@@ -191,6 +192,7 @@ function setStatus(data) {
         $("#config-whitelist").val(whitelist);
         $("#config-blacklist").val(blacklist);
         $("#config-filename-criteria").val(filenamec);
+        $("#config-filename-urlpatterns").val(urlpatterns);
         $("#config-min-size").val(minsize);
         $("#config-max-size").val(maxsize);
         $("#config-user-agent").val(useragent);
@@ -210,6 +212,7 @@ function setStatus(data) {
             $("#config-whitelist").addClass("disabled");
             $("#config-blacklist").addClass("disabled");
             $("#config-filename-criteria").addClass("disabled");
+            $("#config-filename-urlpatterns").addClass("disabled");
             $("#config-min-size").addClass("disabled");
             $("#config-max-size").addClass("disabled");
             $("#config-user-agent").addClass("disabled");
@@ -329,6 +332,7 @@ function updateConfig(self) {
     let whitelist = $("#config-whitelist").val().split('\n');
     let blacklist = $("#config-blacklist").val().split('\n');
     let filenamec = $("#config-filename-criteria").val().split('\n');
+    let urlpatterns = $("#config-filename-urlpatterns").val().split('\n');
     let minsize = parseFloat($("#config-min-size").val());
     let maxsize = parseFloat($("#config-max-size").val());
     let respectrobots = $("#config-respect-robots").is(":checked");
@@ -355,7 +359,8 @@ function updateConfig(self) {
         DontCreateSubfolders: dontsubf,
         FilenameCriteria: filenamec,
         RespectRobots: respectrobots,
-        UserAgent: useragent
+        UserAgent: useragent,
+        URLPatterns: urlpatterns
 
     }, function (s) {
 
