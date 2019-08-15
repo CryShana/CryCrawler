@@ -597,6 +597,7 @@ namespace CryCrawler.Host
                 URLMustMatchPattern = config.URLMustMatchPattern,
                 DontCreateSubfolders = config.DontCreateSubfolders,
                 ScanTargetsMediaTypes = config.ScanTargetsMediaTypes,
+                BlacklistedURLPatterns = config.BlacklistedURLPatterns,
                 MaximumAllowedFileSizekB = config.MaximumAllowedFileSizekB,
                 MinimumAllowedFileSizekB = config.MinimumAllowedFileSizekB,
                 FilenameMustContainEither = config.FilenameMustContainEither,

@@ -135,6 +135,7 @@ function setStatus(data) {
         let extensions = data.AcceptedExtensions.join(' ');
         let mediaTypes = data.AccesptedMediaTypes.join(' ');
         let scantargets = data.ScanTargetMediaTypes.join(' ');
+        let blacklistedurlpatterns = data.BlacklistedURLPatterns.join('\n');
         let minsize = data.MinSize;
         let maxsize = data.MaxSize;
         let useragent = data.UserAgent;
@@ -151,6 +152,7 @@ function setStatus(data) {
         $("#config-blacklist").val(blacklist);
         $("#config-filename-criteria").val(filenamec);
         $("#config-filename-urlpatterns").val(urlpatterns);
+        $("#config-filename-blacklistedurlpatterns").val(blacklistedurlpatterns);
         $("#config-min-size").val(minsize);
         $("#config-max-size").val(maxsize);
         $("#config-user-agent").val(useragent);
@@ -171,6 +173,7 @@ function setStatus(data) {
             $("#config-blacklist").addClass("disabled");
             $("#config-filename-criteria").addClass("disabled");
             $("#config-filename-urlpatterns").addClass("disabled");
+            $("#config-filename-blacklistedurlpatterns").addClass("disabled");
             $("#config-min-size").addClass("disabled");
             $("#config-max-size").addClass("disabled");
             $("#config-user-agent").addClass("disabled");
@@ -292,6 +295,7 @@ function updateConfig(self) {
     let blacklist = $("#config-blacklist").val().split('\n');
     let filenamec = $("#config-filename-criteria").val().split('\n');
     let urlpatterns = $("#config-filename-urlpatterns").val().split('\n');
+    let blacklistedurlpatterns = $("#config-filename-blacklistedurlpatterns").val().split('\n');
     let minsize = parseFloat($("#config-min-size").val());
     let maxsize = parseFloat($("#config-max-size").val());
     let respectrobots = $("#config-respect-robots").is(":checked");
@@ -319,7 +323,8 @@ function updateConfig(self) {
         FilenameCriteria: filenamec,
         RespectRobots: respectrobots,
         UserAgent: useragent,
-        URLPatterns: urlpatterns
+        URLPatterns: urlpatterns,
+        BlacklistedURLPatterns: blacklistedurlpatterns
 
     }, function (s) {
 
