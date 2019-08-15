@@ -195,6 +195,9 @@ namespace CryCrawler.Worker
                     // attempt to get filename
                     var filename = GetFilename(url, mediaType);
 
+                    // check if URL matches defined URL patterns
+                    if (Extensions.IsURLMatch(url, Config) == false) continue;
+
                     // don't download file if not acceptable
                     if (IsAcceptable(filename, mediaType) == false ||
                         cancelSource.IsCancellationRequested) continue;

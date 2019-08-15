@@ -89,7 +89,16 @@ namespace CryCrawler
         /// </summary>
         public List<string> DomainBlacklist { get; set; } = new List<string>();
 
+        /// <summary>
+        /// List of words that the filename must contain (at least one). Case insensitive.
+        /// </summary>
         public List<string> FilenameMustContainEither { get; set; } = new List<string>();
+
+        /// <summary>
+        /// List of patterns that the filename URL must match (at least one). Case insensitive.  (ex. "/path/*" or "domain.name/path/*")
+        /// </summary>
+        public List<string> URLMustMatchPattern{ get; set; } = new List<string>();
+
         public double MaximumAllowedFileSizekB { get; set; } = -1;
         public double MinimumAllowedFileSizekB { get; set; } = -1;
 
