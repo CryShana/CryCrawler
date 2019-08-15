@@ -14,7 +14,7 @@ Portable cross-platform web crawler. Used to crawl websites and download files t
 - **Breadth/Depth-first crawling** - Two different modes for crawling websites (FIFO or LIFO for storing URLs)
 - **Robots Exclusion Standard** - Option for crawler to respect or ignore 'robots.txt' provided by websites
 - **Custom User-Agent** - User can provide a custom user-agent for crawler to use when getting websites.
-- **File Critera Configuration** - Decide which files to download based on extension, media type, file size, filename or URL pattern.
+- **File Critera Configuration** - Decide which files to download based on extension, media type, file size, filename or URL.
 - **Domain Whitelist/Blacklist** - Force crawler to stay only on certain domains or simply blaclist domains you don't need.
 - **Duplicate file detection** - Files with same names are compared using MD5 checksums to ensure no duplicates.
 - **Persistent** - CryCrawler will keep retrying to crawl failed URLs until they are crawled (up to a certain time limit)
