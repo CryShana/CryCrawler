@@ -1,10 +1,12 @@
-﻿using System;
+﻿using CryCrawler.Worker;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices.ComTypes;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
@@ -194,6 +196,28 @@ namespace CryCrawler
 
             // accept url if it doesn't contain any blacklisted word
             return true;
+        }
+
+        /// <summary>
+        /// Based on defined URL patterns, checks if given URL matches them
+        /// </summary>
+        public static bool IsURLMatch(string url, WorkerConfiguration config)
+        {
+            // accept URL automatically if no patterns are defined to be matched
+            if (config?.URLMustMatchPattern == null || config.URLMustMatchPattern.Count == 0) return true;
+
+            // first we need to escape the pattern with Regex.Escape (check RobotsHandler.GetRegexPattern)
+            // pattern can start without domain name - all '*' symbols need to be replaced with '.*' - ending needs to be marked with $
+            string getPattern(string pp) => "^(.*?)" + Regex.Escape(pp).Replace("\\*", ".*") + "$";
+
+            foreach (var p in config.URLMustMatchPattern)
+            {
+                var pattern = getPattern(p);
+
+                if (Regex.IsMatch(url, pattern, RegexOptions.IgnoreCase)) return true;
+            }
+
+            return false;
         }
 
         public static string GetDomainName(string url, out string protocol, bool withProtocol = false)

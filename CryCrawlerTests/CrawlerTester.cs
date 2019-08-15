@@ -159,7 +159,115 @@ namespace CryCrawlerTests
         [Fact]
         public void FilenameURLMatchingTest()
         {
+            var config = new WorkerConfiguration
+            {
+                URLMustMatchPattern = new List<string> { }
+            };
 
+            var w = Extensions.IsURLMatch("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("app.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+
+            config = new WorkerConfiguration
+            {
+                URLMustMatchPattern = new List<string> { "*" }
+            };
+
+            w = Extensions.IsURLMatch("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("app.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+
+            config = new WorkerConfiguration
+            {
+                URLMustMatchPattern = new List<string> { "facebook.com" }
+            };
+
+            w = Extensions.IsURLMatch("facebook.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLMatch("testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLMatch("cdn.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLMatch("app.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLMatch("http://facebook.com", config);
+            Assert.True(w);
+
+            config = new WorkerConfiguration
+            {
+                URLMustMatchPattern = new List<string> { "facebook.com/*" }
+            };
+
+            w = Extensions.IsURLMatch("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLMatch("cdn.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLMatch("app.testsite.com/page/123?test=3", config);
+            Assert.False(w);
+
+            config = new WorkerConfiguration
+            {
+                URLMustMatchPattern = new List<string> { "facebook.com/*", "testsite.com/*" }
+            };
+
+            w = Extensions.IsURLMatch("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("app.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("app.testsite2.com/page/123?test=3", config);
+            Assert.False(w);
+
+            config = new WorkerConfiguration
+            {
+                URLMustMatchPattern = new List<string> { "/page/*" }
+            };
+
+            w = Extensions.IsURLMatch("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("facebook.com/original/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLMatch("testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("app.testsite.com/image/123?test=3", config);
+            Assert.False(w);
+
+            config = new WorkerConfiguration
+            {
+                URLMustMatchPattern = new List<string> { "cdn.testsite.com/*/1*", "face*.com*" }
+            };
+
+            w = Extensions.IsURLMatch("facebook.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("facebook.com/original/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("testsite.com/page/123?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLMatch("cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("http://cdn.testsite.com/page/123?test=3", config);
+            Assert.True(w);
+            w = Extensions.IsURLMatch("cdn.testsite.com/page/223?test=3", config);
+            Assert.False(w);
+            w = Extensions.IsURLMatch("app.testsite.com/image/123?test=3", config);
+            Assert.False(w);
         }
     }
 }
