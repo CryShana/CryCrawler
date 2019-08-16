@@ -33,6 +33,7 @@ namespace CryCrawler
         public bool DontCreateSubfolders { get; set; } = false;
         public bool LogEveryCrawl { get; set; } = true;
         public int MaxConcurrency { get; set; } = 3;
+        public double CrawlDelaySeconds { get; set; } = 0;
         public bool DepthSearch { get; set; } = false;
         public int MaxLoggedDownloads { get; set; } = 30;
         public int MaxFileChunkSizekB { get; set; } = 200;

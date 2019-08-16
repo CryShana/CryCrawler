@@ -8,6 +8,8 @@
     <Description>Distributed multi-threaded web crawler for fetching documents off the web.</Description>
     <NeutralLanguage>en</NeutralLanguage>
     <Copyright />
+    <AssemblyVersion>1.0.5.0</AssemblyVersion>
+    <FileVersion>1.0.5.0</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

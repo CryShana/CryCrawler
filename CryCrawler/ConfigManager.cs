@@ -34,6 +34,8 @@ namespace CryCrawler
                         throw new Exception($"'{config.WebGUI.IP}' is not a valid IP address for listener!");
                     if (string.IsNullOrEmpty(config.WorkerConfig.UserAgent))
                         throw new Exception("User agent can not be empty!");
+                    if (config.WorkerConfig.CrawlDelaySeconds < 0)
+                        throw new Exception("Crawl-Delay can not be negative!");
 
                     LastLoaded = config;
 

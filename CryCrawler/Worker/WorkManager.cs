@@ -65,7 +65,7 @@ namespace CryCrawler.Worker
         public event NetworkWorkManager.MessageReceivedHandler HostMessageReceived;
         #endregion
 
-        public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount, 
+        public WorkManager(WorkerConfiguration config, CacheDatabase database, int newMemoryLimitCount,
             PluginManager plugins = null, Func<bool> areWorkersActive = null)
             : this(config, database, plugins, areWorkersActive) => MemoryLimitCount = newMemoryLimitCount;
 
@@ -247,9 +247,9 @@ namespace CryCrawler.Worker
 
             ReloadUrlSource();
         }
-        public void AddToCrawled(Work w)
+        public void AddToCrawled(Work w, bool bypassSemaphore = false)
         {
-            addingSemaphore.Wait();
+            if (bypassSemaphore == false) addingSemaphore.Wait();
             try
             {
                 if (database.Disposing) return;
@@ -268,7 +268,7 @@ namespace CryCrawler.Worker
             }
             finally
             {
-                addingSemaphore.Release();
+                if (bypassSemaphore == false) addingSemaphore.Release();
             }
         }
         public void AddToCrawled(string url) => AddToCrawled(new Work(url));
@@ -285,9 +285,9 @@ namespace CryCrawler.Worker
 
             AddToBacklog(works);
         }
-        public void AddToBacklog(List<Work> works)
+        public void AddToBacklog(List<Work> works, bool bypassSemaphore = false)
         {
-            addingSemaphore.Wait();
+            if (bypassSemaphore == false) addingSemaphore.Wait();
             try
             {
                 if (database.Disposing) return;
@@ -317,12 +317,12 @@ namespace CryCrawler.Worker
             }
             finally
             {
-                addingSemaphore.Release();
+                if (bypassSemaphore == false) addingSemaphore.Release();
             }
         }
-        public void AddToBacklog(Work w)
+        public void AddToBacklog(Work w, bool bypassSemaphore = false)
         {
-            addingSemaphore.Wait();
+            if (bypassSemaphore == false) addingSemaphore.Wait();
             try
             {
                 if (database.Disposing) return;
@@ -352,7 +352,7 @@ namespace CryCrawler.Worker
             }
             finally
             {
-                addingSemaphore.Release();
+                if (bypassSemaphore == false) addingSemaphore.Release();
             }
         }
 
@@ -367,10 +367,12 @@ namespace CryCrawler.Worker
             else return isInMemory;
         }
 
+
         /// <summary>
         /// Attempts to get work from backlog and removes it from work list.
         /// </summary>
-        public bool GetWork(out Work w, bool checkForCrawled = true)
+        /// <param name="crawlDelay">Crawl delay in seconds. Pass the configuration value here.</param>
+        public bool GetWork(out Work w, bool checkForCrawled = true, double crawlDelay = 0)
         {
             w = null;
             string url = null;
@@ -381,6 +383,7 @@ namespace CryCrawler.Worker
                 if (database.Disposing)
                 {
                     Logger.Log("Database disposing... Can't get work.", Logger.LogSeverity.Debug);
+                    crawlDelay = 0;
 
                     url = null;
                     return false;
@@ -390,6 +393,7 @@ namespace CryCrawler.Worker
                 if (HostMode && Backlog.Count >= wlimit)
                 {
                     resultsReady = true;
+                    crawlDelay = 0;
 
                     // don't give crawler any more work until work is sent to the host and backlog is cleared
                     return false;
@@ -424,66 +428,93 @@ namespace CryCrawler.Worker
 
                 // if there is space to load cache to memory, do it
                 if (Backlog.Count < MemoryLimitCount && CachedWorkCount > 0) LoadCacheToMemory();
+
+                url = w?.Url;
+
+                if (url != null)
+                {
+                    // check if work was already crawled
+                    // if CheckForCrawled is true, return false if work is already crawled - except in special case
+                    if (checkForCrawled && IsUrlCrawled(url))
+                    {
+                        // SPECIAL CASE: if this URL is a seed URL and backlog is empty, delete from crawled and retry
+                        if (config.Urls.Contains(url) && Backlog.Count <= config.Urls.Count && CachedCrawledWorkCount <= config.Urls.Count)
+                        {
+                            if (database.DeleteWork(url, out int del, Collection.CachedCrawled)) CachedCrawledWorkCount -= del;
+
+                            Logger.Log($"Removed URL '{url}' from crawled list to crawl again.", Logger.LogSeverity.Debug);
+                            return true;
+                        }
+
+                        Logger.Log($"Skipping URL '{url}' - crawled at {w.AddedTime.ToString("dd.MM.yyyy HH:mm:ss")}", Logger.LogSeverity.Debug);
+                        crawlDelay = 0;
+                        return false;
+                    }
+
+                    // VALIDATE WORK
+
+                    #region Validate Work
+                    // check recrawl date
+                    if (w?.IsEligibleForCrawl() == false)
+                    {
+                        // re-add to backlog
+                        IncrementConsecutiveFailCount();
+                        AddToBacklog(w, true);
+                        crawlDelay = 0;
+                        return false;
+                    }
+
+                    // check domain recrawl dates
+                    var domain = Extensions.GetDomainName(url, out _);
+                    if (domainFails.TryGetValue(domain, out DomainFailInfo info))
+                    {
+                        if (info.Blocked)
+                        {
+                            // check if recrawl date has passed
+                            if (info.RecrawlTime.Subtract(DateTime.Now).TotalMinutes <= 0)
+                            {
+                                // if yes, remove block
+                                info.Blocked = false;
+                                Logger.Log($"Domain is now no longer blocked - {domain}", Logger.LogSeverity.Debug);
+                            }
+                            else
+                            {
+                                // re-add to backlog
+                                IncrementConsecutiveFailCount();
+                                AddToBacklog(w, true);
+                                crawlDelay = 0;
+                                return false;
+                            }
+                        }
+                    }
+
+                    // reset consecutive invalid works counter on success
+                    ConsecutiveInvalidWorks = 0;
+
+                    // check plugins
+                    if (plugins?.Invoke(p => p.OnWorkReceived(url), true) == false)
+                    {
+                        Logger.Log("Plugin rejected work - " + url, Logger.LogSeverity.Debug);
+                        crawlDelay = 0;
+                        url = null;
+
+                        return false;
+                    } 
+                    #endregion
+                }
             }
             finally
             {
+                // check if global crawl delay was specified
+                if (url != null && crawlDelay > 0)
+                {
+                    Task.Delay((int)TimeSpan.FromSeconds(crawlDelay).TotalMilliseconds).Wait();
+                }
+
                 addingSemaphore.Release();
             }
 
-            var success = w != null;
-            url = w?.Url;
-
-            // VALIDATE WORK
-            if (success)
-            {
-                // if CheckForCrawled is true, return false if work is already crawled
-                if (checkForCrawled && url != null && IsUrlCrawled(url)) return false;
-
-                // check recrawl date
-                if (w?.IsEligibleForCrawl() == false)
-                {
-                    // re-add to backlog
-                    IncrementConsecutiveFailCount();
-                    AddToBacklog(w);
-                    return false;
-                }
-
-                // check domain recrawl dates
-                var domain = Extensions.GetDomainName(url, out _);
-                if (domainFails.TryGetValue(domain, out DomainFailInfo info))
-                {
-                    if (info.Blocked)
-                    {
-                        // check if recrawl date has passed
-                        if (info.RecrawlTime.Subtract(DateTime.Now).TotalMinutes <= 0)
-                        {
-                            // if yes, remove block
-                            info.Blocked = false;
-                            Logger.Log($"Domain is now no longer blocked - {domain}", Logger.LogSeverity.Debug);
-                        }
-                        else
-                        {
-                            // re-add to backlog
-                            IncrementConsecutiveFailCount();
-                            AddToBacklog(w);
-                            return false;
-                        }
-                    }
-                }
-
-                // reset consecutive invalid works counter on success
-                ConsecutiveInvalidWorks = 0;
-
-                // check plugins
-                if (plugins?.Invoke(p => p.OnWorkReceived(url), true) == false)
-                {
-                    Logger.Log("Plugin rejected work - " + url, Logger.LogSeverity.Debug);
-                    url = null;
-                    return false;
-                }
-            }
-
-            return success;
+            return url != null;
         }
 
         /// <summary>

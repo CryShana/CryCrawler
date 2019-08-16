@@ -88,27 +88,45 @@ namespace CryCrawler.Worker
 
             while (!cancelSource.IsCancellationRequested)
             {
-                #region Get valid work
-                if (!Manager.IsWorkAvailable || Manager.GetWork(out Work w) == false)
+                Work w;
+                string url;
+                try
                 {
-                    // unable to get work, wait a bit and try again
-                    CurrentTasks[taskNumber] = null;
-                    await Task.Delay(20);
+                    #region Get valid work
+                    if (!Manager.IsWorkAvailable || Manager.GetWork(out w, crawlDelay: Config.CrawlDelaySeconds) == false)
+                    {
+                        // unable to get work, wait a bit and try again
+                        CurrentTasks[taskNumber] = null;
+                        await Task.Delay(20);
+                        continue;
+                    }
+
+                    url = w.Url;
+
+                    // check if url is whitelisted
+                    if (Extensions.IsUrlWhitelisted(url, Config) == false)
+                    {
+                        Logger.Log($"Skipping URL '{url}' - Not allowed based on domain whitelist/blacklist!", Logger.LogSeverity.Debug);
+                        continue;
+                    }
+
+                    // check robots.txt and blacklisted tags 
+                    // (this also attempts to download robots.txt on first run)
+                    if (robots.IsUrlExcluded(url, Config, true).Result) continue;
+
+                    // get crawl-delay as defined by 'robots.txt'
+                    var wait = robots.GetWaitTime(url, Config);
+
+                    // wait the difference between [ROBOTS.TXT CRAWL DELAY] - [GLOBAL CRAWL DELAY]
+                    var difference = wait - Config.CrawlDelaySeconds;
+                    if (difference > 0) Task.Delay((int)TimeSpan.FromSeconds(difference).TotalMilliseconds).Wait();
+                    #endregion
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Error while trying to get valid work! " + ex.GetDetailedMessage(), Logger.LogSeverity.Warning);
                     continue;
                 }
-
-                var url = w.Url;
-
-                // check if url is whitelisted
-                if (Extensions.IsUrlWhitelisted(url, Config) == false) continue;
-
-                // check robots.txt and blacklisted tags 
-                // (this also attempts to download robots.txt on first run)
-                if (robots.IsUrlExcluded(url, Config, true).Result) continue;
-   
-                var wait = robots.GetWaitTime(url, Config);
-                if (wait > 0) Task.Delay((int)TimeSpan.FromSeconds(wait).TotalMilliseconds).Wait();
-                #endregion
 
                 DateTime? recrawlDate = null;
                 var lastCrawl = w.LastCrawled;
@@ -116,6 +134,7 @@ namespace CryCrawler.Worker
 
                 CurrentTasks[taskNumber] = url;
                 HttpStatusCode? statusCode = null;
+
                 try
                 {
                     // Get response headers - DO NOT READ CONTENT yet (performance reasons)
