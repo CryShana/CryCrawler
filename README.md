@@ -198,5 +198,7 @@ Other relevant options that we might want to change include the following:
 "DepthSearch": false,
 ```
 `LogEveryCrawl` can be set to `false` to not spam the console window with every crawled page.
+
 `CrawlDelaySeconds` is the global crawl delay. We can set this in case we want to slow down the crawling process to avoid being blocked by websites.
+
 `DepthSearch` should be set to `false` most of the time as it works better in most cases.
