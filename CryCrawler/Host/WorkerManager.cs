@@ -592,6 +592,7 @@ namespace CryCrawler.Host
                 AcceptAllFiles = config.AcceptAllFiles,
                 DomainBlacklist = config.DomainBlacklist,
                 DomainWhitelist = config.DomainWhitelist,
+                CrawlDelaySeconds = config.CrawlDelaySeconds,
                 AcceptedExtensions = config.AcceptedExtensions,
                 AcceptedMediaTypes = config.AcceptedMediaTypes,
                 URLMustMatchPattern = config.URLMustMatchPattern,

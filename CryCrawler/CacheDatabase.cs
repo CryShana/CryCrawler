@@ -266,6 +266,34 @@ namespace CryCrawler
         }
 
         /// <summary>
+        /// Deletes all works that match the URL
+        /// </summary>
+        /// <param name="url">URL to match</param>
+        /// <returns></returns>
+        public bool DeleteWork(string url, out int deleted, Collection collection = Collection.CachedBacklog)
+        {
+            semaphores[collection].Wait();
+            try
+            {
+                var col = GetCollection(collection);
+                deleted = col.Delete(Query.Where("Url", a => a.AsString == url));
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                deleted = 0;
+                if (Disposing) return false;
+                Logger.Log("Failed to delete work from database! " + ex.GetDetailedMessage(), Logger.LogSeverity.Error);
+                return false;
+            }
+            finally
+            {
+                semaphores[collection].Release();
+            }
+        }
+
+        /// <summary>
         /// Get work based on URL
         /// </summary>
         /// <param name="work">Found work</param>
