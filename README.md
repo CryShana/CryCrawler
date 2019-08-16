@@ -76,6 +76,7 @@ The `config.json` has 3 main parts (`HostConfig`, `WorkerConfig` and `WebGUI`)
   - **DontCreateSubfolders** - If `false`, subfolders will be created for each domain and path of file
   - **LogEveryCrawl** - If `true`, every URL crawl will be written to the console
   - **MaxConcurrency** - Max. number of threads the crawler can use for crawling
+  - **CrawlDelaySeconds** - Global crawl delay in seconds (decimal number).
   - **DepthSearch** - If `true`, it will crawl URLs depth-first - recommended is `false`
   - **MaxLoggedDownloads** - Max. number of recently downloaded items to track and display on Web GUI
   - **MaxFileChunkSizekB** - Max. file chunk size (in kB) when transferring files to Host in chunk
