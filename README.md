@@ -114,3 +114,78 @@ Replace the `win-x64` with the runtime identifier (RID) that you need:
 The executable should now be located in `CryCrawler\bin\Release\netcoreapp3.0\RID\publish`
 
 For other platforms please check the runtime identifier catalog [here](https://docs.microsoft.com/en-us/dotnet/core/rid-catalog).
+
+## Simple configuration example
+In this example we are crawling a website called `http://examplewebsite.com/`.
+
+Open the generated `config.json` file (if it's missing, run the crawler once and exit it to generate it).
+
+We need to add the starting URL to `Urls` like so:
+
+```json
+"Urls": [
+  "http://examplewebsite.com/"
+]
+```
+
+We want to crawl through every JPG and PNG image on this website. Define the file criteria like so:
+```json
+"AcceptedExtensions": [
+  ".jpg",
+  ".jpeg",
+  ".png"
+],
+"AcceptedMediaTypes": [
+  "image/png",
+  "image/jpeg"
+]
+```
+In case we want to download only large images, we can define the min. and max. file size in kilobytes:
+(`-1` means no limit)
+```json
+"MaximumAllowedFileSizekB": -1.0,
+"MinimumAllowedFileSizekB": 50.0,
+```
+
+In case we want to download only certain images with a certain URL like `http://examplewebsite.com/galleryA/image.jpg`, we can define URL patterns like so:
+```json
+"URLMustMatchPattern": [
+  "/galleryA/*"
+]
+```
+
+If we want to target file names that contain either `portrait` or `landscape`, we can define these words like this:
+```json
+"FilenameMustContainEither": [
+  "portrait",
+  "landscape"
+]
+```
+
+In this example we want to stick to this domain only. We can whitelist this domain like this:
+(When a whitelist is not empty, any non-whitelisted domain is ignored)
+
+(Witelisted domains include all subdomains)
+```json
+"DomainWhitelist": [
+  "examplewebsite.com"
+]
+```
+
+There are cases where you would also want to ignore certain subdomains. We can blacklist them like this:
+
+(Blacklisted domains, unlike whitelisted domains, don't include all subdomains)
+```json
+"DomainBlacklist": [
+  "cdn.examplewebsite.com"
+]
+```
+
+A website can also have parts that we don't need and will only slow down the crawling process. In our case we are only interested in the gallery, so we don't care about stuff like blogs, news, etc.
+
+We can blacklist certain URL patterns like so:
+```json
+"BlacklistedURLPatterns": [
+  "/wp-content/*"
+]
+```
