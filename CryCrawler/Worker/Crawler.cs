@@ -106,7 +106,7 @@ namespace CryCrawler.Worker
                     // check if url is whitelisted
                     if (Extensions.IsUrlWhitelisted(url, Config) == false)
                     {
-                        Logger.Log($"Skipping URL '{url}' - Not allowed based on domain whitelist/blacklist!", Logger.LogSeverity.Debug);
+                        Logger.Log($"Skipping URL '{url}' - Not whitelisted!", Logger.LogSeverity.Debug);
                         continue;
                     }
 
