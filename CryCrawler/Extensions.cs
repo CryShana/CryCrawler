@@ -204,7 +204,7 @@ namespace CryCrawler
         public static bool IsURLMatch(string url, WorkerConfiguration config)
         {
             // accept URL automatically if no patterns are defined to be matched
-            if (config?.URLMustMatchPattern == null || config.URLMustMatchPattern.Count == 0) return true;
+            if (config?.URLMustMatchPattern == null || config.URLMustMatchPattern.Count(x => string.IsNullOrEmpty(x) == false) == 0) return true;
 
             foreach (var p in config.URLMustMatchPattern)
             {
