@@ -46,7 +46,7 @@
     <PackageReference Include="LiteDB" Version="4.1.4" />
     <PackageReference Include="MessagePack" Version="1.9.3" />
     <PackageReference Include="MimeTypeMap.List" Version="2.0.1" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="CommandLineParser" Version="2.5.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="3.1.0" />
   </ItemGroup>
